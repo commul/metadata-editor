@@ -339,6 +339,76 @@ class Admin_metadata extends MY_REST_Controller
 		}      
     }
 
+    /**
+     * 
+     * Patch admin metadata - apply JSON patch operations for partial updates
+     * 
+     * @options JSON object:
+     *  {
+     *    "project_id": "project id or idno",
+     *    "template_uid": "template uid",
+     *    "patches": [
+     *      {
+     *        "op": "add|remove|replace|move|copy|test",
+     *        "path": "/path/to/element",
+     *        "value": "value" (for add/replace operations)
+     *      }
+     *    ]
+     *  }
+     * 
+     */
+    function data_patch_post()
+    {
+        try{
+            $options=$this->raw_json_input();
+            $options['user_id']=$this->api_user->id;
+
+            if (!isset($options['project_id'])){
+                throw new Exception("Project ID is required");
+            }
+
+            if (!isset($options['template_uid'])){
+                throw new Exception("Template UID is required");
+            }
+
+            if (!isset($options['patches'])){
+                throw new Exception("`Patches` parameter is required");
+            }
+
+            $project_id=$this->get_sid($options['project_id']);
+
+            if (!$project_id){
+                throw new Exception("Project not found");
+            }
+
+            $template_id=$this->Editor_template_model->get_id_by_uid($options['template_uid']);
+
+            if (!$template_id){
+                throw new Exception("Template not found: " . $options['template_uid']);
+            }
+
+            $this->editor_acl->user_has_admin_metadata_access($template_id, $permission='edit', $this->api_user);
+
+            $options['changed_by']=$this->api_user->id;
+            $options['changed']=date("U");
+
+            $result=$this->Admin_metadata_model->patch($template_id, $project_id, $options);
+
+            $output=array(
+                'status'=>'success',
+                'result'=>$result
+            );
+
+            $this->set_response($output, REST_Controller::HTTP_OK);			
+        }
+        catch(Exception $e){
+            $error_output=array(
+                'status'=>'failed',
+                'message'=>$e->getMessage()
+            );
+            $this->set_response($error_output, REST_Controller::HTTP_BAD_REQUEST);
+        }      
+    }
 
     function data_remove_post()
     {
