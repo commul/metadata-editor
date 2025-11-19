@@ -628,27 +628,58 @@
                 async loadAllVariables({commit,state},options) {                    
                     i=0;
                     for (let file of state.data_files) {
-                        store.dispatch('loadVariables',{dataset_id:options.dataset_id, fid:file.file_id});
+                        await store.dispatch('loadVariables',{dataset_id:options.dataset_id, fid:file.file_id});
                     }
                 },
                 async loadVariables({commit}, options) {//options {dataset_idno,fid}
-                    let url=CI.base_url + '/api/variables/'+options.dataset_id + '/'+ options.fid + '?detailed=1';
-                    return axios
-                    .get(url)
-                    .then(function (response) {
-                        if(response.data.variables.length==0){                            
+                    // Load variables in batches to improve performance
+                    const BATCH_SIZE = 500; // Number of variables to load per request
+                    let offset = 0;
+                    let allVariables = [];
+                    let total = null;
+                    
+                    do {
+                        let url = CI.base_url + '/api/variables/' + options.dataset_id + '/' + options.fid + '?detailed=1&offset=' + offset + '&limit=' + BATCH_SIZE;
+                        
+                        try {
+                            let response = await axios.get(url);
+                            
+                            if(response.data.variables && response.data.variables.length > 0){
+                                // Accumulate variables from this batch
+                                allVariables = allVariables.concat(response.data.variables);
+                                
+                                // Get total count from first response
+                                if(total === null && response.data.total !== undefined){
+                                    total = response.data.total;
+                                }
+                                
+                                // Update offset for next batch
+                                offset += response.data.variables.length;
+                                
+                                // Continue if we got a full batch (might be more)
+                                if(response.data.variables.length < BATCH_SIZE){
+                                    // Last batch or no more data
+                                    break;
+                                }
+                            } else {
+                                // No more variables
+                                break;
+                            }
+                        } catch (error) {
+                            console.log("error loading variables batch", error);
+                            throw error;
                         }
+                    } while(total === null || offset < total);
 
-                        if(response.data.variables.length>0){
-                            commit('variables',{
-                                'variables':response.data.variables,
-                                'fid':options.fid
-                            });
-                        }
-                    })
-                    .catch(function (error) {
-                        console.log("error loading variables",error);
-                    });
+                    // Commit all accumulated variables at once
+                    if(allVariables.length > 0){
+                        commit('variables',{
+                            'variables':allVariables,
+                            'fid':options.fid
+                        });
+                    }
+                    
+                    return allVariables;
                 },
                 async loadExternalResources({commit}, options) {
                     let url=CI.base_url + '/api/resources/'+options.dataset_id;

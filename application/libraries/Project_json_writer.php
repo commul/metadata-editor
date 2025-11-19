@@ -2,6 +2,7 @@
 
 class Project_json_writer
 {
+	private $uid_vid_cache = null;
 		
 	/**
 	 * Constructor
@@ -120,6 +121,7 @@ class Project_json_writer
 	 */
 	function generate_project_json($sid, $options=array())
 	{
+		set_time_limit(0);
 		$exclude_private_fields=isset($options['exclude_private_fields']) ? $options['exclude_private_fields'] : 0;
 		$external_resources=[];
 		$admin_metadata=[];
@@ -203,6 +205,9 @@ class Project_json_writer
 					}
 				}
 			};
+
+			//pre-load UID->VID mapping
+			$this->uid_vid_cache = $this->ci->Editor_variable_model->uid_vid_list($sid);
 
 			$output['variables'] = function () use ($sid) {
 				foreach($this->ci->Editor_variable_model->chunk_reader_generator($sid) as $variable){
@@ -332,7 +337,18 @@ class Project_json_writer
 
 		//var_wgt_id field - replace UID with VID
 		if (isset($variable['metadata']['var_wgt_id']) && $variable['metadata']['var_wgt_id']!==''){
-			$variable['metadata']['var_wgt_id']=$this->ci->Editor_variable_model->vid_by_uid($sid,$variable['metadata']['var_wgt_id']);
+			// Use cache if available
+			if($this->uid_vid_cache !== null && isset($this->uid_vid_cache[$variable['metadata']['var_wgt_id']])){
+				$variable['metadata']['var_wgt_id']=$this->uid_vid_cache[$variable['metadata']['var_wgt_id']];
+			} else {
+				//fallback
+				$result=$this->ci->Editor_variable_model->vid_by_uid($sid,$variable['metadata']['var_wgt_id']);
+				if($result){
+					$variable['metadata']['var_wgt_id']=$result;
+				} else {
+					$variable['metadata']['var_wgt_id']='';
+				}
+			}
 		}
 
 		//remove update_required field
