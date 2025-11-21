@@ -440,7 +440,7 @@ class Analytics_model extends CI_Model
             ->where('created_at >=', $cutoff)
             ->count_all_results('analytics_events');
         
-        // Get slow API calls count (API calls > 1 second)
+        // Get slow API calls count (API calls > 10 seconds)
         $slow_api_count = $this->db
             ->where('event_type', 'api_slow')
             ->where('created_at >=', $cutoff)
@@ -503,13 +503,13 @@ class Analytics_model extends CI_Model
             ->get('analytics_events')
             ->result_array();
         
-        // Get average API response times
+        // Get average API response times for very slow APIs (> 10 seconds)
         $api_performance_stats = $this->db
             ->select('
                 AVG(CAST(JSON_EXTRACT(data, "$.response_time") AS UNSIGNED)) as avg_api_time,
                 COUNT(*) as total_api_calls
             ')
-            ->where('event_type', 'api_performance')
+            ->where('event_type', 'api_slow')
             ->where('created_at >=', $cutoff)
             ->get('analytics_events')
             ->row_array();

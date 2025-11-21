@@ -683,8 +683,7 @@
             return;
         }
         
-        const slowThreshold = 1000; // 1 second default
-        const performanceThreshold = 500; // Track all API calls > 500ms
+        const criticalThreshold = 10000; // Only track calls slower than 10 seconds
         
         // Intercept fetch API
         const originalFetch = window.fetch;
@@ -699,24 +698,13 @@
                     const endTime = performance.now();
                     const responseTime = endTime - startTime;
                     
-                    // Track slow API calls
-                    if (responseTime >= slowThreshold) {
+                    if (responseTime >= criticalThreshold) {
                         Analytics.trackEvent('api_slow', {
                             url: url,
                             method: method,
                             response_time: Math.round(responseTime),
                             status: response.status,
                             status_text: response.statusText
-                        });
-                    }
-                    
-                    // Track API performance (sample rate: 1 in 10, or all slow ones)
-                    if (responseTime >= performanceThreshold || Math.random() < 0.1) {
-                        Analytics.trackEvent('api_performance', {
-                            url: url,
-                            method: method,
-                            response_time: Math.round(responseTime),
-                            status: response.status
                         });
                     }
                     
@@ -761,24 +749,13 @@
                 
                 // Only track API calls (not static assets)
                 if (url && (url.indexOf('/api/') !== -1 || url.indexOf('/ajax/') !== -1)) {
-                    // Track slow API calls
-                    if (responseTime >= slowThreshold) {
+                    if (responseTime >= criticalThreshold) {
                         Analytics.trackEvent('api_slow', {
                             url: url,
                             method: method,
                             response_time: Math.round(responseTime),
                             status: xhr.status,
                             status_text: xhr.statusText
-                        });
-                    }
-                    
-                    // Track API performance (sample rate: 1 in 10, or all slow ones)
-                    if (responseTime >= performanceThreshold || Math.random() < 0.1) {
-                        Analytics.trackEvent('api_performance', {
-                            url: url,
-                            method: method,
-                            response_time: Math.round(responseTime),
-                            status: xhr.status
                         });
                     }
                 }
@@ -799,71 +776,7 @@
             });
             
             return originalXHRSend.apply(this, args);
-        };
-        
-        // Intercept axios if it's available
-        if (window.axios) {
-            // Axios uses interceptors
-            axios.interceptors.request.use(function(config) {
-                config._analyticsStartTime = performance.now();
-                return config;
-            });
-            
-            axios.interceptors.response.use(
-                function(response) {
-                    const endTime = performance.now();
-                    const startTime = response.config._analyticsStartTime;
-                    const responseTime = endTime - startTime;
-                    const url = response.config.url;
-                    const method = response.config.method.toUpperCase();
-                    
-                    // Only track API calls
-                    if (url && (url.indexOf('/api/') !== -1 || url.indexOf('/ajax/') !== -1)) {
-                        // Track slow API calls
-                        if (responseTime >= slowThreshold) {
-                            Analytics.trackEvent('api_slow', {
-                                url: url,
-                                method: method,
-                                response_time: Math.round(responseTime),
-                                status: response.status,
-                                status_text: response.statusText
-                            });
-                        }
-                        
-                        // Track API performance (sample rate: 1 in 10, or all slow ones)
-                        if (responseTime >= performanceThreshold || Math.random() < 0.1) {
-                            Analytics.trackEvent('api_performance', {
-                                url: url,
-                                method: method,
-                                response_time: Math.round(responseTime),
-                                status: response.status
-                            });
-                        }
-                    }
-                    
-                    return response;
-                },
-                function(error) {
-                    const endTime = performance.now();
-                    const startTime = error.config && error.config._analyticsStartTime ? error.config._analyticsStartTime : performance.now();
-                    const responseTime = endTime - startTime;
-                    const url = error.config ? error.config.url : '';
-                    const method = error.config ? error.config.method.toUpperCase() : 'GET';
-                    
-                    if (url && (url.indexOf('/api/') !== -1 || url.indexOf('/ajax/') !== -1)) {
-                        Analytics.trackEvent('api_error', {
-                            url: url,
-                            method: method,
-                            response_time: Math.round(responseTime),
-                            error: error.message || 'Request failed',
-                            status: error.response ? error.response.status : null
-                        });
-                    }
-                    
-                    return Promise.reject(error);
-                }
-            );
-        }
+        };        
     }
     
     // Initialize AJAX tracking when Analytics is ready
