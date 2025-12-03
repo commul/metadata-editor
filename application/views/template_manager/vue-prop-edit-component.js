@@ -15,6 +15,20 @@ Vue.component('prop-edit', {
             "date",
             "dropdown",
             "dropdown-custom"
+          ],
+          enum_store_options:[
+            {
+              "value":"both",
+              "label":"Label with code"
+            },
+            {
+              "value":"code",
+              "label":"Code"
+            },
+            {
+              "value":"label",
+              "label":"Label"
+            }            
           ]
         }
     },
@@ -65,6 +79,17 @@ Vue.component('prop-edit', {
           },
           set(newValue) {
             Vue.set(this.prop,"enum",newValue);
+          }
+        },
+        PropEnumStoreColumn:{
+          get: function(){
+            if (this.prop.enum_store_column){
+              return this.prop.enum_store_column;
+            }
+            return 'both';
+          },
+          set: function(newValue){
+            Vue.set(this.prop, "enum_store_column", newValue);
           }
         },
     },

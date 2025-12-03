@@ -55,7 +55,7 @@
         <div class="form-group">
             <label for="name">{{$t('description')}}:</label>
             <textarea class="form-control" v-model="prop.help_text"/>
-        </div>
+        </div> 
 
     </div>
     <template>
@@ -103,6 +103,24 @@
                     <div class="border bg-white" style="max-height:300px;overflow:auto;">
 
                         <template v-if="isField(prop.type) || prop.type=='simple_array'">                                                    
+                            
+                            <div>
+                                <div class="m-3">
+                                    <div>{{$t("enum_store_options_label")}}:</div>
+
+                                    <v-select
+                                        style="max-width:300px;"
+                                        v-model="PropEnumStoreColumn"
+                                        :items="enum_store_options"
+                                        :item-text="item => item.label"
+                                        :item-value="item => item.value"
+                                        dense 
+                                        outlined
+                                        clearable
+                                        label=""
+                                    ></v-select>
+                                </div>
+                            </div>
 
                             <table-grid-component
                                 :key="prop.key"
