@@ -79,6 +79,29 @@ $route['api/editor/versions/(.*)'] = "api/versions/$1";
 $route['api/editor/compare'] = "api/compare";
 $route['api/editor/compare/(.*)'] = "api/compare/$1";
 
+//schemas page
+$route['schemas'] = "schemas/index";
+$route['schemas/preview/(:any)'] = "schemas/preview/$1";
+$route['api/schemas/detail/(:any)'] = "api/schemas/detail/$1";
+$route['api/schemas/update/(:any)'] = "api/schemas/update/$1";
+$route['api/schemas/files/(:any)'] = "api/schemas/files/$1";
+$route['api/schemas/file/(:any)/(:any)'] = "api/schemas/file/$1/$2";
+$route['api/schemas/openapi/(:any)'] = "api/schemas/openapi/$1";
+$route['api/schemas/compiled_schema/(:any)'] = "api/schemas/compiled_schema/$1";
+$route['api/schemas/fields/(:any)'] = "api/schemas/fields/$1";
+$route['api/schemas/regenerate_template/(:any)'] = "api/schemas/regenerate_template/$1";
+
+//validation API
+$route['api/validation/(:num)'] = "api/validation/schema/$1";
+$route['api/validation/(:num)/schema'] = "api/validation/schema/$1";
+$route['api/validation/(:num)/template'] = "api/validation/template/$1";
+$route['api/validation/(:num)/variables'] = "api/validation/variables/$1";
+$route['api/validation/(:num)/extra_fields'] = "api/validation/extra_fields/$1";
+$route['api/validation/(:num)/template_extra_fields'] = "api/validation/template_extra_fields/$1";
+$route['api/validation/(:num)/move_to_additional'] = "api/validation/move_to_additional/$1";
+$route['api/validation/(:num)/remove_fields'] = "api/validation/remove_fields/$1";
+$route['api/validation/(:num)/fix_array_as_object'] = "api/validation/fix_array_as_object/$1";
+
 
 /* End of file routes.php */
 /* Location: ./system/application/config/routes.php */

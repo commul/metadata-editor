@@ -37,17 +37,21 @@ Vue.component('vue-key-field', {
         UserTreeItems(){
           return this.$store.state.user_tree_items;
         },
+        TemplateIsCustom(){
+          return this.$store.state.user_template_info.data_type=='custom';
+        },
         HasAdditionalPrefix(){
             return this.local_value.indexOf('additional.')==0;
         },
         isKeyValid(){
-            // key must start with additional.
+            // key must start with additional. (unless custom type)
             // key must be unique
             // key must not contain spaces
             // key can only contain dot, letters, numbers, and underscores
             // key cannot be empty
             
-            if (this.local_value.indexOf('additional.')!==0){
+            // For custom type, don't require additional. prefix
+            if (!this.TemplateIsCustom && this.local_value.indexOf('additional.')!==0){
               return false;
             }
 
@@ -61,13 +65,14 @@ Vue.component('vue-key-field', {
                 return false;
             }
 
-            //first part must be additional
-            if (parts[0]!='additional'){
+            //first part must be additional (unless custom type)
+            if (!this.TemplateIsCustom && parts[0]!='additional'){
                 return false;
             }
 
             //check all parts only contain letters, numbers, and underscores, dashes
-            for(let i=1;i<parts.length;i++){
+            let startIndex = this.TemplateIsCustom ? 0 : 1;
+            for(let i=startIndex;i<parts.length;i++){
                 if (parts[i].match(/^[a-zA-Z0-9_-]+$/)==null){
                     return false;
                 }
@@ -100,7 +105,7 @@ Vue.component('vue-key-field', {
         },
         ValidateKey: function()
         {
-            // key must start with additional.
+            // key must start with additional. (unless custom type)
             // key must be unique
             // key must not contain spaces
             // key can only contain dot, letters, numbers, and underscores
@@ -122,13 +127,14 @@ Vue.component('vue-key-field', {
                 this.validation_errors.push('Key must not contain empty parts');
             }
 
-            //first part must be additional
-            if (parts[0]!='additional'){
+            //first part must be additional (unless custom type)
+            if (!this.TemplateIsCustom && parts[0]!='additional'){
                 this.validation_errors.push('Key must start with additional.');
             }
 
             //check all parts only contain letters, numbers, dash, and underscores
-            for(let i=1;i<parts.length;i++){
+            let startIndex = this.TemplateIsCustom ? 0 : 1;
+            for(let i=startIndex;i<parts.length;i++){
                 if (parts[i].match(/^[a-zA-Z0-9_-]+$/)==null){
                     this.validation_errors.push('Key can only contain letters, numbers, and underscores');
                     break;

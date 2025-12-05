@@ -114,8 +114,8 @@ class DDI_Writer
 
         $dataset=$this->ci->Dataset_model->get_row_detailed($id);
 
-        if (!$dataset['type']=='survey'){
-            throw new Exception('Dataaset type is not `survey`:: '. $id . ' - ' . $dataset['type']);
+        if ($dataset['type']!='survey' && $dataset['type']!='microdata'){
+            throw new Exception('Dataset type is not `microdata`:: '. $id . ' - ' . $dataset['type']);
         }
 
         $writer = new XMLWriter;

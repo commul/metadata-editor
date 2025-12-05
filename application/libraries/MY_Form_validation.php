@@ -88,6 +88,38 @@ class MY_Form_validation extends CI_Form_validation {
         return @fsockopen("$url", 80, $errno, $errstr, 30);
     }
 	
+    /**
+     * Validate URI/URL
+     *
+     * Validates that a string is a valid URI (Uniform Resource Identifier)
+     * Supports http, https, and ftp protocols
+     *
+     * @access    public
+     * @param    string
+     * @return    bool
+     */
+    function is_uri($str)
+    {
+        if (empty($str)) {
+            return TRUE; // Let 'required' rule handle empty values
+        }
+
+        // Use PHP's filter_var with FILTER_VALIDATE_URL for robust URL validation
+        if (filter_var($str, FILTER_VALIDATE_URL) !== FALSE) {
+            return TRUE;
+        }
+
+        // Fallback to regex pattern for broader URI support
+        $pattern = "/^(http|https|ftp):\/\/([A-Z0-9][A-Z0-9_-]*(?:\.[A-Z0-9][A-Z0-9_-]*)+):?(\d+)?\/?/i";
+        if (preg_match($pattern, $str)) {
+            return TRUE;
+        }
+
+        // Set error message
+        $this->set_message('is_uri', t('The {field} field must contain a valid URL.'));
+        return FALSE;
+    }
+	
 	function set_error($message,$field=NULL)
 	{
 		if ($field==NULL)

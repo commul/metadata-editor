@@ -266,6 +266,7 @@ Vue.component('vue-collections-component', {
                                 <v-tab @click="pageLink('projects')"><v-icon>mdi-text-box</v-icon> <a :href="site_base_url + '/editor'">{{$t("projects")}}</a></v-tab>
                                 <v-tab @click="pageLink('collections')" active><v-icon>mdi-folder-text</v-icon> <a :href="site_base_url + '/collections'">{{$t("collections")}}</a> </v-tab>
                                 <v-tab @click="pageLink('templates')"><v-icon>mdi-alpha-t-box</v-icon> <a :href="site_base_url + '/templates'">{{$t("templates")}}</a></v-tab>                                    
+                                <v-tab @click="pageLink('schemas')"><v-icon>mdi-file-tree</v-icon> <a :href="site_base_url + '/schemas'">{{$t("schemas")}}</a></v-tab>
                             </v-tabs>
 
                             <div class="d-flex">                            

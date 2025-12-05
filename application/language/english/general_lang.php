@@ -29,14 +29,18 @@ $lang['external-resources']="External resources";
 $lang['external-resource']="External resource";
 $lang['timeseries-db']="Indicators database";
 
-$lang['core']="Core";
-$lang['custom']="Custom";
+$lang['file_name']="File name";
+$lang['size']="Size";
+$lang['download']="Download";
+$lang['no_files_found']="No files found.";
 
 $lang['duplicate']="Duplicate";
 $lang['export']="Export";
 $lang['import']="Import";
 $lang['cancel']="Cancel";
+$lang['refresh']="Refresh";
 $lang['loading']="Loading";
+$lang['loading_please_wait']="Loading, please wait...";
 $lang['no_records_found']="No records found";
 
 $lang['edit']="Edit";
@@ -356,6 +360,114 @@ $lang['stdev']='Standard deviation';
 $lang['overview']='Overview';
 $lang['questions_n_instructions']='Questions and instructions';
 $lang['others']='Others';
+
+// Login and authentication
+$lang['login']='Login';
+$lang['you_are_logged_in']='You are logged in!';
+$lang['session_expired_warning']='Your session has expired. Do not refresh the page, you will lose all unsaved changes!';
+$lang['login_opens_new_tab']='Login (Opens a new tab)';
+
+// File manager
+$lang['file_manager']='File manager';
+$lang['files']='files';
+$lang['Documentation']='Documentation';
+$lang['temporary']='TEMPORARY';
+$lang['extract_zip']='Extract zip';
+
+// Change case modal
+$lang['change_case']='Change case';
+$lang['title_case']='Title Case';
+$lang['uppercase']='UPPERCASE';
+$lang['lowercase']='lowercase';
+
+// Validation report
+$lang['no_extra_fields_data_available']='No extra fields data available';
+$lang['template_extra_fields']='Template Extra Fields';
+$lang['fields_not_defined_in_template']='Fields not defined in template';
+$lang['template_fields_description']='These fields exist in your metadata but are not part of the current template and are not displayed in the form. These fields may be valid according to the schema but are not shown in the editor.';
+$lang['template_extra_fields_count']='Template Extra Fields ({count})';
+$lang['navigate_to_field']='Navigate to field';
+$lang['no_template_extra_fields_found']='No template extra fields found. All fields in your metadata are defined in the template.';
+$lang['no_template_extra_fields_data_available']='No template extra fields data available';
+$lang['confirm_remove_fields']='Confirm Remove Fields';
+$lang['confirm_remove_fields_message']='Are you sure you want to permanently remove {count} field(s)?';
+$lang['action_cannot_be_undone']='This action cannot be undone.';
+$lang['fields_will_be_removed']='The following fields will be removed:';
+$lang['all_variables_validated_successfully']='All variables validated successfully. No validation issues found.';
+$lang['no_variables_validation_data_available']='No variables validation data available';
+$lang['extra_fields']='Extra Fields';
+$lang['fields_not_defined_in_schema']='Fields not defined in schema';
+$lang['no_extra_fields_found']='No extra fields found. All fields in your metadata are defined in the schema.';
+$lang['schema_fields_description']='These fields exist in your metadata but are not part of the schema definition. You can move them to the additional section or remove them. Note: Changes are applied locally and will be saved when you save the project.';
+$lang['extra_fields_count']='Extra Fields ({count})';
+$lang['move_selected_to_additional']='Move Selected to Additional';
+$lang['remove_selected']='Remove Selected';
+$lang['click_to_navigate_to_variables_page']='Click to navigate to variables page';
+$lang['navigate_to_variables_page']='Navigate to variables page';
+$lang['constraint']='Constraint';
+$lang['path']='Path';
+$lang['admin_meta']='Admin metadata';
+
+// Validation report
+$lang['validation_report']='Validation Report';
+$lang['schema_validation']='Schema Validation';
+$lang['template_validation']='Template Validation';
+$lang['variables_validation']='Variables Validation';
+$lang['valid']='Valid';
+$lang['property']='Property';
+$lang['message']='Message';
+$lang['status']='Status';
+$lang['rules']='Rules';
+$lang['errors']='Errors';
+$lang['help']='Help';
+$lang['click_to_expand_collapse_details']='Click to expand/collapse details';
+$lang['show_details']='Show details';
+$lang['click_to_navigate_to_field_in_editor']='Click to navigate to field in editor';
+$lang['view_help_for_this_error_type']='View help for this error type';
+$lang['issue_details']='Issue Details';
+$lang['error_information']='Error Information:';
+$lang['type_colon']='Type:';
+$lang['constraint_colon']='Constraint:';
+$lang['path_colon']='Path:';
+$lang['property_colon']='Property:';
+$lang['current_value']='Current Value:';
+$lang['expected_type']='Expected type:';
+$lang['actual_type']='Actual type:';
+$lang['note']='Note:';
+$lang['please_manually_update_value']='Please manually update the value in the editor to match the expected type.';
+$lang['field_definition']='Field Definition:';
+$lang['title_colon']='Title:';
+$lang['description_colon']='Description:';
+$lang['array_items']='Array Items:';
+$lang['properties_colon']='Properties:';
+$lang['total']='total';
+$lang['reference']='Reference:';
+$lang['allowed_values']='Allowed values:';
+$lang['json_schema_definition']='JSON Schema Definition:';
+$lang['array_incorrectly_stored']='Array is incorrectly stored as object with numeric keys. Please manually convert it to a proper array in the editor.';
+$lang['issue_information']='Issue Information:';
+$lang['field_colon']='Field:';
+$lang['expected']='Expected:';
+$lang['found']='Found:';
+$lang['no_validation_issues_found']='No validation issues found. The metadata conforms to the schema.';
+$lang['no_validation_data_available']='No validation data available';
+$lang['no_template_validation_data_available']='No template validation data available';
+$lang['checked']='checked';
+$lang['with_errors']='with errors';
+$lang['found_validation_issues']='Found {count} validation issue(s) in {variables} variable(s) out of {checked} checked.';
+$lang['showing_first_50_errors']='Note: Showing first 50 errors. Validation stopped after reaching the error limit. There may be more errors.';
+$lang['all_variables_validated']='All {count} variable(s) validated successfully. No issues found.';
+$lang['showing_first_50_errors_warning']='Showing first 50 errors. Validation was stopped after reaching the error limit. There may be more validation errors in other variables.';
+$lang['file']='File';
+$lang['unknown']='Unknown';
+$lang['location']='Location';
+$lang['value_preview']='Value Preview';
+$lang['root']='root';
+$lang['unknown_type']='unknown';
+$lang['are_you_sure_permanently_remove']='Are you sure you want to permanently remove {count} field(s)?';
+$lang['remove']='Remove';
+$lang['view_full_validation_report']='View full validation report';
+
 
 /* End of file general_lang.php */
 /* Location: ./application/language/english/general_lang.php */

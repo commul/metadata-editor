@@ -1,0 +1,195 @@
+{
+  "$id": "http://ihsn.org/schemas/custom/1.0.0",
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Custom schema",
+  "version": "1.0.0",
+  "description": "Catch-all schema that allows describing any type of metadata content.",
+  "type": "object",
+
+  "properties": {    
+    "metadata_information": {
+      "type": "object",
+      "title": "Document metadata information",
+      "description": "Metadata describing the metadata document itself (provenance, versioning, creation details).",
+      "additionalProperties": false,
+      "properties": {
+        "title": {
+          "type": "string",
+          "title": "Document title",
+          "description": "Title of the metadata document."
+        },
+        "idno": {
+          "type": "string",
+          "title": "Document ID number",
+          "description": "Unique identifier for the metadata document."
+        },
+        "producers": {
+          "type": "array",
+          "title": "Producers",
+          "description": "Organizations or individuals responsible for creating the metadata document.",
+          "items": {
+            "type": "object",
+            "properties": {
+              "name": {
+                "type": "string",
+                "title": "Name"
+              },
+              "abbr": {
+                "type": "string",
+                "title": "Abbreviation"
+              },
+              "affiliation": {
+                "type": "string",
+                "title": "Affiliation"
+              },
+              "role": {
+                "type": "string",
+                "title": "Role"
+              }
+            },
+            "required": ["name"]
+          }
+        },
+        "production_date": {
+          "type": "string",
+          "title": "Date of Production",
+          "description": "Metadata production date in YYYY-MM-DD format."
+        },
+        "version": {
+          "type": "string",
+          "title": "Document version",
+          "description": "Version of the metadata document."
+        }
+      }
+    },
+    "description": {
+      "type": "object",
+      "title": "Description",
+      "description": "Dataset-level descriptive metadata including identification, abstract, temporal, spatial, and any additional descriptive fields.",
+      "properties": {
+        "identification": {
+          "type": "object",
+          "title": "Identification",
+          "description": "Core identification metadata for discovery and referencing.",
+          "properties": {
+            "metadata_type": {
+              "type": "string",
+              "title": "Metadata type",
+              "description": "Type of metadata content."
+            },
+            "idno": {
+              "type": "string",
+              "title": "Identifier",
+              "description": "Unique identifier of the described resource."
+            },
+            "title": {
+              "type": "string",
+              "title": "Title",
+              "description": "Title"
+            },
+            "subtitle": {
+              "type": "string",
+              "title": "Subtitle",
+              "description": "Subtitle"
+            },
+
+            "authors": {
+              "type": "array",
+              "title": "Authors",
+              "description": "Primary authors or creators",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "name": { "type": "string", "title": "Name" },
+                  "affiliation": { "type": "string", "title": "Affiliation" },
+                  "abbr": { "type": "string", "title": "Abbreviation" },
+                  "role": { "type": "string", "title": "Role" }
+                },
+                "required": ["name"]
+              }
+            },
+
+            "publishers": {
+              "type": "array",
+              "title": "Publishers",
+              "description": "Publishers",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "name": { "type": "string", "title": "Name" },
+                  "affiliation": { "type": "string", "title": "Affiliation" },
+                  "abbr": { "type": "string", "title": "Abbreviation" },
+                  "role": { "type": "string", "title": "Role" }
+                },
+                "required": ["name"]
+              }
+            },
+
+            "spatial": {
+              "type": "string",
+              "title": "Spatial coverage",
+              "description": "Geographic coverage or location associated with the resource."
+            },
+            "temporal": {
+              "type": "string",
+              "title": "Temporal coverage",
+              "description": "Time period or year for which the resource is relevant."
+            },
+            "abstract": {
+              "type": "string",
+              "title": "Abstract",
+              "description": "Summary or abstract describing the resource."
+            },
+            "license": {
+              "type": "array",
+              "title": "License",
+              "description": "Licensing information for the resource.",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "name": {
+                    "title": "License name",
+                    "type": "string"
+                  },
+                  "uri": {
+                    "title": "License URI",
+                    "type": "string"
+                  }
+                },
+                "required": ["name"]
+              }
+            },
+            "identifiers": {
+              "type": "array",
+              "title": "Other identifiers",
+              "description": "Additional identifiers such as DOI, handle, or local IDs.",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "type": {
+                    "title": "Identifier type",
+                    "type": "string",
+                    "description": "Type of identifier (e.g. doi, handle, or other)."
+                  },
+                  "identifier": {
+                    "title": "Identifier",
+                    "type": "string"
+                  }
+                },
+                "required": ["identifier"]
+              }
+            }
+          },
+          "required": ["idno", "title", "metadata_type"]
+        }
+      }
+    },
+    "additional": {
+      "type": "object",
+      "title": "Additional metadata",
+      "description": "User-defined metadata fields.",
+      "additionalProperties": true
+    }
+  },
+  "required": ["description"]
+}

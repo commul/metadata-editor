@@ -228,7 +228,8 @@
             echo $this->load->view("metadata_editor/vue-admin-metadata-edit-component.js",null,true);
             echo $this->load->view("metadata_editor/vue-dialog-admin-metadata-component.js",null,true);
             echo $this->load->view("metadata_editor/vue-summary-templates-component.js",null,true);
-            echo $this->load->view("metadata_editor/vue-json-edit-component.js",null,true);            
+            echo $this->load->view("metadata_editor/vue-json-edit-component.js",null,true);
+            echo $this->load->view("metadata_editor/vue-validation-report-component.js",null,true);
         ?>
 
         <?php if (empty($metadata)):?>
@@ -262,7 +263,7 @@
         const DatafileEdit=VueDatafileEdit;
         const DatafileExplorer = {props: ['file_id'],template: '<div><datafile-data-explorer/></div>' }
         const DatafileImport = {template: '<div><datafile-import/></div>' }
-        const Variables ={props: ['file_id'],template: '<div><variables xv-if="$store.state.variables"/> </div>'}
+        const Variables ={props: ['file_id'],template: '<div><variables/></div>'}
         const VariableGroups ={template: '<div><variable-groups /> </div>'}
         //const ResourcesComp ={props: ['index'],template: '<div><external-resources /></div>'}
         const ResourcesComp =VueExternalResources;
@@ -275,6 +276,7 @@
         const GeoGallery ={template: '<div><geospatial-gallery/></div>'}
         const ProjectHistory ={template: '<div><project-history/></div>'}
         const SdmxCsvExport = {template: '<div><sdmx-csv-export-options/></div>'}
+        const ValidationReport ={template: '<div><validation-report/></div>'}
         
         const AdminMetadataEdit= VueAdminMetadataEdit;
         //const MetadataTypeEditComp=VueMetadataTypeEdit;
@@ -304,6 +306,7 @@
             { path: '/geospatial-gallery', component: GeoGallery, props: true },
             { path: '/change-log', component: ProjectHistory },
             { path: '/sdmx-csv-export', component: SdmxCsvExport },
+            { path: '/validation-report', component: ValidationReport, name: 'validation-report', props: true },
             { path: '/metadata-types', component: MetadataTypesComp, name:'metadata-types', props: true },
             //{ path: '/metadata-types/:type_id', component: MetadataTypeEditComp, name:'metadata-type', props: true }
             { path: '/metadata-types/:type_id', component: AdminMetadataEdit, name:'metadata-type', props: true }
@@ -360,7 +363,7 @@
                 project_version_info:null,
                 variables_loaded:false,
                 variables_isloading:false,
-                variables_active_tab:"documentation",                
+                variables_active_tab:"documentation",
                 variable_documentation_fields:[
                     "variable.var_imputation",
                     "variable.var_derivation",
@@ -922,6 +925,84 @@
             },
             computesRequired: true
             //message: 'This is a required field'
+        });
+
+        // Data type validation: checks for type mismatch (e.g., array/object where string expected)
+        VeeValidate.extend('data_type', {
+            validate(value, [fieldType]) {
+                // fieldType comes from field.type passed as parameter
+                
+                // Skip data_type validation for dropdown fields - they have their own validation through enum selection
+                // and the v-model may be an enum object for display purposes
+                if (fieldType === 'dropdown' || fieldType === 'dropdown-custom') {
+                    return true;
+                }
+                
+                // Map field types to expected types
+                const typeMap = {
+                    'text': 'string',
+                    'string': 'string',
+                    'textarea': 'string',
+                    'number': 'number',
+                    'integer': 'number',
+                    'array': 'array'
+                };
+                
+                const expectedType = typeMap[fieldType];
+                
+                // Skip validation for unsupported types
+                if (!expectedType) {
+                    return true;
+                }
+                
+                // Skip if empty - let 'required' rule handle empty values
+                if (value === null || value === undefined || value === '' || 
+                    (Array.isArray(value) && value.length === 0)) {
+                    return true;
+                }
+                
+                // Determine actual type of the value
+                const actualType = Array.isArray(value) ? 'array' : 
+                                 (typeof value === 'object' && value !== null) ? 'object' : 
+                                 typeof value;
+                
+                let isValid = false;
+                let typeMismatch = false;
+                
+                if (expectedType === 'array') {
+                    // For array type, value must be an array
+                    isValid = Array.isArray(value);
+                    typeMismatch = !isValid && (actualType === 'object' || actualType === 'string');
+                } else if (expectedType === 'string') {
+                    // For string type, value must be a string (not array or object)
+                    isValid = actualType === 'string';
+                    typeMismatch = !isValid && (actualType === 'array' || actualType === 'object');
+                } else if (expectedType === 'number') {
+                    // For number type, value must be a number
+                    isValid = actualType === 'number';
+                    typeMismatch = !isValid;
+                }
+                
+                if (typeMismatch) {
+                    // Construct error message with expected and actual types
+                    const errorMessage = `Expected ${expectedType}, found ${actualType}. To fix, delete the field value and then type/select a new value.`;
+                    
+                    // Return error message via params
+                    return {
+                        valid: false,
+                        data: {
+                            message: errorMessage
+                        }
+                    };
+                }
+                
+                return isValid;
+            },
+            getMessage: (field, params, data) => {
+                // data.message contains the error message from validate function
+                return data && data.message ? data.message : 'Invalid value. To fix, delete the field value and then type/select a new value';
+            },
+            message: 'Invalid value. To fix, delete the field value and then type/select a new value'
         });
 
     Vue.component('ValidationProvider', VeeValidate.ValidationProvider);

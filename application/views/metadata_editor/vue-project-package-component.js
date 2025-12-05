@@ -86,7 +86,7 @@ Vue.component('project-package', {
             this.project_export_status=this.$t("exporting_to_json");
             await this.exportProjectJSON();
 
-            if (this.ProjectType=='survey'){
+            if (this.ProjectType=='survey' || this.ProjectType=='microdata'){
                 this.project_export_status=this.$t("exporting_ddi");
                 await this.exportProjectDDI();
                 //this.project_export_status="Exporting data files";

@@ -209,19 +209,9 @@
         show_fields_empty:false,
         show_fields_nonempty:false,
         show_fields_validation_errors:false,
-        project_types_icons: {
-          "document": "mdi-file-document",
-          "survey": "mdi-database", 
-          "geospatial": "mdi-earth",
-          "table": "mdi-table",
-          "timeseries": "mdi-chart-line",
-          "timeseries-db": "mdi-resistor-nodes",
-          "image": "mdi-file-image",
-          "video": "mdi-video",
-          "script": "mdi-file-code",
-          "resource": "mdi-file-link-outline",
-          "admin_meta": "mdi-file-outline"
-        },
+        // schema core field mappings and icon loaded from API
+        schema_core_fields: { idno:[], title:[] },
+        schema_icon: null,
 
         apply_defaults_dialog:false,
         apply_defaults_dialog_key:0
@@ -240,6 +230,8 @@
       ,
       mounted: function(){
         let vm=this;
+        // load core field mappings for current schema
+        this.loadSchemaCoreMappings();
         axios.interceptors.response.use(
           function(resp) {            
             return resp;
@@ -276,63 +268,35 @@
           return this.$store.state.project_version_info;
         },
         Title(){          
-          let titles={
-            "survey":"study_desc.title_statement.title",
-            "timeseries":"series_description.name",
-            "timeseries-db":"database_description.title_statement.title",
-            "script":"project_desc.title_statement.title",
-            "video":"video_description.title",
-            "table":"table_description.title_statement.title",
-            "document":"document_description.title_statement.title",
-            "image":"image_description.dcmi.title",
-            "geospatial":"description.identificationInfo.citation.title"
-          };
-
-          //image IPTC?
-          if (this.dataset_type=='image'){
-            let iptc_title=_.get(this.ProjectMetadata, 'image_description.iptc.photoVideoMetadataIPTC.title')
-            if (iptc_title){
-              titles['image']='image_description.iptc.photoVideoMetadataIPTC.title';
+          const paths = this.schema_core_fields.title || [];
+          if (Array.isArray(paths) && paths.length > 0){
+            for (let path of paths) {
+              if (path && typeof path === 'string') {
+                const dotPath = path.startsWith('/') ? path.substring(1).replace(/\//g, '.') : path;
+                const value = _.get(this.ProjectMetadata, dotPath);
+                if (value !== null && value !== undefined && value !== '') {
+                  return value;
+                }
+              }
             }
           }
-
-          if (titles[this.dataset_type]){
-            title_= _.get(this.ProjectMetadata, titles[this.dataset_type]);
-
-            if (!title_){
-              return "Untitled";
-            }
-
-            return title_;
-
-            return _.truncate(title_, {
-              'length': 60,
-              'separator': ' '
-            });
-          }else{
-            return 'TODO';
-          }
+          return (this.$store.state.project_info && this.$store.state.project_info.title) || 'Untitled';
 
         },
         StudyIDNO(){          
-          let idnos={
-            "survey":"study_desc.title_statement.idno",
-            "script":"project_desc.title_statement.idno",
-            "timeseries-db":"database_description.title_statement.idno",
-            "timeseries":"series_description.idno",
-            "video":"video_description.idno",
-            "table":"table_description.title_statement.idno",
-            "document":"document_description.title_statement.idno",
-            "image":"image_description.idno",
-            "geospatial":"description.idno",
-          };
-
-          if (idnos[this.dataset_type]){
-            idno_= _.get(this.ProjectMetadata, idnos[this.dataset_type]);
-            return idno_;
-          }else{
-            return 'TODO';
+          const paths = this.schema_core_fields.idno || [];
+          if (Array.isArray(paths) && paths.length > 0){
+            for (let path of paths) {
+              if (path && typeof path === 'string') {
+                const dotPath = path.startsWith('/') ? path.substring(1).replace(/\//g, '.') : path;
+                const value = _.get(this.ProjectMetadata, dotPath);
+                if (value !== null && value !== undefined && value !== '') {
+                  return value;
+                }
+              }
+            }
           }
+          return (this.$store.state.project_info && this.$store.state.project_info.idno) || '';
         },
         ProjectMetadata(){
           return this.$store.state.formData;
@@ -580,6 +544,42 @@
         }
       },
       methods:{
+        loadSchemaCoreMappings: function(){
+          if (!this.dataset_type){
+            this.schema_core_fields = { idno:[], title:[] };
+            this.schema_icon = null;
+            return;
+          }
+          const url = CI.site_url.replace(/\/?$/, '/') + 'api/schemas/detail/' + encodeURIComponent(this.dataset_type);
+          axios.get(url)
+            .then((resp)=>{
+              const schema = resp.data && resp.data.schema ? resp.data.schema : null;
+              const options = schema && schema.metadata_options ? schema.metadata_options : {};
+              const core = options.core_fields || {};
+              // Support both string and array formats - normalize to arrays
+              const normalizeField = (field) => {
+                if (!field) return [];
+                if (Array.isArray(field)) {
+                  // Filter out empty strings and return array
+                  return field.filter(p => p && p.trim() !== '');
+                }
+                // Convert string to array
+                if (typeof field === 'string' && field.trim() !== '') {
+                  return [field];
+                }
+                return [];
+              };
+              this.schema_core_fields = {
+                idno: normalizeField(core.idno || ''),
+                title: normalizeField(core.title || '')
+              };
+              this.schema_icon = (schema && (schema.icon_full_url || schema.icon_url)) ? (schema.icon_full_url || schema.icon_url) : null;
+            })
+            .catch(()=>{
+              this.schema_core_fields = { idno:[], title:[] };
+              this.schema_icon = null;
+            });
+        },
         templateApplyDefaults: function(){
             this.apply_defaults_dialog_key+=1;
             this.apply_defaults_dialog=true;
@@ -803,7 +803,7 @@
               ]
             });
 
-          if (this.dataset_type=='survey'){
+          if (this.dataset_type=='survey' || this.dataset_type=='microdata'){
             tree_data.push({
               title: this.$t('data-files'),
               type:'datafiles',

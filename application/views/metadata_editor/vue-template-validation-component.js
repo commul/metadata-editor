@@ -3,6 +3,9 @@ Vue.component('template-validation-component', {
     data () {
         return {
           validation_errors: "",
+          schema_validation: null,
+          variables_validation: null,
+          variables_validation_errors: "",
           template_idx:-1,
           template_validation:[],
           validation_report:[]
@@ -15,6 +18,10 @@ Vue.component('template-validation-component', {
                 this.projectValidationReport();
             }            
         }
+    },
+    mounted: function() {
+        this.validateProject();
+        this.projectValidationReport();
     },
     computed: {
         ProjectID(){
@@ -70,6 +77,11 @@ Vue.component('template-validation-component', {
             }
 
             return errors;
+        },
+        isMicrodataProject() {
+            // Check if project type is microdata or survey
+            const projectType = this.ProjectType || this.$store.state.formData?.type;
+            return projectType === 'microdata' || projectType === 'survey';
         }
     },
     methods:{
@@ -77,14 +89,43 @@ Vue.component('template-validation-component', {
             this.validateProject();
             this.projectValidationReport();
         },
-        navigateToError: function(key){
+        navigateToValidationReport: function() {
+            this.$router.push('/validation-report');
+        },
+        navigateToFullValidationReport: function() {
+            this.$router.push('/validation-report');
+        },
+        navigateToError: function(key, variableFid){
             let vm=this;
             let key_parts=key.split("[");
 
             //variables
-            if (key.startsWith("variables")){
-                store.commit('tree_active_node_path',key);
-                this.$router.push(key);
+            if (key.startsWith("variables") || variableFid){
+                // Use variable_fid if provided, otherwise extract from path
+                let fileId = variableFid;
+                
+                if (!fileId && key.startsWith("variables")) {
+                    // Extract file ID from path (format: variables/{fid}/... or /variables/{fid}/...)
+                    let pathParts = key.split('/');
+                    
+                    // Find the file ID (F1, F2, etc.) in the path
+                    for (let i = 0; i < pathParts.length; i++) {
+                        // File IDs typically start with 'F' followed by a number
+                        if (pathParts[i] && /^F\d+$/.test(pathParts[i])) {
+                            fileId = pathParts[i];
+                            break;
+                        }
+                    }
+                }
+                
+                if (fileId) {
+                    store.commit('tree_active_node_path', 'variables/' + fileId);
+                    this.$router.push('/variables/' + fileId);
+                } else {
+                    // Fallback: use the original key if we can't extract file ID
+                    store.commit('tree_active_node_path', key);
+                    this.$router.push(key);
+                }
                 return;
             }
 
@@ -212,21 +253,115 @@ Vue.component('template-validation-component', {
         validateProject: function() {
             let vm=this;
             this.validation_errors="";
-            let url=CI.base_url + '/api/editor/validate/'+this.ProjectID;
-
-            axios.get(url)
+            this.schema_validation = null;
+            this.variables_validation = null;
+            this.variables_validation_errors = "";
+            
+            // Always load schema validation
+            let schemaUrl = CI.base_url + '/api/validation/'+this.ProjectID+'/schema';
+            axios.get(schemaUrl)
             .then(function (response) {
-                if(response.data){                    
-                    console.log("validation response",response);
+                if(response.data && response.data.status === 'success') {
+                    const validation = response.data.validation;
+                    vm.schema_validation = validation;
+                    
+                    // Convert validation.issues to the format expected by the template
+                    if (!validation.valid && validation.issues && validation.issues.length > 0) {
+                        vm.validation_errors = {
+                            errors: validation.issues.map(issue => {
+                                // Convert JSON Pointer path to dot notation for editor navigation
+                                // e.g., /study_desc/title_statement/title -> study_desc.title_statement.title
+                                let propertyPath = issue.path || issue.property || '';
+                                if (propertyPath && propertyPath.startsWith('/')) {
+                                    // Remove leading slash and replace slashes with dots
+                                    propertyPath = propertyPath.substring(1).replace(/\//g, '.');
+                                }
+                                
+                                return {
+                                    property: propertyPath,
+                                    message: issue.message || '',
+                                    type: issue.type || 'validation_error',
+                                    constraint: issue.constraint || null,
+                                    expected_type: issue.expected_type || null,
+                                    actual_type: issue.actual_type || null
+                                };
+                            })
+                        };
+                    } else {
+                        // No errors - clear validation_errors
+                        vm.validation_errors = "";
+                    }
+                    console.log("schema validation response", response);
+                } else {
+                    vm.validation_errors = "";
                 }
             })
             .catch(function (error) {
-                console.log("validation errors",error);                
-                vm.validation_errors=error.response.data;
-            })
-            .then(function () {
-                console.log("request completed");
+                console.log("schema validation errors", error);
+                // Handle error response from API
+                if (error.response && error.response.data) {
+                    // If API returns structured error, use it
+                    vm.validation_errors = error.response.data;
+                } else {
+                    // Generic error
+                    vm.validation_errors = {
+                        errors: [{
+                            property: '',
+                            message: error.message || 'Failed to load schema validation'
+                        }]
+                    };
+                }
             });
+            
+            // For microdata projects, also load variables validation
+            if (this.isMicrodataProject) {
+                let variablesUrl = CI.base_url + '/api/validation/'+this.ProjectID+'/variables?limit=5';
+                
+                axios.get(variablesUrl)
+                .then(function (response) {
+                    if(response.data && response.data.status === 'success') {
+                        const validation = response.data.validation;
+                        vm.variables_validation = validation;
+                        
+                        // Convert validation.issues to the format expected by the template
+                        if (!validation.valid && validation.issues && validation.issues.length > 0) {
+                            vm.variables_validation_errors = {
+                                errors: validation.issues.map(issue => {
+                                    // For variables, path is like 'variables/{fid}/{property}'
+                                    let propertyPath = issue.path || issue.property || '';
+                                    
+                                    return {
+                                        property: propertyPath,
+                                        message: issue.message || '',
+                                        type: issue.type || 'validation_error',
+                                        constraint: issue.constraint || null,
+                                        variable_fid: issue.variable_fid || null,
+                                        variable_name: issue.variable_name || null
+                                    };
+                                })
+                            };
+                        } else {
+                            // No errors - clear variables_validation_errors
+                            vm.variables_validation_errors = "";
+                        }
+                        console.log("variables validation response", response);
+                    } else {
+                        vm.variables_validation_errors = "";
+                    }
+                })
+                .catch(function (error) {
+                    console.log("variables validation errors", error);
+                    // Don't show error if project is not microdata type (400 error is expected for non-microdata)
+                    if (error.response && error.response.status !== 400) {
+                        vm.variables_validation_errors = {
+                            errors: [{
+                                property: '',
+                                message: error.response?.data?.message || error.message || 'Failed to load variables validation'
+                            }]
+                        };
+                    }
+                });
+            }
         }
     },     
     template: `
@@ -235,39 +370,78 @@ Vue.component('template-validation-component', {
                 <v-card>
                     <v-card-title class="d-flex justify-space-between">
                         <h6>{{$t("project_validation")}}</h6>
-                        <v-btn title="Re-run validation" icon @click="RefreshValidation">
-                            <v-icon small>mdi-refresh</v-icon>
-                        </v-btn>
+                        <div class="d-flex">                           
+                            <v-btn icon title="Re-run validation" @click="RefreshValidation">
+                                <v-icon small>mdi-refresh</v-icon>
+                            </v-btn>
+                        </div>
                     </v-card-title>
                     
                     <v-card-text>
                     <div style="overflow:auto;max-height:400px;">
 
-                    <div>{{$t("Schema validation")}} <v-icon small :title="$t('Requires project to be saved')" >mdi-information-outline</v-icon></div>
-                    <div class="validation-errors mt-2" v-if="validation_errors!=''" style="color:red;font-size:small;" >
-                        
-                        <v-list dense>
-                            <template v-for="error in validation_errors.errors" >
-                                <v-list-item @click="navigateToError(error.property)">
-                                    <v-list-item-icon>
-                                        <v-icon color="red">mdi-alert-circle</v-icon>
-                                    </v-list-item-icon>
-                                    <v-list-item-content>
-                                        <v-list-item-title color="red">
-                                            <div style="font-weight:bold;color:red">{{error.message}}</div>                                            
-                                        </v-list-item-title>
-                                        <v-list-item-subtitle >
-                                            <div style="font-weight:normal">
-                                                {{error.property}}
-                                            </div>
-                                        </v-list-item-subtitle>
-                                    </v-list-item-content>                                                                                            
-                                </v-list-item>
-                            </template>
-                        </v-list>
+                    <!-- Schema validation (shown for all projects) -->
+                    <div>
+                        <div>{{$t("Schema validation")}} <v-icon small :title="$t('Requires project to be saved')" >mdi-information-outline</v-icon></div>
+                        <div class="validation-errors mt-2" v-if="validation_errors!=''" style="color:red;font-size:small;" >
+                            
+                            <v-list dense>
+                                <template v-for="error in validation_errors.errors" >
+                                    <v-list-item @click="navigateToError(error.property)">
+                                        <v-list-item-icon>
+                                            <v-icon color="red">mdi-alert-circle</v-icon>
+                                        </v-list-item-icon>
+                                        <v-list-item-content>
+                                            <v-list-item-title color="red">
+                                                <div style="font-weight:bold;color:red">{{error.message}}</div>                                            
+                                            </v-list-item-title>
+                                            <v-list-item-subtitle >
+                                                <div style="font-weight:normal">
+                                                    {{error.property}}
+                                                </div>
+                                            </v-list-item-subtitle>
+                                        </v-list-item-content>                                                                                            
+                                    </v-list-item>
+                                </template>
+                            </v-list>
 
+                        </div>
+                        <div class="mt-3 p-2 border" style="color:green" v-else-if="schema_validation && schema_validation.valid">{{$t("no_validation_errors")}}</div>
+                        <div class="mt-3 p-2 border" style="color:green" v-else-if="schema_validation && validation_errors==''">{{$t("no_validation_errors")}}</div>
                     </div>
-                    <div class="mt-3 p-2 border" style="color:green" v-else>{{$t("no_validation_errors")}}</div>
+
+                    <!-- Variables validation (only for microdata projects) -->
+                    <div v-if="isMicrodataProject" class="mt-4">
+                        <div>{{$t("variables_validation")}} <v-icon small :title="$t('Requires project to be saved')" >mdi-information-outline</v-icon></div>
+                        
+                        <div class="validation-errors mt-2" v-if="variables_validation_errors!=''" style="color:red;font-size:small;" >
+                            
+                            <v-list dense>
+                                <template v-for="error in variables_validation_errors.errors" >
+                                    <v-list-item @click="navigateToError(error.property, error.variable_fid)">
+                                        <v-list-item-icon>
+                                            <v-icon color="red">mdi-alert-circle</v-icon>
+                                        </v-list-item-icon>
+                                        <v-list-item-content>
+                                            <v-list-item-title color="red">
+                                                <div style="font-weight:bold;color:red">{{error.message}}</div>                                            
+                                            </v-list-item-title>
+                                            <v-list-item-subtitle >
+                                                <div style="font-weight:normal">
+                                                    <span v-if="error.variable_name">{{error.variable_name}} - </span>
+                                                    <span v-if="error.variable_fid">{{$t("file")}}: {{error.variable_fid}}</span>
+                                                    <span v-if="!error.variable_name && !error.variable_fid">{{error.property}}</span>
+                                                </div>
+                                            </v-list-item-subtitle>
+                                        </v-list-item-content>                                                                                            
+                                    </v-list-item>
+                                </template>
+                            </v-list>
+
+                        </div>
+                        <div class="mt-3 p-2 border" style="color:green" v-else-if="variables_validation && variables_validation.valid">{{$t("no_validation_errors")}}</div>
+                        <div class="mt-3 p-2 border" style="color:green" v-else-if="variables_validation && variables_validation_errors==''">{{$t("no_validation_errors")}}</div>
+                    </div>
 
                     <div class="mt-3">{{$t("Template validation")}}</div>
                                         
@@ -297,6 +471,19 @@ Vue.component('template-validation-component', {
 
                     </div>
                     </v-card-text>
+                    
+                    <v-card-actions class="pt-0">
+                        <v-spacer></v-spacer>
+                        <v-btn 
+                            text 
+                            small 
+                            @click="navigateToFullValidationReport"
+                            class="text-caption"
+                        >
+                            <v-icon small left>mdi-clipboard-list</v-icon>
+                            {{$t("view_full_validation_report")}}
+                        </v-btn>
+                    </v-card-actions>
                 </v-card>
             </div>          
             `    

@@ -1,6 +1,6 @@
 {
     "require": {
-        "justinrainbow/json-schema": "^5.2",
+        "justinrainbow/json-schema": "^6.6.1",
         "violet/streaming-json-encoder": "^1.1",
         "salsify/json-streaming-parser": "^8.0",
         "slim/csrf": "^0.8.3",

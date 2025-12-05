@@ -20,7 +20,7 @@ class Croissant_Writer
     {
         $dataset=$this->ci->Editor_model->get_row($sid);
 
-        if ($dataset['type']!='survey'){
+        if ($dataset['type']!='survey' && $dataset['type']!='microdata'){
             throw new Exception('Only `microdata` datasets are supported:: '. $sid . ' - ' . $dataset['type']);
         }
 

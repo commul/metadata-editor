@@ -335,7 +335,12 @@
                                 <img style="width:60px;height:60px;" src="<?php echo base_url(); ?>files/icon-blank.png" alt="" class=" border img-fluid img-thumbnail rounded shadow-sm project-card-thumbnail">
                               </template>
                             </td>
-                          <td style="vertical-align:top"><v-icon :title="project.type">{{project_types_icons[project.type]}}</v-icon></td>
+                          <td style="vertical-align:top">
+                            <div class="schema-icon-avatar" style="width:24px;height:24px;display:flex;align-items:center;justify-content:center;">
+                              <img v-if="schemaIcon(project.type)" :src="schemaIcon(project.type)" :alt="project.type" style="max-width:100%;max-height:100%;">
+                              <v-icon v-else :title="project.type">mdi-file-tree</v-icon>
+                            </div>
+                          </td>
                           <td>
                             <div class="project-title">
                               <a :href="'editor/edit/' + project.id" :title="project.title" class="d-flex xtext-title" @click.prevent="EditProject(project.id)">                                
@@ -439,15 +444,17 @@
 
             <v-card-text>
               <div>
-                <a class="dropdown-item" href="#" @click="createProject('survey')"><v-icon>{{project_types_icons['survey']}}</v-icon> {{$t("microdata")}}</a>
-                <a class="dropdown-item" href="#" @click="createProject('timeseries')"><v-icon>{{project_types_icons['timeseries']}}</v-icon> {{$t("timeseries")}}</a>
-                <a class="dropdown-item" href="#" @click="createProject('timeseries-db')"><v-icon>{{project_types_icons['timeseries-db']}}</v-icon> {{$t("timeseries-db")}}</a>
-                <a class="dropdown-item" href="#" @click="createProject('document')"><v-icon>{{project_types_icons['document']}}</v-icon> {{$t("document")}}</a>
-                <a class="dropdown-item" href="#" @click="createProject('table')"><v-icon>{{project_types_icons['table']}}</v-icon> {{$t("table")}}</a>
-                <a class="dropdown-item" href="#" @click="createProject('image')"><v-icon>{{project_types_icons['image']}}</v-icon> {{$t("image")}}</a>
-                <a class="dropdown-item" href="#" @click="createProject('script')"><v-icon>{{project_types_icons['script']}}</v-icon> {{$t("script")}}</a>
-                <a class="dropdown-item" href="#" @click="createProject('video')"><v-icon>{{project_types_icons['video']}}</v-icon> {{$t("video")}}</a>
-                <a class="dropdown-item" href="#" @click="createProject('geospatial')"><v-icon>{{project_types_icons['geospatial']}}</v-icon> {{$t("geospatial")}}</a>
+                <a
+                  class="dropdown-item"
+                  v-for="s in schemas"
+                  :key="s.uid"
+                  href="#"
+                  @click="createProject(s.uid)"
+                >
+                  <img v-if="schemaIcon(s.uid)" :src="schemaIcon(s.uid)" alt="" style="width:16px;height:16px;margin-right:8px;">
+                  <v-icon v-else style="margin-right:8px;">mdi-file-tree</v-icon>
+                  {{ s.display_name || s.title || s.uid }}
+                </a>
               </div>
             </v-card-text>
 
@@ -782,28 +789,9 @@
         menu_x: 0,
         menu_y: 0,
         menu_active_project_id: null,
-        data_types: {
-          "survey": "Microdata",
-          "timeseries": "Timeseries",
-          "timeseries-db": "Timeseries (Database)",
-          "script": "Script",
-          "geospatial": "Geospatial",
-          "document": "Document",
-          "table": "Table",
-          "image": "Image",
-          "video": "Video",
-        },
-        project_types_icons: {
-          "document": "mdi-file-document",
-          "survey": "mdi-database", 
-          "geospatial": "mdi-earth",
-          "table": "mdi-table",
-          "timeseries": "mdi-chart-line",
-          "timeseries-db": "mdi-resistor-nodes",
-          "image": "mdi-file-image",
-          "video": "mdi-video",
-          "script": "mdi-file-code",
-        },        
+        schemas: [],
+        schema_map: {},
+        data_types: {},        
         sort_by_options:[],            
         sort_by:"updated_desc",
         collections_flat_list:[],
@@ -824,7 +812,7 @@
         this.is_loading = true;
         this.loadProjects();
         this.loadFacets();
-        this.initDataTypes();
+        this.initSchemas();
         this.initSortOptions();
         //this.ReadFilterQS();        
       },
@@ -970,19 +958,42 @@
         checkboxOnClick: function(e) {
           e.cancelBubble = true;
         },
-        initDataTypes: function()
-        {
-          this.data_types={
-            "survey": this.$t("microdata"),
-            "timeseries": this.$t("timeseries"),
-            "timeseries-db": this.$t("timeseries-db"),
-            "script": this.$t("script"),
-            "geospatial": this.$t("geospatial"),
-            "document": this.$t("document"),
-            "table": this.$t("table"),
-            "image": this.$t("image"),
-            
+        initSchemas: function(){
+          const url = CI.site_url.replace(/\/?$/, '/') + 'api/schemas';
+          axios.get(url)
+            .then((response)=>{
+              const list = (response.data && Array.isArray(response.data.schemas)) ? response.data.schemas : [];
+              this.schemas = list;
+              const mapped = {};
+              const types = {};
+              list.forEach(s=>{
+                const uid = s.uid;
+                const label = s.display_name || s.title || uid;
+                const icon = s.icon_full_url || s.icon_url || null;
+                const alias = (s.alias && typeof s.alias === 'string' && s.alias.length) ? s.alias : null;
+                const matchKeys = alias ? [uid, alias] : [uid];
+                mapped[uid] = { label: label, icon: icon, aliases: alias ? [alias] : [], matchKeys: matchKeys };
+                types[uid] = label;
+              });
+              this.schema_map = mapped;
+              this.data_types = types;
+            })
+            .catch((error)=>{
+              console.error('Failed to load schemas', error);
+              this.schema_map = {};
+              this.data_types = {};
+            });
+        },
+        canonicalSchemaForType: function(type){
+          if (!type){ return null; }
+          if (this.schema_map[type]){ return type; }
+          for (const uid in this.schema_map){
+            const entry = this.schema_map[uid];
+            if (entry.matchKeys && entry.matchKeys.indexOf(type) !== -1){
+              return uid;
+            }
           }
+          return type;
         },
         initSortOptions: function(){
           this.sort_by_options=[
@@ -1341,8 +1352,27 @@
           }
         },
         getProjectIcon: function(type) {
-          projectIcon = this.project_types_icons[type];
-          return projectIcon;
+          // Use schema icon URL if available, fallback to MDI icon name
+          const canonical = this.canonicalSchemaForType(type);
+          if (canonical && this.schema_map[canonical] && this.schema_map[canonical].icon) {
+            // Return the icon URL from schema
+            return this.schema_map[canonical].icon;
+          }
+          // Fallback to MDI icon name if schema icon not available
+          const map = {
+            'document':'mdi-file-document','microdata':'mdi-database','survey':'mdi-database',
+            'geospatial':'mdi-earth','table':'mdi-table','indicator':'mdi-chart-line','timeseries':'mdi-chart-line',
+            'indicator-db':'mdi-resistor-nodes','timeseries-db':'mdi-resistor-nodes','image':'mdi-file-image',
+            'video':'mdi-video','script':'mdi-file-code'
+          };
+          return map[canonical] || 'mdi-file-tree';
+        },
+        schemaIcon: function(type){
+          const canonical = this.canonicalSchemaForType(type);
+          if (canonical && this.schema_map[canonical] && this.schema_map[canonical].icon){
+            return this.schema_map[canonical].icon;
+          }
+          return null;
         },
         PaginatePage: function(page) {
           this.loadProjects();

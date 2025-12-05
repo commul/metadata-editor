@@ -167,7 +167,7 @@ Vue.component('file-manager', {
 
         <v-card>
             <v-card-title>
-            <h3>File manager</h3>
+            <h3>{{$t('file_manager')}}</h3>
             </v-card-title>
 
             <v-card-text>
@@ -177,7 +177,7 @@ Vue.component('file-manager', {
             </div>
 
             <v-row>
-                <v-col md="8"><strong>{{FilesFlatView.length}}</strong> files </v-col>
+                <v-col md="8"><strong>{{FilesFlatView.length}}</strong> {{$t('files')}} </v-col>
                 <v-col md="4" class="mb-2">
                     <div class="float-right">
                         <!-- 
@@ -217,7 +217,7 @@ Vue.component('file-manager', {
                         </td>
                         <td>
                             <v-chip :color="colorByFolderType(file.dir_path)" small outlined class="text-small text-secondary text-uppercase">
-                            <span v-if="file.dir_path=='data/tmp' || file.dir_path=='.'">TEMPORARY</span>
+                            <span v-if="file.dir_path=='data/tmp' || file.dir_path=='.'">{{$t('temporary')}}</span>
                             <span v-else>{{file.dir_path}}</span>                            
                             </v-chip>
                         </td>
@@ -233,7 +233,7 @@ Vue.component('file-manager', {
                                 <v-icon>mdi-delete</v-icon> 
                             </v-btn>
                             <span v-if="ProjectType=='geospatial'">
-                                <v-btn primary text v-if="isZip(file.name)" @click="extractZip(file)"><i class="fas fa-edit"></i> Extract zip</v-btn>
+                                <v-btn primary text v-if="isZip(file.name)" @click="extractZip(file)"><i class="fas fa-edit"></i> {{$t('extract_zip')}}</v-btn>
                             </span>
                         </td>
                     </tr>
