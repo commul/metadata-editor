@@ -59,6 +59,7 @@
                         <v-tab @click="pageLink('collections')" ><v-icon>mdi-folder-text</v-icon> <a :href="site_base_url + '/collections'">{{$t("collections")}}</a> </v-tab>
                         <!--<v-tab>Archives</v-tab>-->
                         <v-tab @click="pageLink('templates')"><v-icon>mdi-alpha-t-box</v-icon> <a :href="site_base_url + '/templates'">{{$t("templates")}}</a></v-tab>
+                        <v-tab @click="pageLink('schemas')"><v-icon>mdi-file-tree</v-icon> <a :href="site_base_url + '/schemas'">{{$t("schemas")}}</a></v-tab>
                         <v-tab @click="pageLink('templates')" active><v-icon>mdi-table-column</v-icon> <a :href="site_base_url + '/templates'">{{$t("administrative_metadata")}}</a></v-tab>
                     </v-tabs>
 

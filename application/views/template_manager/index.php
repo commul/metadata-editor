@@ -119,6 +119,7 @@
     let core_template_parts = <?php echo json_encode($core_template_parts, JSON_PRETTY_PRINT); ?>;
 
     let user_template = <?php echo $user_template; ?>;
+    let template_icon_url = <?php echo json_encode(isset($template_icon_url) ? $template_icon_url : null); ?>;
   </script>
 
   <div id="app" data-app>
@@ -143,7 +144,14 @@
 
                   <div class="ml-5 pt-2">
                     <div class="text-crop">
-                      <i :class="project_types_icons[user_template_info.data_type]"></i>
+                      <template v-if="template_icon_url">
+                        <img :src="template_icon_url" 
+                             style="width:20px;height:20px;vertical-align:middle;margin-right:8px;" 
+                             :alt="user_template_info.data_type" />
+                      </template>
+                      <template v-else>
+                        <i class="fa fa-file" style="margin-right:8px;"></i>
+                      </template>
                       <strong style="font-size:large;">{{user_template_info.name}}</strong>
                     </div>
                   </div>
@@ -234,17 +242,17 @@
                   </div>
 
                   <!--additional -->
-                  <div class="mt-5" v-if="ActiveNode.type=='section' || TemplateIsAdminMeta">
+                  <div class="mt-5" v-if="ActiveNode.type=='section' || TemplateIsAdminMeta || TemplateIsCustom">
                     <v-icon title="Add custom field" v-if="ActiveNode.type=='section_container' || ActiveNode.type=='section'" class="additional-item" @click="addAdditionalField()">mdi-text-box-plus-outline</v-icon>
                     <v-icon title="Add custom field" v-else class="disabled-button-color">mdi-text-box-plus-outline</v-icon>
                   </div>
 
-                  <div class="mt-1" v-if="ActiveNode.type=='section'">
+                  <div class="mt-1" v-if="ActiveNode.type=='section' || TemplateIsCustom">
                     <v-icon title="Add custom Array field" v-if="ActiveNode.type=='section_container' || ActiveNode.type=='section'" class="additional-item"  @click="addAdditionalFieldArray()">mdi-table-large-plus</v-icon>
                     <v-icon title="Add custom Array field" v-else class="disabled-button-color">mdi-table-large-plus</v-icon>
                   </div>
 
-                  <div class="mt-1" v-if="ActiveNode.type=='section'">
+                  <div class="mt-1" v-if="ActiveNode.type=='section' || TemplateIsCustom">
                     <v-icon title="Add custom NestedArray field" v-if="ActiveNode.type=='section_container' || ActiveNode.type=='section'" class="additional-item"  @click="addAdditionalFieldNestedArray()">mdi-file-tree</v-icon>
                     <v-icon title="Add custom NestedArray field" v-else class="disabled-button-color">mdi-file-tree</v-icon>
                   </div>
@@ -600,25 +608,7 @@
             "boolean"*/
           ],
           cut_fields: [],
-          data_types: {
-            "survey": "Microdata",
-            "document": "Document",
-            "table": "Table",
-            "geospatial": "Geospatial",
-            "image": "Image",
-            "script": "Script",
-            "video": "Video"
-          },
-          project_types_icons: {
-            "document": "fa fa-file-code",
-            "survey": "fa fa-database",
-            "geospatial": "fa fa-globe-americas",
-            "table": "fa fa-database",
-            "timeseries": "fa fa-chart-line",
-            "image": "fa fa-image",
-            "video": "fa fa-video",
-            "script": "fa fa-file-code"
-          },
+          template_icon_url: template_icon_url,
           enum_store_options:[
             {
               "value":"both",
@@ -835,6 +825,9 @@
         generateNewFieldKey: function() {
           if (this.TemplateDataType=='admin_meta'){
             new_node_key = "options." + Date.now();
+          }else if (this.TemplateDataType=='custom'){
+            // For custom type, allow fields without prefix (user can set any key)
+            new_node_key = "field." + Date.now();
           }else{
             new_node_key = "additional." + Date.now();
           }
@@ -1150,6 +1143,9 @@
         TemplateIsAdminMeta(){
           return this.user_template_info.data_type=='admin_meta';
         },
+        TemplateIsCustom(){
+          return this.user_template_info.data_type=='custom';
+        },
         TemplateDataType() {
           return this.user_template_info.data_type;
         },
@@ -1242,7 +1238,10 @@
             if (!this.ActiveNode.key) {
               return false;
             }
-
+            // For custom type, don't require additional. prefix
+            if (this.TemplateIsCustom) {
+              return false;
+            }
             return this.ActiveNode.key.indexOf('additional.')==0;
         },
         ActiveCoreNode() {

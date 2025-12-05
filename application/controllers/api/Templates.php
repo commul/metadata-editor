@@ -80,11 +80,13 @@ class Templates extends MY_REST_Controller
 				throw new Exception("Missing parameter for `data_type`");
 			}
 
-			if ($data_type=='microdata'){
-				$data_type='survey';
+			$resolved_uid=$this->Editor_template_model->resolve_core_template_uid($data_type);
+
+			if (!$resolved_uid){
+				throw new Exception("TEMPLATE_NOT_FOUND");
 			}
 
-			$result=$this->Editor_template_model->get_core_template_json($data_type);			
+			$result=$this->Editor_template_model->get_core_template_json($resolved_uid);			
 				
 			if(!$result){
 				throw new Exception("TEMPLATE_NOT_FOUND");
@@ -260,6 +262,16 @@ class Templates extends MY_REST_Controller
 				throw new Exception("Missing parameter: UID");
 			}
 
+			$template=$this->Editor_template_model->get_template_by_uid($uid);
+
+			if (!$template){
+				throw new Exception("Template not found: ".$uid);
+			}
+
+			if (!empty($template['template_type']) && $template['template_type']!=='custom'){
+				throw new Exception("Read-only templates cannot be edited. Duplicate the template to customize it.");
+			}
+
 			$options=$this->raw_json_input(); 			
 			$options['changed_by']=$this->user_id;
 
@@ -287,6 +299,16 @@ class Templates extends MY_REST_Controller
 		try{
 			if (!$uid){
 				throw new Exception("Missing parameter: UID");
+			}
+
+			$template=$this->Editor_template_model->get_template_by_uid($uid);
+
+			if (!$template){
+				throw new Exception("Template not found: ".$uid);
+			}
+
+			if (!empty($template['template_type']) && $template['template_type']!=='custom'){
+				throw new Exception("Read-only templates cannot be deleted.");
 			}
 
 			$this->editor_acl->user_has_template_access($uid,$permission='delete');

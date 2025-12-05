@@ -422,39 +422,46 @@ class Project_search
 	{
 		$facets=array();
 
-		//data types with counts
-		$facets['type']=array(
-			array("id"=>"survey","title"=>"microdata"),
-			array("id"=>"timeseries","title"=>"timeseries"),
-			array("id"=>"timeseries-db","title"=>"timeseries-db"),
-			array("id"=>"script", "title"=>"script"),
-			array("id"=>"geospatial","title"=>"geospatial"),
-			array("id"=>"document","title"=>"document"),
-			array("id"=>"table","title"=>"table"),
-			array("id"=>"image","title"=>"image"),
-			array("id"=>"video","title"=>"video"),
-		);
-
-		// Get project counts by type
+		$this->ci->load->library('Schema_registry');
+		$schemas = $this->ci->schema_registry->list_schemas(array());
+		
 		$project_counts = $this->get_project_counts_by_type($user_id);
 		
-		// Add counts to each type
-		foreach($facets['type'] as $key => $type){
-			$facets['type'][$key]['count'] = isset($project_counts[$type['id']]) 
-				? $project_counts[$type['id']] 
-				: 0;
+		// Build facets from schemas, only including types that have projects
+		$facets['type'] = array();
+		foreach($schemas as $schema) {
+			$uid = isset($schema['uid']) ? $schema['uid'] : null;
+			if (!$uid) {
+				continue;
+			}
+
+			// Get count for schema type
+			$count = 0;
+			
+			if (isset($project_counts[$uid])) {
+				$count += $project_counts[$uid];
+			}
+			
+			if (isset($schema['alias']) && !empty($schema['alias']) && isset($project_counts[$schema['alias']])) {
+				$count += $project_counts[$schema['alias']];
+			}
+			
+			if ($count > 0) {
+				$facets['type'][] = array(
+					"id" => $uid,
+					"title" => $uid,
+					"count" => $count
+				);
+			}
 		}
 
-		//collections
 		$facets['collection']=$this->ci->Collection_tree_model->collections_tree_by_user_access($user_id);
 
-		//ownership type
 		$facets['ownership']=array(
 			array("id"=>"shared","title"=>"shared"),
 			array("id"=>"self","title"=>"my_projects"),
 		);
 
-		// Get user details if users filter is set
 		$facets['users_filter'] = array();
 		if (isset($options['users']) && !empty($options['users'])) {
 			$user_ids = $this->parse_filter_values_as_int(explode(',', $options['users']));

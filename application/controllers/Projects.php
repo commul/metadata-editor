@@ -43,10 +43,15 @@ class Projects extends MY_Controller {
 
 			$project_id=isset($project['pid']) ? $project['pid'] : $project['id'];
 			$this->editor_acl->user_has_project_access($project_id,$permission='view');
-			$schema_path="application/schemas/{$project['type']}-schema.json";
-
-			if(!file_exists($schema_path)){
-				show_error('Schema not found::'. $schema_path);
+			
+			// Get schema file path using schema registry (handles aliases and filename mismatches)
+			$this->load->model('Metadata_schemas_model');
+			$project_type = $project['type'];
+			
+			try {
+				$schema_path = $this->Metadata_schemas_model->get_schema_file_path($project_type);
+			} catch (Exception $e) {
+				show_error('Schema not found: ' . $e->getMessage());
 			}
 
 			$options['sid']=$id;
@@ -88,6 +93,12 @@ class Projects extends MY_Controller {
 		//load template set for the project
 		if (isset($project['template_uid']) && !empty($project['template_uid'])){
 			$template=$this->Editor_template_model->get_template_by_uid($project['template_uid']);
+			
+			// Check if template is soft-deleted (is_deleted=1)
+			// If deleted, fallback to default/core template
+			if ($template && isset($template['is_deleted']) && $template['is_deleted'] == 1){
+				$template = NULL; // Force fallback
+			}
 		}
 
 		if (!$template){		
@@ -96,6 +107,11 @@ class Projects extends MY_Controller {
 
 			if (isset($default_template['template_uid'])){
 				$template=$this->Editor_template_model->get_template_by_uid($default_template['template_uid']);
+				
+				// Check if default template is also deleted
+				if ($template && isset($template['is_deleted']) && $template['is_deleted'] == 1){
+					$template = NULL; // Force fallback to core
+				}
 			}
 		}
 		

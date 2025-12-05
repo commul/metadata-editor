@@ -59,8 +59,12 @@ Vue.component('props-treeview', {
           return this.getUnusedSiblings();
         },
         IsAdditonalField(){
-          //check parent_key starts with additional.
+          //check parent_key starts with additional. or is custom type
           if (this.parent_key.startsWith('additional.')){
+            return true;
+          }
+          // For custom type, allow fields without additional. prefix
+          if (this.isAdminMetaTemplate || this.TemplateDataType == 'custom'){
             return true;
           }
           return false;
@@ -584,7 +588,7 @@ Vue.component('props-treeview', {
                     </div>
 
                     <!--additional -->
-                    <div class="mt-5" v-if="IsAdditonalField || isAdminMetaTemplate">
+                    <div class="mt-5" v-if="IsAdditonalField || isAdminMetaTemplate || TemplateDataType == 'custom'">
                       <v-icon title="Add custom field" class="additional-item" @click="addAdditionalField()">mdi-text-box-plus-outline</v-icon>
                       <v-icon title="Add custom field" class="additional-item" @click="addAdditionalFieldArray()">mdi-table-large-plus</v-icon>
                       <v-icon title="Add custom NestedArray field" class="additional-item" @click="addAdditionalFieldNestedArray()">mdi-file-tree</v-icon>

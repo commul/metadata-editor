@@ -63,18 +63,18 @@ Vue.component('v-login', {
                         <v-icon aria-hidden="false">mdi-close</v-icon>
                     </button>
 
-                    <v-card-title class="text-h5">Login</v-card-title>
+                    <v-card-title class="text-h5">{{$t('login')}}</v-card-title>
                     <v-card-text v-if="is_logged_in">
-                        <div class="alert alert-success">You are logged in!</div>
+                        <div class="alert alert-success">{{$t('you_are_logged_in')}}</div>
                         <v-btn block color="primary" @click="closeDialog">{{$t("close")}}</v-btn>
                     </v-card-text>
                     <v-card-text v-else>
 
-                        <div class="alert alert-warning mb-3">Your session has expired. Do not refresh the page, you will lose all unsaved changes!</div>
+                        <div class="alert alert-warning mb-3">{{$t('session_expired_warning')}}</div>
 
                         <div v-if="login_error.data" class="alert alert-danger mt-2">{{login_error.data.message}}</div>
 
-                        <v-btn block color="primary" @click="loginRedirect">Login (Opens a new tab)</v-btn>
+                        <v-btn block color="primary" @click="loginRedirect">{{$t('login_opens_new_tab')}}</v-btn>
 
                     </v-card-text>
                 </v-card>

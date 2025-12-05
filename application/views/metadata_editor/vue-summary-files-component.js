@@ -102,7 +102,7 @@ Vue.component('summary-files', {
         },
         fileTypeTitle: function(file){
             if (file.dir_path=='data/tmp' || file.dir_path=='.'){
-                return 'Temporary';
+                return this.$t('temporary');
             }
             return this.$t(file.dir_path);
         },
@@ -130,8 +130,8 @@ Vue.component('summary-files', {
     <div class="project-summary-files-component">
 
         <v-tabs v-model="activeTab">
-                <v-tab>Documentation</v-tab>
-                <v-tab>Files</v-tab>
+                <v-tab>{{$t('Documentation')}}</v-tab>
+                <v-tab>{{$t('files')}}</v-tab>
             </v-tabs>
             <v-tabs-items v-model="activeTab">
                 <v-tab-item>
@@ -140,8 +140,8 @@ Vue.component('summary-files', {
                                 <thead>
                                     <tr>
                                         <th class="text-left"></th>
-                                        <th class="text-left">Title</th>
-                                        <th class="text-left">Type</th>                        
+                                        <th class="text-left">{{$t('title')}}</th>
+                                        <th class="text-left">{{$t('type')}}</th>                        
                                     </tr>
                                 </thead>
                                 <tbody>
@@ -156,7 +156,7 @@ Vue.component('summary-files', {
                         </v-simple-table>
                     <div v-else>
                         <div class="text-muted text-secondary">
-                            None
+                            {{$t('None')}}
                         </div>
                     </div>                
                 </v-tab-item>

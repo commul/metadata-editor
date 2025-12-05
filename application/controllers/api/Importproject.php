@@ -89,7 +89,7 @@ class ImportProject extends MY_REST_Controller
 			
 			try{
 				if ($file_ext=='xml'){
-					if ($options['type']=='survey'){
+					if (in_array($options['type'],array('survey','microdata'))){
 						$result=$this->Editor_model->importDDI($sid, $parseOnly=false,$options);
 					}
 					else if ($options['type']=='geospatial'){
@@ -143,7 +143,11 @@ class ImportProject extends MY_REST_Controller
 			$this->set_response($error_output, REST_Controller::HTTP_BAD_REQUEST);
 		}
 		catch(Exception $e){
-			$this->set_response($e->getMessage(), REST_Controller::HTTP_BAD_REQUEST);
+			$error_output=array(
+				'message'=>'ERROR',
+				'errors'=>$e->getMessage()
+			);
+			$this->set_response($error_output, REST_Controller::HTTP_BAD_REQUEST);
 		}
 	}
 

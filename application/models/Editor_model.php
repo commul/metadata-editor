@@ -22,19 +22,6 @@ class Editor_model extends CI_Model {
 	private $storage_path='datafiles/editor';
 	private $tmp_storage_path='datafiles/editor';
 
-	private $types=array(
-        'survey'=>'microdata',
-        'geospatial'=>'geospatial',
-        'timeseries'=>'timeseries',
-		'timeseries-db'=>'timeseries-db',
-        'document'=>'document',
-        'image'=>'image',
-        'video'=>'video',
-        'table'=>'table',
-        'script'=>'script',
-        'visualization'=>'visualization'
-    );
-
 	private $listing_fields=array(
 		'id',
 		'type',
@@ -229,6 +216,54 @@ class Editor_model extends CI_Model {
 	}
 
 
+	/**
+	 * Get list of table columns that should be excluded from metadata column
+	 * 
+	 * @return array List of field names to exclude
+	 */
+	private function get_metadata_excluded_fields()
+	{
+		return array(
+			'id', 'idno', 'type', 'pid',
+			'title', 'abbreviation', 'authoring_entity', 'nation', 
+			'year_start', 'year_end', 'study_idno',
+			'metafile', 'dirpath', 'thumbnail',
+			'varcount', 'published', 'is_shared', 'is_locked',
+			'created', 'changed', 'created_by', 'changed_by',
+			'template_uid', 'version_number', 'version_created', 
+			'version_created_by', 'version_notes',
+			'attributes', 'metadata', 			
+			'partial_update', 'template_uid' 
+		);
+	}
+
+	/**
+	 * Filter out table-level fields from metadata before encoding
+	 * 
+	 * params:
+	 * - data: array of data
+	 * return:
+	 * - array of filtered data
+	 */
+	private function filter_metadata_fields($data)
+	{
+		if (!is_array($data)) {
+			return $data;
+		}
+		
+		$excluded_fields = $this->get_metadata_excluded_fields();
+		$filtered = array();
+		
+		foreach ($data as $key => $value) {
+			// Skip excluded fields
+			if (!in_array($key, $excluded_fields)) {
+				$filtered[$key] = $value;
+			}
+		}
+		
+		return $filtered;
+	}
+
 	//encode metadata for db storage
     public function encode_metadata($metadata_array)
     {
@@ -262,12 +297,6 @@ class Editor_model extends CI_Model {
 			$survey['metadata']=array(
 				'type'=>$survey['type']			
 			);
-		}
-
-		if (isset($survey['metadata'])){
-			if (isset($survey['idno'])){			
-				$survey['metadata']['idno']=$survey['idno'];
-			}			
 		}
 
 		if (isset($survey['attributes']) && !empty($survey['attributes'])){
@@ -334,7 +363,8 @@ class Editor_model extends CI_Model {
 	 */
 	function create_project($type,$options=array())
 	{
-		if (!array_key_exists($type,$this->types)){
+		$type = $this->resolve_canonical_type($type);
+		if ($type===false){
 			throw new Exception("INVALID_TYPE: ".$type);
 		}
 
@@ -348,7 +378,9 @@ class Editor_model extends CI_Model {
 			$options['metadata']=$this->encode_metadata(array('type'=>$type));
 		}
 		else{
-			$options['metadata']=$this->encode_metadata($options['metadata']);
+			// Filter out table-level fields from metadata before encoding
+			$metadata_only = $this->filter_metadata_fields($options['metadata']);
+			$options['metadata']=$this->encode_metadata($metadata_only);
 		}
 
 		$this->db->insert('editor_projects',$options);
@@ -423,7 +455,8 @@ class Editor_model extends CI_Model {
 
 	function update_project($type,$id,$options=array(),$validate=false)
 	{
-		if (!array_key_exists($type,$this->types)){
+		$type = $this->resolve_canonical_type($type);
+		if ($type===false){
 			throw new Exception("INVALID_TYPE: ".$type);
 		}
 
@@ -452,25 +485,33 @@ class Editor_model extends CI_Model {
 			unset($options['partial_update']);
 		}
 
-		$options=array(
+		// Store original options for idno check
+		$original_options = $options;
+
+		$db_options=array(
 			'changed'=>isset($options['changed']) ? $options['changed'] : date("U"),
 			'changed_by'=>isset($options['changed_by']) ? $options['changed_by'] : '',			
 			'study_idno'=>$this->get_project_metadata_field($type,'idno',$options),
 			'title'=>$this->get_project_metadata_field($type,'title',$options),
-			'nation'=>$this->metadata_helper->extract_country_names_str($type,$options),
-			'year_start'=>$this->metadata_helper->extract_year_start($type,$options),
-			'year_end'=>$this->metadata_helper->extract_year_end($type,$options),
-			'metadata'=>$this->encode_metadata($options),
-			'attributes'=>$this->metadata_helper->extract_attributes($type,$options, $encode_json=true),
+			'nation'=>$this->get_project_metadata_field($type,'country',$options),
+			'year_start'=>$this->get_project_metadata_field($type,'year_start',$options),
+			'year_end'=>$this->get_project_metadata_field($type,'year_end',$options),
+			'attributes'=>$this->get_project_metadata_field($type,'attributes',$options),
 		);
+
+		// Filter out table-level fields from metadata before encoding
+		$metadata_only = $this->filter_metadata_fields($options);
+		$db_options['metadata'] = $this->encode_metadata($metadata_only);
+
+		$options = $db_options;
 
 		if ($template_uid){
 			$options['template_uid']=$template_uid;
 		}
 
-		//idno
-		if (isset($options['idno']) && !$this->idno_exists($options['idno'])){
-			$options['idno']=$options['idno'];
+		//idno - check if it was in the original options (before filtering)
+		if (isset($original_options['idno']) && !$this->idno_exists($original_options['idno'], $id)){
+			$options['idno']=$original_options['idno'];
 		}
 
 		$this->db->where('id',$id);
@@ -543,7 +584,8 @@ class Editor_model extends CI_Model {
 
 	function patch_project($type,$id,$options=array(), $validate=true)
 	{
-		if (!array_key_exists($type,$this->types)){
+		$type = $this->resolve_canonical_type($type);
+		if ($type===false){
 			throw new Exception("INVALID_TYPE: ".$type);
 		}
 
@@ -578,12 +620,15 @@ class Editor_model extends CI_Model {
 			$this->validate_schema($type,$metadata);
 		}
 		
+		// Filter out table-level fields from metadata before encoding
+		$metadata_only = $this->filter_metadata_fields($metadata);
+		
 		$db_options=array(
 			'changed'=>isset($options['changed']) ? $options['changed'] : date("U"),
 			'changed_by'=>isset($options['changed_by']) ? $options['changed_by'] : '',			
 			'study_idno'=>$this->get_project_metadata_field($type,'idno',$metadata),
 			'title'=>$this->get_project_metadata_field($type,'title',$metadata),
-			'metadata'=>$this->encode_metadata($metadata)
+			'metadata'=>$this->encode_metadata($metadata_only)
 		);
 
 		$this->db->where('id',$id);
@@ -598,6 +643,11 @@ class Editor_model extends CI_Model {
 
 		if (!$template_data_type){
 			throw new Exception("TEMPLATE_NOT_FOUND: ".$template_uid);
+		}
+
+		$type = $this->resolve_canonical_type($type);
+		if ($type===false){
+			throw new Exception("INVALID_TYPE: ".$type);
 		}
 
 		if ($template_data_type!=$type){
@@ -645,10 +695,19 @@ class Editor_model extends CI_Model {
 
 	function validate_schema($type,$data)
 	{
-		$schema_file="application/schemas/$type-schema.json";
-
-		if(!file_exists($schema_file)){
-			throw new Exception("INVALID-DATASET-TYPE-NO-SCHEMA-DEFINED");
+		$resolved_type = $this->resolve_canonical_type($type);
+		$schema_type = ($resolved_type !== false) ? $resolved_type : $type;
+		
+		// Get schema file path using schema registry (handles aliases and custom schemas)
+		try {
+			$this->load->model('Metadata_schemas_model');
+			$schema_file = $this->Metadata_schemas_model->get_schema_file_path($schema_type);
+		} catch (Exception $e) {
+			// For non-project types like "variable", fallback to hard-coded path
+			$schema_file = "application/schemas/$schema_type-schema.json";
+			if(!file_exists($schema_file)){
+				throw new Exception("INVALID-DATASET-TYPE-NO-SCHEMA-DEFINED: " . $e->getMessage());
+			}
 		}
 
 		// Validate
@@ -666,73 +725,443 @@ class Editor_model extends CI_Model {
 			/*foreach ($validator->getErrors() as $error) {
 				echo sprintf("[%s] %s\n", $error['property'], $error['message']);
 			}*/
-
-//			var_dump($validator->getErrors());
-
-			throw new ValidationException("SCHEMA_VALIDATION_FAILED [{$type}]: ", $validator->getErrors());
+			throw new ValidationException("SCHEMA_VALIDATION_FAILED [{$schema_type}]: ", $validator->getErrors());
 		}
 	}
 
 
 	function get_project_metadata_field($type,$field,$data)
 	{
-		//set image core title field - DCMI or IPTC
-		if ($type=='image'){
-			if (isset($data['image_description']['dcmi']['title'])){
-				$image_title_field='image_description.dcmi.title';
+		$type = $this->resolve_canonical_type($type) ?: $type;
+		
+		// Handle special fields that require custom extraction logic
+		if ($field === 'country' || $field === 'nation') {
+			return $this->extract_country_field($type, $data);
+		}
+		
+		if ($field === 'year_start') {
+			return $this->extract_year_start_field($type, $data);
+		}
+		
+		if ($field === 'year_end') {
+			return $this->extract_year_end_field($type, $data);
+		}
+		
+		if ($field === 'attributes') {
+			return $this->extract_attributes_field($type, $data);
+		}
+		
+		// For simple fields (idno, title), use standard extraction
+		// Try to get core field mappings from schema registry first
+		$schema_field_paths = $this->get_schema_core_field_paths($type, $field);
+		
+		// Fallback to hard-coded mappings if schema doesn't have mappings (core schemas only)
+		if ($schema_field_paths === false || empty($schema_field_paths)) {
+			//set image core title field - DCMI or IPTC
+			if ($type=='image'){
+				if (isset($data['image_description']['dcmi']['title'])){
+					$image_title_field='image_description.dcmi.title';
+				}else{
+					$image_title_field='image_description.iptc.photoVideoMetadataIPTC.title';
+				}
 			}else{
 				$image_title_field='image_description.iptc.photoVideoMetadataIPTC.title';
 			}
-		}else{
-			$image_title_field='image_description.iptc.photoVideoMetadataIPTC.title';
+
+			$core_fields=array(
+				'survey'=>array(
+					'idno'=>'study_desc.title_statement.idno',
+					'title'=>'study_desc.title_statement.title'				
+				),
+				'custom'=>array(
+					'metadata_type'=>'description.identification.metadata_type',
+					'idno'=>'description.identification.idno',
+					'title'=>'description.identification.title'
+				),
+				'document'=>array(
+					'idno'=>'document_description.title_statement.idno',
+					'title'=>'document_description.title_statement.title'
+				),
+				'table'=>array(
+					'idno'=>'table_description.title_statement.idno',
+					'title'=>'table_description.title_statement.title'
+				),
+				'script'=>array(
+					'idno'=>'project_desc.title_statement.idno',
+					'title'=>'project_desc.title_statement.title'
+				),
+				'video'=>array(
+					'idno'=>'video_description.idno',
+					'title'=>'video_description.title'
+				),
+				'timeseries'=>array(
+					'idno'=>'series_description.idno',
+					'title'=>'series_description.name',
+				),
+				'timeseries-db'=>array(
+					'idno'=>'database_description.title_statement.idno',
+					'title'=>'database_description.title_statement.title'
+				),
+				'geospatial'=>array(
+					'idno'=>'description.idno',
+					'title'=>'description.identificationInfo.citation.title'
+				),
+				'image'=>array(
+					'idno'=>'image_description.idno',
+					'title'=>$image_title_field
+				),
+			);
+
+			if(!array_key_exists($type,$core_fields)){
+				return false;
+			}
+
+			if (!isset($core_fields[$type][$field])) {
+				return false;
+			}
+
+			$field_path=$core_fields[$type][$field];
+			$schema_field_paths = $field_path;
 		}
 
-		$core_fields=array(
-			'survey'=>array(
-				'idno'=>'study_desc.title_statement.idno',
-				'title'=>'study_desc.title_statement.title'				
-			),
-			'document'=>array(
-				'idno'=>'document_description.title_statement.idno',
-				'title'=>'document_description.title_statement.title'
-			),
-			'table'=>array(
-				'idno'=>'table_description.title_statement.idno',
-				'title'=>'table_description.title_statement.title'
-			),
-			'script'=>array(
-				'idno'=>'project_desc.title_statement.idno',
-				'title'=>'project_desc.title_statement.title'
-			),
-			'video'=>array(
-				'idno'=>'video_description.idno',
-				'title'=>'video_description.title'
-			),
-			'timeseries'=>array(
-				'idno'=>'series_description.idno',
-				'title'=>'series_description.name',
-			),
-			'timeseries-db'=>array(
-				'idno'=>'database_description.title_statement.idno',
-				'title'=>'database_description.title_statement.title'
-			),
-			'geospatial'=>array(
-				'idno'=>'description.idno',
-				'title'=>'description.identificationInfo.citation.title'
-			),
-			'image'=>array(
-				'idno'=>'image_description.idno',
-				'title'=>$image_title_field
-			),
-		);
+		// Normalize to array
+		if (!is_array($schema_field_paths)) {
+			$schema_field_paths = array($schema_field_paths);
+		}
 
+		// Return first non-empty value
+		foreach ($schema_field_paths as $path) {
+			// Convert JSON Pointer format (/path/to/field) to dot notation (path.to.field)
+			// for array_data_get which expects dot notation
+			if (is_string($path) && strpos($path, '/') === 0) {
+				// Remove leading slash and convert slashes to dots
+				$path = ltrim($path, '/');
+				$path = str_replace('/', '.', $path);
+			}
+			
+			$value = array_data_get($data, $path);
+			if ($value !== null && $value !== '' && $value !== false) {
+				return $value;
+			}
+		}
 
-		if(!array_key_exists($type,$core_fields)){
+		return false;
+	}
+	
+	/**
+	 * Extract country/nation field from metadata
+	 * Handles both schema mappings and hardcoded fallbacks
+	 */
+	private function extract_country_field($type, $data)
+	{
+		// Try to get country mappings from schema registry first
+		$schema_field_paths = $this->get_schema_core_field_paths($type, 'country');
+		
+		// Fallback to hard-coded mappings for core schemas
+		if ($schema_field_paths === false || empty($schema_field_paths)) {
+			// For core schemas, use the existing Metadata_helper method
+			return $this->metadata_helper->extract_country_names_str($type, $data);
+		}
+		
+		// Normalize to array
+		if (!is_array($schema_field_paths)) {
+			$schema_field_paths = array($schema_field_paths);
+		}
+		
+		// Try each mapped path
+		foreach ($schema_field_paths as $path) {
+			// Convert JSON Pointer format to dot notation
+			if (is_string($path) && strpos($path, '/') === 0) {
+				$path = ltrim($path, '/');
+				$path = str_replace('/', '.', $path);
+			}
+			
+			$value = array_data_get($data, $path);
+			
+			if ($value !== null && $value !== '') {
+				// Handle array of country objects (like survey schema)
+				if (is_array($value)) {
+					$country_names = array();
+					foreach ($value as $item) {
+						if (is_array($item) && isset($item['name'])) {
+							$country_names[] = $item['name'];
+						} elseif (is_string($item)) {
+							$country_names[] = $item;
+						}
+					}
+					if (!empty($country_names)) {
+						return $this->metadata_helper->get_array_to_string($country_names, 3);
+					}
+				} elseif (is_string($value)) {
+					return $value;
+				}
+			}
+		}
+		
+		return false;
+	}
+	
+	/**
+	 * Extract year_start field from metadata
+	 * Handles both schema mappings and hardcoded fallbacks
+	 */
+	private function extract_year_start_field($type, $data)
+	{
+		// Try to get year_start mappings from schema registry first
+		$schema_field_paths = $this->get_schema_core_field_paths($type, 'year_start');
+		
+		// Fallback to hard-coded mappings for core schemas
+		if ($schema_field_paths === false || empty($schema_field_paths)) {
+			// For core schemas, use the existing Metadata_helper method
+			return $this->metadata_helper->extract_year_start($type, $data);
+		}
+		
+		// Normalize to array
+		if (!is_array($schema_field_paths)) {
+			$schema_field_paths = array($schema_field_paths);
+		}
+		
+		$years = array();
+		
+		// Try each mapped path
+		foreach ($schema_field_paths as $path) {
+			// Convert JSON Pointer format to dot notation
+			if (is_string($path) && strpos($path, '/') === 0) {
+				$path = ltrim($path, '/');
+				$path = str_replace('/', '.', $path);
+			}
+			
+			$value = array_data_get($data, $path);
+			
+			if ($value !== null && $value !== '') {
+				// Handle array of date objects
+				if (is_array($value)) {
+					foreach ($value as $item) {
+						if (is_array($item) && isset($item['start'])) {
+							$year = substr(trim($item['start']), 0, 4);
+							if ((int)$year > 0) {
+								$years[] = (int)$year;
+							}
+						}
+					}
+				} elseif (is_string($value) || is_numeric($value)) {
+					// Extract year from date string or number
+					$year = substr(trim((string)$value), 0, 4);
+					if ((int)$year > 0) {
+						$years[] = (int)$year;
+					}
+				}
+			}
+		}
+		
+		if (!empty($years)) {
+			return min($years);
+		}
+		
+		return false;
+	}
+	
+	/**
+	 * Extract year_end field from metadata
+	 * Handles both schema mappings and hardcoded fallbacks
+	 */
+	private function extract_year_end_field($type, $data)
+	{
+		// Try to get year_end mappings from schema registry first
+		$schema_field_paths = $this->get_schema_core_field_paths($type, 'year_end');
+		
+		// Fallback to hard-coded mappings for core schemas
+		if ($schema_field_paths === false || empty($schema_field_paths)) {
+			// For core schemas, use the existing Metadata_helper method
+			return $this->metadata_helper->extract_year_end($type, $data);
+		}
+		
+		// Normalize to array
+		if (!is_array($schema_field_paths)) {
+			$schema_field_paths = array($schema_field_paths);
+		}
+		
+		$years = array();
+		
+		// Try each mapped path
+		foreach ($schema_field_paths as $path) {
+			// Convert JSON Pointer format to dot notation
+			if (is_string($path) && strpos($path, '/') === 0) {
+				$path = ltrim($path, '/');
+				$path = str_replace('/', '.', $path);
+			}
+			
+			$value = array_data_get($data, $path);
+			
+			if ($value !== null && $value !== '') {
+				// Handle array of date objects
+				if (is_array($value)) {
+					foreach ($value as $item) {
+						if (is_array($item)) {
+							// Check for 'end' field first, then 'start' as fallback
+							$date_str = isset($item['end']) ? $item['end'] : (isset($item['start']) ? $item['start'] : null);
+							if ($date_str) {
+								$year = substr(trim($date_str), 0, 4);
+								if ((int)$year > 0) {
+									$years[] = (int)$year;
+								}
+							}
+						}
+					}
+				} elseif (is_string($value) || is_numeric($value)) {
+					// Extract year from date string or number
+					$year = substr(trim((string)$value), 0, 4);
+					if ((int)$year > 0) {
+						$years[] = (int)$year;
+					}
+				}
+			}
+		}
+		
+		if (!empty($years)) {
+			return max($years);
+		}
+		
+		return false;
+	}
+	
+	/**
+	 * Extract attributes field from metadata
+	 * Handles both schema mappings and hardcoded fallbacks
+	 */
+	private function extract_attributes_field($type, $data)
+	{
+		// Try to get attributes mappings from schema registry first
+		$schema_field_paths = $this->get_schema_core_field_paths($type, 'attributes');
+		
+		// Fallback to hard-coded mappings for core schemas
+		if ($schema_field_paths === false || empty($schema_field_paths)) {
+			// For core schemas, use the existing Metadata_helper method
+			return $this->metadata_helper->extract_attributes($type, $data, $encode_json = true);
+		}
+		
+		// Attributes mapping is an object with key/value pairs
+		// Each key is an attribute name, each value is a field path
+		if (!is_array($schema_field_paths) || empty($schema_field_paths)) {
+			return false;
+		}
+		
+		$attributes = array();
+		
+		// Process each attribute mapping
+		foreach ($schema_field_paths as $attr_key => $attr_path) {
+			if (is_string($attr_path) && $attr_path !== '') {
+				// Convert JSON Pointer format to dot notation
+				$path = $attr_path;
+				if (strpos($path, '/') === 0) {
+					$path = ltrim($path, '/');
+					$path = str_replace('/', '.', $path);
+				}
+				
+				$value = array_data_get($data, $path);
+				if ($value !== null && $value !== '') {
+					$attributes[$attr_key] = $value;
+				}
+			}
+		}
+		
+		if (!empty($attributes)) {
+			return json_encode($attributes);
+		}
+		
+		return false;
+	}
+
+	/**
+	 * Get core field paths from schema registry
+	 * Returns array of paths, single path string, object (for attributes), or false if not found
+	 */
+	private function get_schema_core_field_paths($type, $field)
+	{
+		try {
+			$this->load->model('Metadata_schemas_model');
+			$schema = $this->Metadata_schemas_model->get_by_uid($type);
+			
+			if (!$schema || !isset($schema['metadata_options']['core_fields'])) {
+				return false;
+			}
+
+			$core_fields = $schema['metadata_options']['core_fields'];
+			
+			if (!isset($core_fields[$field])) {
+				return false;
+			}
+
+			$field_path = $core_fields[$field];
+			
+			// For attributes, return the object as-is (key/value pairs)
+			if ($field === 'attributes') {
+				if (is_array($field_path) && !isset($field_path[0])) {
+					// It's an associative array (object), return as-is
+					return $field_path;
+				}
+				return false;
+			}
+			
+			// For other fields, handle arrays and strings
+			// If it's already an array, return as-is
+			if (is_array($field_path)) {
+				return $field_path;
+			}
+			
+			// If it's a non-empty string, return as single-element array
+			if (is_string($field_path) && $field_path !== '') {
+				return array($field_path);
+			}
+			
+			return false;
+		} catch (Exception $e) {
+			// If schema registry fails, return false to fall back to hard-coded mappings
+			return false;
+		}
+	}
+
+	/**
+	 * Resolve a provided type or alias to a canonical schema uid if available.
+	 * Falls back to legacy known types.
+	 * Returns canonical uid string, or false if not found.
+	 */
+	private function resolve_canonical_type($type)
+	{
+		if (!$type){
 			return false;
 		}
 
-		$field_path=$core_fields[$type][$field];
-		return array_data_get($data, $field_path); 
+		// Look up via schema registry metadata table (supports alias)
+		try{
+			$this->load->model('Metadata_schemas_model');
+			
+			// First try to get by UID
+			$row = $this->Metadata_schemas_model->get_by_uid($type);
+			if ($row && isset($row['uid']) && $row['uid']){
+				return $row['uid'];
+			}
+			
+			// If not found by UID, try to find by alias
+			// Get all schemas and check aliases
+			$this->load->library('Schema_registry');
+			$schemas = $this->schema_registry->list_schemas(array());
+			
+			foreach ($schemas as $schema) {
+				// Check if type matches the schema UID
+				if (isset($schema['uid']) && $schema['uid'] === $type) {
+					return $schema['uid'];
+				}
+				// Check if type matches an alias
+				if (isset($schema['alias']) && !empty($schema['alias']) && $schema['alias'] === $type) {
+					return $schema['uid']; // Return the canonical UID
+				}
+			}
+		}catch(Exception $e){
+			// ignore and fall through
+		}
+
+		return false;
 	}
 
 
@@ -1203,7 +1632,7 @@ class Editor_model extends CI_Model {
 		$this->load->library("Editor_DDI_Writer");
         $project=$this->get_row($sid);
 
-        if($project['type']!='survey'){
+        if($project['type']!='survey' && $project['type']!='microdata'){
             throw new Exception("DDI is only available for Survey/MICRODATA types");
         }
 

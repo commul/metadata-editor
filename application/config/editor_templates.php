@@ -15,14 +15,14 @@
 |
 */
 
-$config['survey'][]=array(
+$config['microdata'][]=array(
         'template' => 'metadata_editor/metadata_editor_templates/survey_form_template.json',
         'lang'=>'en',        
         'uid'=>'microdata-system-en',
         'name'=>'Microdata DDI 2.5 EN'
 );
 
-$config['survey'][]=array(
+$config['microdata'][]=array(
     'template' => 'metadata_editor/metadata_editor_templates/survey_template_ihsn_2.5_v1_fr.json',
     'lang'=>'fr',
     'uid'=>'232ea3aaece0cdf1db157f797f6b92e5fr',
@@ -34,7 +34,7 @@ $config['survey'][]=array(
     "created"=>"1687445920"
 );
 
-$config['survey'][]=array(
+$config['microdata'][]=array(
     'template' => 'metadata_editor/metadata_editor_templates/survey_template_es.json',
     'lang'=>'es',
     'uid'=>'microdata-system-es',
@@ -47,10 +47,10 @@ $config['survey'][]=array(
 );
 
 
-$config['survey'][]=array(
+$config['microdata'][]=array(
     'template' => 'metadata_editor/metadata_editor_templates/survey_template_ihsn_2.5_v1.json',
     "uid"=> "6740f5f920502baf3f6cbcaa5c113deeen",
-    "data_type"=> "survey",
+    "data_type"=> "microdata",
     "lang"=> "en",
     "name"=> "IHSN DDI 2.5 Template v01 EN",
     "version"=> "1.0",
@@ -60,8 +60,21 @@ $config['survey'][]=array(
     "created"=>"1687445920"
 );
 
+$config['microdata'][]=array(
+    'template' => 'metadata_editor/metadata_editor_templates/microdata_template_uzbek.json',
+    "uid"=> "6740f5f920502baf3f6cbcaa5c113uzbek",
+    "data_type"=> "microdata",
+    "lang"=> "uz",
+    "name"=> "DDI 2.5 Template v01 UZ",
+    "version"=> "1.0",
+    "organization"=> "",
+    "author"=> "",
+    "description"=> "A DDI 2.5 (DDI Codebook) template recommended by the International Household Survey Network (IHSN) for the documentation of survey and census datasets.",
+    "created"=>"1687445920"
+);
 
-$config['timeseries'][]=array(
+
+$config['indicator'][]=array(
     'template' => 'metadata_editor/metadata_editor_templates/timeseries_form_template.json',
     'lang'=>'en',
     'uid'=>'timeseries-system-en',
@@ -70,11 +83,11 @@ $config['timeseries'][]=array(
     'description'=>'This template contains all elements available in the metadata schema developed by the IHSN for the documentation of indicators and time series of indicators. It can be used as basis for the production of user templates consisting of a subset of the available elements, with customized labels, instructions, ordering and grouping of metadata elements, controlled vocabularies, validation rules, and default values.'
 ); 
 
-$config['timeseries'][]=array(
+$config['indicator'][]=array(
     'template' => 'metadata_editor/metadata_editor_templates/timeseries_template_ihsn.json',    
-    "data_type"=> "timeseries",
+    "data_type"=> "indicator",
     "uid"=> "8603d94e27bccc2bdad1e00dbbf0fe32en",
-    "data_type"=> "timeseries",
+    "data_type"=> "indicator",
     "lang"=> "en",
     "name"=> "IHSN INDICATOR 1.0 Template v01 EN",
     "version"=> "1.0",
@@ -84,10 +97,10 @@ $config['timeseries'][]=array(
 ); 
 
 
-$config['timeseries'][]=array(
+$config['indicator'][]=array(
     'template' => 'metadata_editor/metadata_editor_templates/timeseries_template_ihsn_fr.json',    
     "uid"=> "b576eb7519fe8e761a239f9d36f032c3fr",
-    "data_type"=> "timeseries",
+    "data_type"=> "indicator",
     "lang"=> "fr",
     "name"=> "IHSN INDICATOR 1.0 Modèle v01 FR",
     "version"=> "1.0",
@@ -98,7 +111,7 @@ $config['timeseries'][]=array(
 
 
 
-$config['timeseries-db'][]=array(
+$config['indicator-db'][]=array(
     'template' => 'metadata_editor/metadata_editor_templates/timeseries-db_form_template.json',
     'lang'=>'en',
     'uid'=>'timeseries-db-system-en',
@@ -106,10 +119,10 @@ $config['timeseries-db'][]=array(
 ); 
 
 
-$config['timeseries-db'][]=array(
+$config['indicator-db'][]=array(
     'template' => 'metadata_editor/metadata_editor_templates/timeseries-db_template_ihsn_fr.json',
     "uid"=> "776d77524fe8130f520035fb9b077d82",
-    "data_type"=> "timeseries-db",
+    "data_type"=> "indicator-db",
     "lang"=> "fr",
     "name"=> "IHSN BASE DE DONNEES 1.0 Modèle v01 FR",
     "version"=> "1.0",
@@ -119,10 +132,10 @@ $config['timeseries-db'][]=array(
 ); 
 
 
-$config['timeseries-db'][]=array(
+$config['indicator-db'][]=array(
     'template' => 'metadata_editor/metadata_editor_templates/timeseries-db_template_ihsn.json',
     "uid"=> "f3e2d1c8c494be27bc229463a265a33d",
-    "data_type"=> "timeseries-db",
+    "data_type"=> "indicator-db",
     "lang"=> "en",
     "name"=> "IHSN DATABASE 1.0 Template v01 EN",
     "version"=> "1.0",
@@ -130,8 +143,6 @@ $config['timeseries-db'][]=array(
     "author"=> "MA OD",
     "description"=> "This template contains all elements of the metadata schema developed by the IHSN for the documentation of databases of indicators and time series. It can be used as basis for the production of user templates where agency-specific controlled vocabularies, validation rules, default values can be applied to a selected subset of the available metadata elements.\nThis schema is used to complement the \"Indicator\" metadata schema. It is used to provide information on the database that serves as \"container\" for the indicators.",
 ); 
-
-
 
 $config['script'][]=array(
     'template' => 'metadata_editor/metadata_editor_templates/script_form_template.json',
@@ -426,5 +437,13 @@ $config['admin_meta'][]=array(
     "organization"=> "",
     "author"=> "",
     "description"=> "Base template for the documentation of administrative metadata.",
+); 
+
+$config['custom'][]=array(
+    'template' => 'metadata_editor/metadata_editor_templates/custom_form_template.json',
+    'lang'=>'en',
+    'uid'=>'custom-system-en',
+    'name'=>'Custom schema template',
+    'description'=>'Flexible starter template for documenting resources that do not match existing schema types.'
 ); 
 

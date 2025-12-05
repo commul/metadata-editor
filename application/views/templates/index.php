@@ -34,6 +34,30 @@
   .navigation-tabs .v-tabs-bar{
     background-color: transparent!important;    
   }
+
+.schema-icon-avatar {
+  width: 20px;
+  height: 20px;
+  border-radius: 8px;
+  background-color: transparent;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+}
+
+.schema-icon-avatar img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+
+.schema-icon-placeholder {
+  font-weight: 600;
+  color: #5c6bc0;
+  font-size: 14px;
+  text-transform: uppercase;
+}
 </style>
 
 <body class="layout-top-nav">
@@ -92,12 +116,18 @@
                                         <v-list-item-title>{{$t('All')}}</v-list-item-title>
                                     </v-list-item-content>
                                 </v-list-item>
-                                <v-list-item v-for="(item, i) in sidebar_data_types" :key="i" :class="{'v-list-item-active' : sidebar_selected === item.to}" @click="sidebar_selected=item.data_type">
-                                    <v-list-item-icon>                                        
-                                        <v-icon>{{getProjectIcon(item.data_type)}}</v-icon>
-                                    </v-list-item-icon>
+                                <v-list-item
+                                    v-for="schema in sidebar_data_types"
+                                    :key="schema.uid"
+                                    :class="{'v-list-item-active' : sidebar_selected === schema.uid}"
+                                    @click="sidebar_selected = schema.uid"
+                                >
+                                    <div class="schema-icon-avatar mr-3">
+                                        <img v-if="getSchemaIconSrc(schema)" :src="getSchemaIconSrc(schema)" :alt="schema.label">
+                                        <span v-else class="schema-icon-placeholder">{{ getSchemaInitial(schema) }}</span>
+                                    </div>
                                     <v-list-item-content>
-                                        <v-list-item-title v-text="item.title"></v-list-item-title>
+                                        <v-list-item-title>{{ schema.label }}</v-list-item-title>
                                     </v-list-item-content>
                                 </v-list-item>
                             </v-list-item-group>
@@ -116,6 +146,7 @@
                         <v-tab @click="pageLink('projects')"><v-icon>mdi-text-box</v-icon> <a :href="site_base_url + '/editor'">{{$t("projects")}}</a></v-tab>
                         <v-tab @click="pageLink('collections')" active><v-icon>mdi-folder-text</v-icon> <a :href="site_base_url + '/collections'">{{$t("collections")}}</a> </v-tab>                        
                         <v-tab @click="pageLink('templates')"><v-icon>mdi-alpha-t-box</v-icon> <a :href="site_base_url + '/templates'">{{$t("templates")}}</a></v-tab>                        
+                        <v-tab @click="pageLink('schemas')"><v-icon>mdi-file-tree</v-icon> <a :href="site_base_url + '/schemas'">{{$t("schemas")}}</a></v-tab>
                     </v-tabs>
 
                   <div class="d-flex">
@@ -134,8 +165,12 @@
                 <div>
                   <div v-if="!templates"> {{$t('no_templates_found')}}</div>
 
-                  <div v-for="(data_type_label,data_type) in data_types" class="mb-5" v-if="sidebar_selected==data_type || sidebar_selected==''">
-                    
+                  <div
+                    v-for="schema in schemaGroups"
+                    :key="schema.uid"
+                    class="mb-5"
+                    v-if="sidebar_selected === '' || sidebar_selected === schema.uid"
+                  >
                     <v-data-table                      
                       :headers="[
                         { text: $t('type'), value: 'template_type' },
@@ -146,24 +181,32 @@
                          { text: $t('owner'), value: 'owner_username' },
                         { text: $t('changed_by'), value: 'changed_by_username' },
                         { text: $t('changed_at'), value: 'changed' },
-                        { text: '', value: 'actions' }
+                        { text: '', value: 'actions', sortable: false }
                       ]"
-                      :items="getTemplatesByType(data_type)"
-                      class="elevation-1 pt-3"
+                      :items="getTemplatesForSchema(schema)"
+                      class="elevation-7 mb-5 pt-3"
                       :disable-pagination="true"
                       :items-per-page="100"
                       :hide-default-footer="true"
-                      class="elevation-7 mb-5"
                     >
-                      
+                      <template v-slot:item.template_type="{ item }">
+                        <span>{{ templateTypeLabel(item) }}</span>
+                      </template>
                       <template v-slot:top>
                             <div class="d-flex pl-6 pb-4 align-center">                                
-                                <div class="v-data-table--title font-weight-bold" >
-                                  <v-icon style="font-size:24px;">{{getProjectIcon(data_type)}}</v-icon>
-                                  &nbsp;{{data_type_label}}</div>
+                          <div class="schema-icon-avatar mr-3">
+                            <img v-if="getSchemaIconSrc(schema)" :src="getSchemaIconSrc(schema)" :alt="schema.label">
+                            <span class="schema-icon-placeholder" v-else>{{ getSchemaInitial(schema) }}</span>
+                          </div>
+                          <div class="v-data-table--title font-weight-bold">
+                            {{ schema.label }}
+                          </div>
                             </div>
                         </template>                                                   
                       
+                      <template v-slot:item.template_type="{ item }">
+                        <span>{{ templateTypeLabel(item) }}</span>
+                      </template>
                       <template v-slot:item.default="{ item }">
                         <span class="btn btn-sm btn-link" @click="setDefaultTemplate(item.data_type,item.uid)">
                           <v-icon v-if="item.default">mdi-radiobox-marked</v-icon>
@@ -171,7 +214,7 @@
                         </span>                        
                       </template>
                       <template v-slot:item.actions="{ item }">
-                        <v-icon @click="showMenu($event, item.uid, item.template_type=='core', item.data_type)">mdi-dots-vertical</v-icon>
+                        <v-icon @click="showMenu($event, item.uid, isReadOnlyTemplate(item), item.data_type)">mdi-dots-vertical</v-icon>
                       </template>
                       <template v-slot:item.changed="{ item }">
                         <span  v-if="item.changed">{{momentDate(item.changed)}}</span>
@@ -183,15 +226,13 @@
                         <span :title="item.changed_by_email" v-if="item.changed_by_username">{{item.changed_by_username}}</span>
                       </template>
                       <template v-slot:item.name="{ item }">
-                        <div v-if="item.template_type=='core'">
+                        <div v-if="isReadOnlyTemplate(item)">
                           <span :title="'UID: ' + item.uid" href="#">{{item.name}}</span>                          
                         </div>
                         <div v-else>
                           <a :title="'UID: ' + item.uid"  target="_blank" :href="getTemplateEditLink(item)" @xclick="editTemplate(item.uid)">{{item.name}}</a>
                         </div>
                       </template>
-                      
-
                     </v-data-table>
 
                   </div>
@@ -407,8 +448,7 @@
       router: router,
       data: {
         site_base_url: CI.site_url,
-        templates: [],
-        data_types: {},
+        templates: { core: [], custom: [] },
         is_loading: false,
         loading_status: null,
         form_errors: [],
@@ -420,19 +460,6 @@
         dialog_template_revision:false,
         dialog_uuid_template:false,
         search_keywords: '',
-        project_types_icons: {
-          "document": "mdi-file-document",
-          "survey": "mdi-database", 
-          "geospatial": "mdi-earth",
-          "table": "mdi-table",
-          "timeseries": "mdi-chart-line",
-          "timeseries-db": "mdi-resistor-nodes",
-          "image": "mdi-file-image",
-          "video": "mdi-video",
-          "script": "mdi-file-code",
-          "resource": "mdi-file-link-outline",
-          "admin_meta": "mdi-file-outline"
-        },
         dialog_import_template: false,
         template_import_errors:[],
         dialog_import: {},
@@ -447,16 +474,21 @@
         nav_tabs_active:2,
         nav_tabs_model:2,
         sidebar_data_types: [],
-        sidebar_selected: ''
+        sidebar_selected: '',
+        schemas: [],
+        schemaFilters: [],
+        schemaGroups: [],
+        schemasByUid: {},
+        schemasByAlias: {},
+        schemasLoading: false
       },
       created: async function() {
         //await this.$store.dispatch('initData',{dataset_idno:this.dataset_idno});
         //this.init_tree_data();
       },
-      mounted: function() {
-        this.init_data_types();
-        this.loadTemplates();
-        this.loadDataTypes();
+      mounted: async function() {
+        await this.loadSchemaMeta();
+        await this.loadTemplates();
       },
       computed: {
         Title() {
@@ -468,54 +500,149 @@
       },
       watch: {},
       methods: {
-        init_data_types(){
-          
-          this.sidebar_data_types=[
-          {
-            title: this.$t('microdata'),
-            data_type: 'survey'
-          },
-          {
-            title: this.$t('timeseries'),
-            data_type: 'timeseries'
-          },
-          {
-            title: this.$t('timeseries-db'),
-            data_type: 'timeseries-db'
-          },
-          {
-            title: this.$t('script'),
-            data_type: 'script'
-          },
-          {
-            title: this.$t('geospatial'),
-            data_type: 'geospatial'
-          },
-          {
-            title: this.$t('document'),
-            data_type: 'document'
-          },
-          {
-            title: this.$t('table'),
-            data_type: 'table'
-          },
-          {
-            title: this.$t('image'),
-            data_type: 'image'
-          },
-          {
-            title: this.$t('video'),
-            data_type: 'video'
-          },
-          {
-            title: this.$t('external-resource'),
-            data_type: 'resource'
-          },
-          {
-            title: this.$t('administrative_metadata'),
-            data_type: 'admin_meta'
+        async loadSchemaMeta(){
+          this.schemasLoading = true;
+          try{
+            const response = await axios.get(CI.site_url + '/api/schemas', {
+              params: { include_core: true }
+            });
+            const schemas = response.data && Array.isArray(response.data.schemas)
+              ? response.data.schemas
+              : [];
+            this.schemas = schemas;
+            this.buildSchemaFilters();
+          }catch(error){
+            console.error('Failed to load schemas', error);
+            this.schemas = [];
+            this.schemaFilters = [];
+          }finally{
+            this.schemasLoading = false;
+            this.updateSchemaGroups();
           }
-        ]
+        },
+        buildSchemaFilters(){
+          const filters = [];
+          const byUid = {};
+          const byAlias = {};
+
+          (this.schemas || []).forEach(schema => {
+            if (!schema){
+              return;
+            }
+            const label = schema.display_name || schema.title || schema.uid || this.$t('unknown');
+            const alias = schema.alias || '';
+            const matchKeys = [];
+            if (schema.uid){
+              matchKeys.push(schema.uid);
+            }
+            if (alias){
+              matchKeys.push(alias);
+            }
+            const filter = {
+              uid: schema.uid || alias || label,
+              label,
+              alias,
+              icon: schema.icon_full_url || schema.icon_url || null,
+              matchKeys,
+              schema
+            };
+            filters.push(filter);
+            if (schema.uid){
+              byUid[schema.uid] = filter;
+            }
+            if (alias){
+              byAlias[alias] = filter;
+            }
+          });
+
+          this.schemaFilters = filters;
+          this.schemasByUid = byUid;
+          this.schemasByAlias = byAlias;
+        },
+        updateSchemaGroups(){
+          const groups = [];
+          const seen = new Set();
+
+          (this.schemaFilters || []).forEach(filter => {
+            groups.push(filter);
+            (filter.matchKeys || []).forEach(key => {
+              seen.add(key);
+            });
+          });
+
+          const extras = {};
+          this.getAllTemplates().forEach(template => {
+            if (template && template.data_type && !seen.has(template.data_type)){
+              extras[template.data_type] = true;
+            }
+          });
+
+          Object.keys(extras).sort().forEach(type => {
+            groups.push({
+              uid: type,
+              label: this.getFallbackLabel(type),
+              alias: '',
+              icon: null,
+              matchKeys: [type],
+              schema: null,
+              isFallback: true
+            });
+          });
+
+          this.sidebar_data_types = groups;
+          this.schemaGroups = groups;
+        },
+        getAllTemplates(){
+          const core = Array.isArray(this.templates.core) ? this.templates.core : [];
+          const custom = Array.isArray(this.templates.custom) ? this.templates.custom : [];
+          return core.concat(custom);
+        },
+        getTemplatesForSchema(schema){
+          if (!schema){
+            return [];
+          }
+          const keys = (schema.matchKeys && schema.matchKeys.length)
+            ? schema.matchKeys
+            : (schema.uid ? [schema.uid] : []);
+          if (!keys.length){
+            return [];
+          }
+          return this.getAllTemplates().filter(template => template && keys.includes(template.data_type));
+        },
+        getSchemaIconSrc(schema){
+          if (!schema){
+            return null;
+          }
+          if (schema.icon){
+            return schema.icon;
+          }
+          if (schema.schema){
+            if (schema.schema.icon_full_url){
+              return schema.schema.icon_full_url;
+            }
+            if (schema.schema.icon_url){
+              return schema.schema.icon_url;
+            }
+          }
+          return null;
+        },
+        getSchemaInitial(schema){
+          if (!schema || !schema.label){
+            return '?';
+          }
+          return schema.label.trim().charAt(0).toUpperCase() || '?';
+        },
+        getFallbackLabel(type){
+          if (!type){
+            return this.$te && this.$te('unknown') ? this.$t('unknown') : 'Unknown';
+          }
+          if (this.$te && this.$te(type)){
+            const value = this.$t(type);
+            if (value){
+              return value;
+            }
+          }
+          return type;
         },
         updateTemplateUUID(uid){
           this.dialog_uuid_template=true;
@@ -534,12 +661,39 @@
         getTemplateEditLink: function(template) {
           return CI.site_url + '/templates/edit/' + template.uid;
         },
-        getTemplatesByType: function(type) {
-          if (!this.templates.core || !this.templates.custom){
-            return [];
+        getTemplateRecord: function(uid) {
+          if (!uid || !this.templates){
+            return null;
           }
-          
-          return this.templates.core.filter(template => template.data_type == type).concat(this.templates.custom.filter(template => template.data_type == type));
+
+          const coreList = Array.isArray(this.templates.core) ? this.templates.core : [];
+          const customList = Array.isArray(this.templates.custom) ? this.templates.custom : [];
+
+          const coreMatch = coreList.find(template => template.uid == uid);
+          if (coreMatch){
+            return coreMatch;
+          }
+
+          const customMatch = customList.find(template => template.uid == uid);
+          return customMatch || null;
+        },
+        isReadOnlyTemplate: function(item) {
+          if (!item){
+            return false;
+          }
+          if (item.template_type && item.template_type === 'core'){
+            return true;
+          }
+          return !!item.is_generated;
+        },
+        templateTypeLabel: function(item) {
+          if (item && item.template_type === 'core'){
+            return this.$t('core');
+          }
+          if (item && item.is_generated){
+            return this.$t('generated');
+          }
+          return this.$t('custom');
         },
         pageLink: function(page){
           window.location.href = CI.site_url + '/'+page;
@@ -557,50 +711,25 @@
             this.showTemplateMenu = true
           })
         },
-        loadDataTypes: function()
-        {
-          this.data_types={
-            "survey": this.$t("microdata"),
-            "timeseries": this.$t("timeseries"),
-            "timeseries-db": this.$t("timeseries-db"),
-            "script": this.$t("script"),
-            "geospatial": this.$t("geospatial"),
-            "document": this.$t("document"),
-            "table": this.$t("table"),
-            "image": this.$t("image"),
-            "video": this.$t("video"),
-            "resource": this.$t("external-resource"),
-            "admin_meta": this.$t("administrative_metadata")
-          }
-        },
         momentDate(date) {
           return moment.unix(date).format("MM/DD/YYYY")
         },
-        loadTemplates: function() {
-          vm = this;
-
-          let url = CI.site_url + '/api/templates/';
-          this.loading_status = vm.$t("loading_templates");
-
-          return axios
-            .get(url)
-            .then(function(response) {
-              console.log("success", response);
-              vm.templates = response.data.templates;
-              //vm.initDataTypes();
-            })
-            .catch(function(error) {
+        async loadTemplates() {
+          const url = CI.site_url + '/api/templates/';
+          this.loading_status = this.$t("loading_templates");
+          try{
+            const response = await axios.get(url);
+            const templates = response.data && response.data.templates ? response.data.templates : {};
+            this.templates = {
+              core: Array.isArray(templates.core) ? templates.core : [],
+              custom: Array.isArray(templates.custom) ? templates.custom : []
+            };
+          }catch(error){
               console.log("error", error);
-            })
-            .then(function() {
-              console.log("request completed");
+          }finally{
               this.loading_status = "";
-            });
-        },
-        initDataTypes: function() {
-          this.templates.core.forEach((template, index) => {
-            this.data_types.push(template.data_type);
-          });
+            this.updateSchemaGroups();
+          }
         },
         setDefaultTemplate: function(template_type, uid) {
           vm = this;
@@ -626,28 +755,26 @@
             });
         },
         isCoreTemplate: function(uid) {
-
-          if (!this.templates.core){
-            return false;
-          }
-
           if (!uid){
             return false;
           }
-
-          template= this.templates.core.find(template => template.uid == uid);          
-
-          if (template){
-            return true;
+          var record=this.getTemplateRecord(uid);
+          if (!record){
+            return false;
           }
-          return false;
+          return record.template_type==='core' || !!record.is_generated;
         },
         deleteTemplate: function(uid) {
-          if (!confirm(vm.$t("confirm_delete"))) {
+          const record=this.getTemplateRecord(uid);
+          if (record && this.isReadOnlyTemplate(record)){
+            this.$alert(this.$t('generated_template_locked'), { color: 'info' });
+            return false;
+          }
+          if (!confirm(this.$t("confirm_delete"))) {
             return false;
           }
 
-          vm = this;
+          const vm = this;
           let form_data = {};
           let url = CI.site_url + '/api/templates/delete/' + uid;
 
@@ -716,10 +843,6 @@
         },
         editTemplate: function(uid) {
           window.open(CI.site_url + '/templates/edit/' + uid);
-        },
-        getProjectIcon: function(type) {
-          projectIcon = this.project_types_icons[type];
-          return projectIcon;
         },
         showImportTemplateDialog: function(){
           this.dialog_import_template=true;

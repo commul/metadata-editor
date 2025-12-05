@@ -136,7 +136,7 @@ class ImportJsonMetadata
 		}
 
         // Import based on project type
-        if ($type=='survey'){
+        if ($type=='survey' || $type=='microdata'){
             $this->import_microdata_project($type, $sid,$json_data,$validate);
         }
         else{
@@ -172,8 +172,8 @@ class ImportJsonMetadata
             }
         }
 
-        // Only survey type supports XML import via DDI
-        if ($type == 'survey'){
+        // Only survey/microdata types support XML import via DDI
+        if ($type == 'survey' || $type == 'microdata'){
             return $this->import_ddi_from_file($sid, $xml_file_path, $validate, $options);
         }
         else if ($type == 'geospatial'){
@@ -183,7 +183,7 @@ class ImportJsonMetadata
             return $result;
         }
         else{
-            throw new Exception("XML import is only supported for 'survey' and 'geospatial' project types. Current type: " . ($type ? $type : 'unknown'));
+            throw new Exception("XML import is only supported for 'microdata' and 'geospatial' project types. Current type: " . ($type ? $type : 'unknown'));
         }
     }
 

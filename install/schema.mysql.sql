@@ -434,6 +434,7 @@ CREATE TABLE `editor_templates` (
   `uid` varchar(45) DEFAULT NULL,
   `data_type` varchar(45) NOT NULL,
   `lang` varchar(45) DEFAULT NULL,
+  `template_type` varchar(20) NOT NULL DEFAULT 'custom',
   `name` varchar(100) NOT NULL,
   `version` varchar(45) DEFAULT NULL,
   `organization` varchar(300) DEFAULT NULL,
@@ -465,7 +466,9 @@ CREATE TABLE `editor_templates_default` (
 
 
 insert into `editor_templates_default` (data_type, template_uid)
-values('resource','resource-system-en');
+values
+('resource','resource-system-en'),
+('custom','custom-system-en');
 
 
 
@@ -671,3 +674,91 @@ CREATE INDEX idx_ecpa_user_collection ON editor_collection_project_acl(user_id, 
 CREATE INDEX idx_collections_created_by ON editor_collections(created_by);
 CREATE INDEX idx_collection_id ON editor_collection_projects(collection_id);
 
+
+CREATE TABLE `metadata_schemas` (
+  `id` int unsigned NOT NULL AUTO_INCREMENT,
+  `uid` varchar(100) NOT NULL,
+  `title` varchar(255) DEFAULT NULL,
+  `agency` varchar(100) DEFAULT NULL,
+  `description` text,
+  `is_core` tinyint(1) NOT NULL DEFAULT '0',
+  `status` enum('active','draft') DEFAULT 'active',
+  `storage_path` varchar(255) NOT NULL,
+  `filename` varchar(255) NOT NULL DEFAULT 'main.json',
+  `schema_files` json DEFAULT NULL,
+  `metadata_options` json DEFAULT NULL,
+  `alias` varchar(100) DEFAULT NULL,
+  `created` int unsigned NOT NULL,
+  `created_by` int unsigned DEFAULT NULL,
+  `updated` int unsigned DEFAULT NULL,
+  `updated_by` int unsigned DEFAULT NULL,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uid_unique` (`uid`)
+) ENGINE=InnoDB AUTO_INCREMENT=1 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+
+
+
+INSERT INTO metadata_schemas
+  (uid,title,agency,description,is_core,status,storage_path,filename,
+   schema_files,metadata_options,alias,created)
+VALUES
+  ('microdata','Microdata (DDI 2.5)','IHSN','Microdata schema based on DDI CodeBook 2.5',
+   1,'active','', 'microdata-schema.json',
+   '["ddi-schema.json", "datacite-schema.json", "provenance-schema.json", "datafile-schema.json", "variable-schema.json", "variable-group-schema.json"]',
+   '{"core_fields":{"idno":"study_desc.title_statement.idno","title":"study_desc.title_statement.title"},"derived_fields":{"countries":"study_desc.study_info.nation[*].name","year_start":"study_desc.study_info.coll_dates[0].start","year_end":"study_desc.study_info.coll_dates[0].end"}}',
+   'survey',
+   UNIX_TIMESTAMP()),
+  ('document','Document','IHSN','Document schema based on Dublin Core',
+   1,'active','', 'document-schema.json',
+   '["provenance-schema.json"]',
+   '{"core_fields":{"idno":"document_description.title_statement.idno","title":"document_description.title_statement.title"}}',
+   '',
+   UNIX_TIMESTAMP()),
+  ('table','Statistical Table','IHSN','Statistical table schema based on Dublin Core',
+   1,'active','', 'table-schema.json',
+   '["provenance-schema.json"]',
+   '{"core_fields":{"idno":"table_description.title_statement.idno","title":"table_description.title_statement.title"}}',
+   '',
+   UNIX_TIMESTAMP()),
+  ('script','Script / Project','IHSN','Script/Project schema based on Dublin Core',
+   1,'active','', 'script-schema.json',
+   '["datacite-schema.json","provenance-schema.json"]',
+   '{"core_fields":{"idno":"project_desc.title_statement.idno","title":"project_desc.title_statement.title"}}',
+   '',
+   UNIX_TIMESTAMP()),
+  ('video','Video','IHSN','Video schema based on Dublin Core',
+   1,'active','', 'video-schema.json',
+   '[]',
+   '{"core_fields":{"idno":"video_description.idno","title":"video_description.title"}}',
+   '',
+   UNIX_TIMESTAMP()),
+  ('indicator','Indicator','IHSN','Indicator schema',
+   1,'active','', 'timeseries-schema.json',
+   '["datacite-schema.json","provenance-schema.json"]',
+   '{"core_fields":{"idno":"series_description.idno","title":"series_description.name"},"derived_fields":{"year_start":"series_description.time_periods[0].start","year_end":"series_description.time_periods[0].end"}}',
+   'timeseries',
+   UNIX_TIMESTAMP()),
+  ('indicator-db','Indicator Database','IHSN','Indicator database schema',
+   1,'active','', 'timeseries-db-schema.json',
+   '["provenance-schema.json"]',
+   '{"core_fields":{"idno":"database_description.title_statement.idno","title":"database_description.title_statement.title"}}',
+   'timeseries-db',
+   UNIX_TIMESTAMP()),
+  ('geospatial','Geospatial','IHSN','Geospatial schema based on ISO 19139',
+   1,'active','', 'geospatial-schema.json',
+   '["provenance-schema.json"]',
+   '{"core_fields":{"idno":"description.idno","title":"description.identificationInfo.citation.title"}}',
+    '',
+   UNIX_TIMESTAMP()),
+  ('image','Image','IHSN','Image schema based on DCMI and IPTC',
+   1,'active','', 'image-schema.json',
+   '["dcmi-schema.json","iptc-pmd-schema.json","iptc-phovidmdshared-schema.json"]',
+   '{"core_fields":{"idno":"image_description.idno","title":"image_description.dcmi.title"}}',
+   '',
+   UNIX_TIMESTAMP()),
+  ('custom','Custom','IHSN','Catch-all schema for custom content',
+   1,'active','', 'custom-schema.json',
+   '[]',
+   '{"core_fields":{"idno":"/identification/idno","title":"/identification/title"}}',
+   '',
+   UNIX_TIMESTAMP());

@@ -1,8 +1,13 @@
 <nav class="main-header sticky-top navbar navbar-expand navbar-white navbar-light bg-light border-bottom elevation-2" style="margin-left:0px;">
 
     <div class="pl-2" style="overflow:hidden;min-height:35px;margin-right:40px;">
-        <div style="font-size:20px;" :title="Title" class="wrap-text">
-            <v-icon style="font-size:x-large;">{{project_types_icons[dataset_type]}}</v-icon>
+        <div style="font-size:20px;display:flex;align-items:center;gap:8px;" :title="Title" class="wrap-text">
+            <template v-if="schema_icon">
+                <img :src="schema_icon" alt="" style="width:24px;height:24px;object-fit:contain;">
+            </template>
+            <template v-else>
+                <v-icon style="font-size:x-large;">mdi-file-tree</v-icon>
+            </template>
             <strong>{{Title}}</strong>            
         </div>
         <!--<div>{{ProjectMetadata.idno}} </div>-->        
@@ -105,7 +110,7 @@
                             </v-list-item-title>
                             </v-list-item>
                             
-                            <v-list-item v-if="dataset_type=='survey'" @click="onLinkClick(base_url + '/api/editor/ddi/' + dataset_id)">
+                            <v-list-item v-if="dataset_type=='survey' || dataset_type=='microdata'" @click="onLinkClick(base_url + '/api/editor/ddi/' + dataset_id)">
                                 <v-list-item-icon>
                                     <v-icon>mdi-file</v-icon>
                                 </v-list-item-icon>

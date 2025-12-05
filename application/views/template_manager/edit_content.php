@@ -12,7 +12,7 @@
                 >
             </vue-key-field>
         </template>
-        <template v-else-if="TemplateIsAdminMeta">
+        <template v-else-if="TemplateIsAdminMeta || TemplateIsCustom">
 
             <vue-custom-key-field
                 :field="ActiveNode" 

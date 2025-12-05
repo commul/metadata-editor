@@ -35,6 +35,32 @@ Vue.component('import-options', {
                             'variable_groups':'variable_groups'
                         }
                     }
+                },
+                "microdata":{
+                    'project_metadata': {
+                        'title': 'project_level_metadata',
+                        'options': {
+                            'document_description':'document_description',
+                            'study_description':'study_description'
+                        }
+                    },
+                    'data_files': {
+                        'title': 'data_files',
+                        'options': {
+                            'data_files':'file_description'
+                        }
+                    },
+                    'variable_info': {
+                        'title': 'variable_information',
+                        'options': {
+                            'variable_info':'variable_information',
+                            'variable_documentation':'variable_documentation',
+                            'variable_categories':'variable_categories',
+                            'variable_questions':'variable_questions',
+                            'variable_weights':'variable_weights',
+                            'variable_groups':'variable_groups'
+                        }
+                    }
                 }
             },
             import_options_selected:[]
@@ -46,10 +72,12 @@ Vue.component('import-options', {
     methods:{
         defaultOptionsSelection: function(){
             this.import_options_selected=[];
-            if (this.import_options[this.ProjectType]){
+            
+            let projectTypeKey = (this.ProjectType === 'microdata' || this.ProjectType === 'survey') ? this.ProjectType : null;
+            if (projectTypeKey && this.import_options[projectTypeKey]){
                 // Iterate through each group
-                for (let groupKey in this.import_options[this.ProjectType]){
-                    let group = this.import_options[this.ProjectType][groupKey];
+                for (let groupKey in this.import_options[projectTypeKey]){
+                    let group = this.import_options[projectTypeKey][groupKey];
                     if (group.options) {
                         // Add all options from each group by default
                         for (let opt in group.options){
@@ -103,6 +131,14 @@ Vue.component('import-options', {
         ProjectType()
         {
             return this.$store.state.project_type;
+        },
+        currentImportOptions() {
+            if (this.ProjectType === 'microdata' && this.import_options.microdata) {
+                return this.import_options.microdata;
+            } else if (this.ProjectType === 'survey' && this.import_options.survey) {
+                return this.import_options.survey;
+            }
+            return {};
         }
     },  
     template: `
@@ -120,8 +156,8 @@ Vue.component('import-options', {
 
                         <div class="file-group mb-3" style="max-width:600px;">
                             <label class="form-label mb-2">
-                                <span v-if="ProjectType=='survey'">{{$t("choose_ddi_xml_or_json_file")}}</span>
-                                <span v-if="ProjectType!='survey'">{{$t("choose_json_file")}}</span>
+                                <span v-if="ProjectType=='survey' || ProjectType=='microdata'">{{$t("choose_ddi_xml_or_json_file")}}</span>
+                                <span v-if="ProjectType!='survey' && ProjectType!='microdata'">{{$t("choose_json_file")}}</span>
                             </label>
                             <v-file-input
                                 v-model="file"
@@ -134,12 +170,12 @@ Vue.component('import-options', {
                             ></v-file-input>
                         </div>
 
-                        <div v-if="ProjectType=='survey'">
+                        <div v-if="ProjectType=='survey' || ProjectType=='microdata'">
 
                             <strong>{{$t("import_options")}}</strong>
 
                             <div class="mt-3">
-                                <div v-for="(group, groupKey) in import_options.survey" :key="groupKey" class="mb-4">
+                                <div v-for="(group, groupKey) in currentImportOptions" :key="groupKey" class="mb-4">
                                     <h6 class="mb-2">{{$t(group.title)}}</h6>
                                     <p v-if="group.description" class="text-muted small mb-2 ml-3">{{$t(group.description)}}</p>
                                     <ul class="list-unstyled ml-3">

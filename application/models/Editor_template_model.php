@@ -18,6 +18,7 @@ class Editor_template_model extends ci_model {
 		"uid",
 		"data_type", 
 		"lang", 
+		"template_type",
 		"name", 
 		"version", 
 		"organization", 
@@ -32,7 +33,9 @@ class Editor_template_model extends ci_model {
 		"owner_id",
 		"deleted_at",
 		"deleted_by",
-		"is_deleted"
+		"is_deleted",
+		"is_private",
+		"is_published"
 	);
 
 
@@ -43,6 +46,12 @@ class Editor_template_model extends ci_model {
 	);
 
 	private $core_templates=[];
+	private $data_type_alias_map=array(
+		'survey'=>'microdata',
+		'timeseries'=>'indicator',
+		'timeseries-db'=>'indicator-db'
+	);
+	private $generated_suffix='__core';
 	private $ci;
 
     public function __construct()
@@ -51,8 +60,79 @@ class Editor_template_model extends ci_model {
 		$this->ci =& get_instance();
 		$this->init_core_templates();
 		$this->ci->load->model('Template_acl_model');
+		$this->ci->load->model('Edit_history_model');
+		$this->Edit_history_model=$this->ci->Edit_history_model;
     }
 
+
+	private function canonical_data_type($type)
+	{
+		if (!$type){
+			return $type;
+		}
+
+		if (isset($this->data_type_alias_map[$type])){
+			return $this->data_type_alias_map[$type];
+		}
+
+		return $type;
+	}
+
+	private function matching_data_types($type)
+	{
+		if (!$type){
+			return array();
+		}
+
+		$canonical=$this->canonical_data_type($type);
+		$types=array($canonical);
+
+		foreach($this->data_type_alias_map as $legacy=>$normalized){
+			if ($normalized===$canonical){
+				$types[]=$legacy;
+			}
+		}
+
+		if ($type!==$canonical){
+			$types[]=$type;
+		}
+
+		return array_values(array_unique($types));
+	}
+
+	private function is_generated_template_uid($uid)
+	{
+		if (!is_string($uid) || $uid === ''){
+			return false;
+		}
+
+		return substr($uid, -strlen($this->generated_suffix)) === $this->generated_suffix;
+	}
+
+	private function decorate_template_row($row)
+	{
+		if (is_array($row) && isset($row['uid'])){
+			if (!isset($row['template_type']) || $row['template_type']===''){
+				$row['template_type']=$this->is_generated_template_uid($row['uid']) ? 'generated' : 'custom';
+			}
+
+			$row['is_generated']=($row['template_type']==='generated');
+		}
+		return $row;
+	}
+
+	private function decorate_template_rows($rows)
+	{
+		if (!is_array($rows)){
+			return $rows;
+		}
+
+		foreach($rows as $idx=>$row){
+			$rows[$idx]=$this->decorate_template_row($row);
+		}
+
+		return $rows;
+	}
 
 	function init_core_templates()
 	{
@@ -80,7 +160,7 @@ class Editor_template_model extends ci_model {
 					'uid'=>$template['uid'],
 					'template_type'=>'core',
 					'name'=> $template['name'],
-					'data_type'=>$key,
+					'data_type'=>$this->canonical_data_type($key),
 					'lang'=>$template['lang'],
 					'template'=>$template_json
 				);
@@ -99,6 +179,7 @@ class Editor_template_model extends ci_model {
 
 	function get_core_templates_by_type($type)
 	{
+		$type=$this->canonical_data_type($type);
 		$templates_=array();
 		foreach($this->core_templates as $idx=>$template){
 			if ($type==$template['data_type']){
@@ -106,6 +187,69 @@ class Editor_template_model extends ci_model {
 			}
 		}
 		return $templates_;
+	}
+
+	public function resolve_core_template_uid($identifier)
+	{
+		if (!$identifier){
+			return null;
+		}
+
+		foreach($this->core_templates as $template){
+			if ($template['uid']===$identifier){
+				return $template['uid'];
+			}
+		}
+
+		$core=$this->get_core_template_by_data_type($identifier);
+		if (!empty($core)){
+			return $core[0]['uid'];
+		}
+
+		return null;
+	}
+
+	public function build_generated_template_uid($schema_uid)
+	{
+		return $schema_uid . '__core';
+	}
+
+	public function upsert_generated_template($schema, $template_payload)
+	{
+		if (empty($schema['uid'])) {
+			throw new Exception("Schema UID is required to generate template.");
+		}
+
+		$template_uid = $this->build_generated_template_uid($schema['uid']);
+		$name = !empty($schema['title'])
+			? $schema['title'] . ' (Generated)'
+			: ucfirst($schema['uid']) . ' (Generated)';
+
+		$data = array(
+			'uid' => $template_uid,
+			'data_type' => $schema['uid'],
+			'lang' => 'en',
+			'name' => $name,
+			'description' => 'Auto-generated template for schema ' . $schema['uid'],
+			'template' => json_encode($template_payload),
+			'template_type' => 'generated',
+			'is_private' => 0,
+			'is_published' => 1,
+			'is_deleted' => 0,
+			'owner_id' => null
+		);
+
+		$existing = $this->get_custom_template_by_uid($template_uid);
+
+		if ($existing){
+			$this->update($template_uid, $data);
+		}else{
+			$this->insert($data);
+		}
+
+		$this->set_default_template($schema['uid'], $template_uid);
+
+		return $template_uid;
 	}
 
 
@@ -120,6 +264,7 @@ class Editor_template_model extends ci_model {
 		$template=$this->get_core_template_by_uid($uid);
 		if ($template){
 			$template['template']=$this->get_core_template_json($template['uid']);
+			$template['is_generated']=false;
 			return $template;
 		}
 
@@ -151,13 +296,37 @@ class Editor_template_model extends ci_model {
 
 	function get_templates_by_type($type)
 	{
+		$types=$this->matching_data_types($type);
+
+		if (empty($types)){
+			return array();
+		}
+
 		$fields=array_diff($this->fields,["template"]);
 		$fields[]="'custom' as template_type";
 		$this->db->select($fields);
 		$this->db->order_by('name','ASC');
 		$this->db->order_by('changed','DESC');
-		$this->db->where("data_type",$type);
+		$this->db->where_in("data_type",$types);
+		$this->db->where_not_in("is_deleted",1);//exclude deleted
 		$result= $this->db->get('editor_templates')->result_array();
+		$result=$this->decorate_template_rows($result);
+		$result=$this->decorate_template_rows($result);
+
+		if (!empty($result)){
+			usort($result,function($a,$b){
+				$aFlag=!empty($a['is_generated']) ? 1 : 0;
+				$bFlag=!empty($b['is_generated']) ? 1 : 0;
+
+				if ($aFlag !== $bFlag){
+					return $aFlag ? -1 : 1;
+				}
+
+				$aName=isset($a['name']) ? strtolower($a['name']) : '';
+				$bName=isset($b['name']) ? strtolower($b['name']) : '';
+				return strcmp($aName,$bName);
+			});
+		}
 
 		$core=$this->get_core_template_by_data_type($type);
 
@@ -167,9 +336,11 @@ class Editor_template_model extends ci_model {
 
 	function get_core_template_by_data_type($data_type)
 	{
+		$data_type=$this->canonical_data_type($data_type);
 		$core_=array();
 		foreach($this->core_templates as $template){
 			if ($template['data_type']==$data_type){
+				$template['is_generated']=false;
 				$core_[]=$template;
 			}
 		}
@@ -212,8 +383,6 @@ class Editor_template_model extends ci_model {
 			return 'editor_templates.'.$field;
 		},$fields);
 
-		$fields[]="'custom' as template_type";
-
 		$this->db->select($fields);
 
 		//get user info
@@ -233,6 +402,7 @@ class Editor_template_model extends ci_model {
 		$this->db->where('editor_templates.is_deleted is NULL or editor_templates.is_deleted =0',null, false);
 
 		$result= $this->db->get('editor_templates')->result_array();
+		$result=$this->decorate_template_rows($result);
 		$default_templates=$this->get_all_default_templates();
 
 		$defaults=array();
@@ -260,6 +430,8 @@ class Editor_template_model extends ci_model {
 			{
 				$core_templates[$idx]["default"]=false;
 			}
+
+			$core_templates[$idx]['is_generated']=false;
 		}	
 
 		return [
@@ -272,7 +444,8 @@ class Editor_template_model extends ci_model {
 	{
 		$this->db->select('*');
 		$this->db->where('uid',$uid);
-		return $this->db->get('editor_templates')->row_array();
+		$row=$this->db->get('editor_templates')->row_array();
+		return $this->decorate_template_row($row);
 	}
 
 	function get_id_by_uid($uid)
@@ -320,6 +493,10 @@ class Editor_template_model extends ci_model {
 			throw new Exception("Template not found: " .$uid);
 		}
 
+		if (in_array($template['template_type'], array('generated','core'), true)){
+			throw new Exception("Template is read-only and cannot be deleted.");
+		}
+
 		//check if template is in use
 		$count=$this->get_project_count($uid);
 
@@ -351,6 +528,10 @@ class Editor_template_model extends ci_model {
 		
 		if (!$template){
 			throw new Exception("Template not found: " .$uid);
+		}
+
+		if (in_array($template['template_type'], array('generated','core'), true)){
+			throw new Exception("Template is read-only and cannot be deleted.");
 		}
 
 		$options=array();
@@ -392,8 +573,19 @@ class Editor_template_model extends ci_model {
 			}
 		}
 
+		if (isset($update_arr['template_type'])){
+			unset($update_arr['template_type']);
+		}
+
 		if (isset($update_arr['template'])){
-			$update_arr['template']= json_encode($update_arr['template']);
+			// Only encode if it's not already a JSON string
+			if (!is_string($update_arr['template'])){
+				$update_arr['template']= json_encode($update_arr['template']);
+			}
+		}
+
+		if (isset($update_arr['data_type'])){
+			$update_arr['data_type']=$this->canonical_data_type($update_arr['data_type']);
 		}
 		
 		$this->db->where('uid', $uid);
@@ -462,6 +654,12 @@ class Editor_template_model extends ci_model {
 			throw new Exception("Template::Data type is not set");
 		}
 
+		if (empty($template_options['template_type'])){
+			$template_options['template_type']='custom';
+		}
+
+		$template_options['data_type']=$this->canonical_data_type($template_options['data_type']);
+
 		if (!isset($template_options['uid'])){
 			$template_options["uid"]=nada_random_hash();
 		}
@@ -509,6 +707,10 @@ class Editor_template_model extends ci_model {
 			}
 		}
 
+		if (isset($data['data_type'])){
+			$data['data_type']=$this->canonical_data_type($data['data_type']);
+		}
+
 		$this->db->insert('editor_templates', $data); 		
 		return $this->db->insert_id();
 	}
@@ -536,7 +738,7 @@ class Editor_template_model extends ci_model {
 		//create template
 		$template_options=array(
 			"uid"=>nada_random_hash(),
-			"data_type"=>$template['data_type'],
+			"data_type"=>$this->canonical_data_type($template['data_type']),
 			"lang"=>'en', 
 			"name"=>$template['name']. ' - copy', 
 			"template"=>json_encode($template['template']),
@@ -544,7 +746,8 @@ class Editor_template_model extends ci_model {
 			"changed"=>date("U"),
 			"created_by"=>$user_id,
 			"changed_by"=>$user_id,
-			"owner_id"=>$user_id
+			"owner_id"=>$user_id,
+			"template_type"=>'custom'
 		);
 		
 		return array(
@@ -588,6 +791,7 @@ class Editor_template_model extends ci_model {
 
 	function get_default_template($type)
 	{
+		$type=$this->canonical_data_type($type);
 		$this->db->select("*");
 		$this->db->where("data_type",$type);
 		return $this->db->get("editor_templates_default")->row_array();
@@ -595,6 +799,7 @@ class Editor_template_model extends ci_model {
 
 	function set_default_template($type,$template_uid)
 	{
+		$type=$this->canonical_data_type($type);
 		$this->remove_default_template($type);
 
 		$options=array(
@@ -607,6 +812,7 @@ class Editor_template_model extends ci_model {
 
 	function remove_default_template($type)
 	{
+		$type=$this->canonical_data_type($type);
 		$this->db->where("data_type",$type);
 		return $this->db->delete("editor_templates_default");
 	}
@@ -869,7 +1075,6 @@ class Editor_template_model extends ci_model {
 	function get_admin_metadata_templates($template_uid=null)
 	{
 		$fields=array_diff($this->fields,["template"]);
-		$fields[]="'custom' as template_type";
 		$this->db->select($fields);
 		$this->db->order_by('name','ASC');
 		$this->db->order_by('changed','DESC');

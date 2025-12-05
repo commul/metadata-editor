@@ -167,8 +167,8 @@ class Editor_DDI_Writer
         $dataset=$this->ci->Editor_model->get_row($id);
         $this->sid=$id;
 
-        if (!$dataset['type']=='survey'){
-            throw new Exception('Project type is not `survey`:: '. $id . ' - ' . $dataset['type']);
+        if ($dataset['type']!='survey' && $dataset['type']!='microdata'){
+            throw new Exception('Project type is not `microdata`:: '. $id . ' - ' . $dataset['type']);
         }
 
         $writer = new XMLWriter;

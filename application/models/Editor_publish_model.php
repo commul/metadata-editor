@@ -38,6 +38,11 @@ class Editor_publish_model extends ci_model {
 		}
 
 		$project_type=$project['type'];
+		
+		// change to 'survey' for NADA compatibility
+		if ($project_type == 'microdata') {
+			$project_type = 'survey';
+		}
 		$catalog_url=$conn_info['url'].'/index.php/api/datasets/create/'.$project_type;
 		$catalog_api_key=$conn_info['api_key'];
 		
@@ -73,6 +78,11 @@ class Editor_publish_model extends ci_model {
 
 		if (!$metadata){
 			throw new Exception("Failed to load project metadata: ".$metadata_json_path);
+		}
+
+		// Convert microdata to survey for NADA catalog compatibility
+		if (isset($metadata['type']) && $metadata['type'] == 'microdata') {
+			$metadata['type'] = 'survey';
 		}
 
 		foreach($options as $key=>$option){

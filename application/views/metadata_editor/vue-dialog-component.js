@@ -62,7 +62,7 @@ Vue.component('vue-dialog-component', {
                     <v-card-actions>
                     <v-spacer></v-spacer>
                     <v-btn color="primary" text @click="dialog.show=false" v-if="dialog.is_loading==false">
-                        Close
+                        {{$t('close')}}
                     </v-btn>
                     </v-card-actions>
                 </v-card>

@@ -44,17 +44,32 @@ class Templates extends MY_Controller {
 		$this->editor_acl->user_has_template_access($uid,$permission='edit');
 		$core_templates=$this->Editor_template_model->get_core_template_by_data_type($user_template['data_type']);
 
-		if (!$core_templates){
-			throw new Exception("No system templates found for type: " . $user_template['data_type']);
+		$core_template=null;
+
+		if (!empty($core_templates)){
+			$core_template=$this->Editor_template_model->get_template_by_uid($core_templates[0]["uid"]);
+		} else {
+			$generated_uid=$this->Editor_template_model->build_generated_template_uid($user_template['data_type']);
+			$core_template=$this->Editor_template_model->get_template_by_uid($generated_uid);
+
+			if (!$core_template){
+				$core_template=$user_template;
+			}
 		}
 
-		$core_template=$this->Editor_template_model->get_template_by_uid($core_templates[0]["uid"]);
+		// Get icon for this template's data type
+		$template_icon_url = null;
+		if (!empty($user_template['data_type'])) {
+			$this->load->library('Schema_registry');
+			$template_icon_url = $this->schema_registry->get_schema_icon_full_url($user_template['data_type']);
+		}
 
 		$options=array(
 			'user_template_info'=>$user_template,
 			'core_template'=>$core_template,
 			'user_template'=>$user_template,
-			'translations'=>$this->lang->language
+			'translations'=>$this->lang->language,
+			'template_icon_url'=>$template_icon_url
 		);
 
 		unset($options['user_template_info']['template']);
@@ -70,6 +85,13 @@ class Templates extends MY_Controller {
 
 		if(!$user_template){
 			show_error("Template not found");
+		}
+
+		if (isset($user_template['template']) && is_string($user_template['template'])) {
+			$decoded = json_decode($user_template['template'], true);
+			if (is_array($decoded)) {
+				$user_template['template'] = $decoded;
+			}
 		}
 
 		//parse Markdown for instructions
