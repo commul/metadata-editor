@@ -6,6 +6,7 @@ class Editor_DDI_Writer
     private $writer;
     private $ci;
     private $sid;
+    private $uid_vid_cache = null;
 
     public function __construct()
     {
@@ -160,9 +161,9 @@ class Editor_DDI_Writer
      * */
 	function generate_ddi($id=null, $output='php://output')
 	{
+		set_time_limit(0);
         $this->ci->load->model('Editor_model');
         $this->ci->load->model("Editor_variable_model");
-        //$this->ci->load->model("Variable_group_model");        
 
         $dataset=$this->ci->Editor_model->get_row($id);
         $this->sid=$id;
@@ -219,6 +220,9 @@ class Editor_DDI_Writer
             $writer->writeRaw("\n");
         }
         */
+
+        //pre-load UID->VID mapping
+        $this->uid_vid_cache = $this->ci->Editor_variable_model->uid_vid_list($id);
 
         //variables
         foreach($this->ci->Editor_variable_model->chunk_reader_generator($id) as $variable){
@@ -478,14 +482,20 @@ class Editor_DDI_Writer
             return '';
         }
         
+        // If var_wgt_id already starts with 'V', it's already a VID - return as is
         if (strtolower(substr($var['var_wgt_id'],0,1))=='v'){
             return $var['var_wgt_id'];
-        }else{
-            $result=$this->ci->Editor_variable_model->vid_by_uid($this->sid,$var['var_wgt_id']);
-
-            if ($result){
-                return $result;
-            }
+        }
+        
+        // var_wgt_id is a UID - convert to VID
+        if($this->uid_vid_cache !== null && isset($this->uid_vid_cache[$var['var_wgt_id']])){
+            return $this->uid_vid_cache[$var['var_wgt_id']];
+        }
+        
+        //fallback
+        $result=$this->ci->Editor_variable_model->vid_by_uid($this->sid,$var['var_wgt_id']);
+        if ($result){
+            return $result;
         }
 
         return '';

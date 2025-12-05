@@ -1,5 +1,7 @@
 <?php
 
+use Swaggest\JsonDiff\JsonPatch;
+
 /*
 CCREATE TABLE `admin_metadata` (
   `id` int NOT NULL AUTO_INCREMENT,
@@ -226,7 +228,7 @@ CCREATE TABLE `admin_metadata` (
     {
         if ($this->exists($template_id,$sid)){
 
-            $this->metadata_edit_audit_log(
+            $this->admin_metadata_edit_audit_log(
                 $template_id, 
                 $sid, 
                 $data['metadata'], 
@@ -266,6 +268,67 @@ CCREATE TABLE `admin_metadata` (
         return $this->db->update('admin_metadata',$data);
     }
 
+    /**
+     * 
+     * Apply JSON patch operations to admin metadata
+     * 
+     * @param int $template_id - Template ID
+     * @param int $sid - Project ID
+     * @param array $options - Options containing patches array and optional validate flag
+     * 
+     */
+    function patch($template_id, $sid, $options=array())
+    {
+        if (!isset($options['patches'])){
+            throw new Exception("`Patches` parameter is required");
+        }
+
+        // Get existing metadata record
+        $record=$this->select_single($template_id,$sid);
+
+        if (!$record){
+            throw new Exception("Admin metadata not found for this template and project");
+        }
+
+        $metadata=$record['metadata'];
+
+        // If metadata is empty, initialize as empty object
+        if (empty($metadata)){
+            $metadata=array();
+        }
+
+        // Convert to object for JsonPatch
+        if (!is_object($metadata)){
+            $metadata=json_decode(json_encode($metadata));
+        }
+
+        // Apply patches
+        $patch = JsonPatch::import($options['patches']);
+        $patch->setFlags(1);
+        $patch->apply($metadata);
+
+        // Convert metadata back to array
+        $metadata=json_decode(json_encode($metadata),true);
+
+        $user_id=isset($options['user_id']) ? $options['user_id'] : null;
+        $update_data=array(
+            'metadata'=>$metadata,
+            'changed'=>isset($options['changed']) ? $options['changed'] : date("U"),
+            'changed_by'=>isset($options['changed_by']) ? $options['changed_by'] : $user_id
+        );
+
+        $this->admin_metadata_edit_audit_log($template_id, $sid, $metadata, $user_id);
+
+        if (isset($update_data['metadata']) && is_array($update_data['metadata'])){
+            $update_data['metadata']=json_encode($update_data['metadata']);			
+        }
+
+        $this->db->where('template_id',$template_id);
+        $this->db->where('sid',$sid);
+        return $this->db->update('admin_metadata',$update_data);
+    }
+
+    
     function delete($template_id, $sid)
     {
         $this->db->where('template_id',$template_id);
@@ -339,20 +402,20 @@ CCREATE TABLE `admin_metadata` (
 
     /**
      * 
-     * Keep audit log of metadata edits
+     * Keep audit log of admin metadata edits
      * 
      * 
      */
-    function metadata_edit_audit_log($template_id, $sid, $new_metadata, $user_id)
+    function admin_metadata_edit_audit_log($template_id, $sid, $new_metadata, $user_id)
     {
-        //get original metadata
-        $project=$this->select_single($template_id,$sid);
+        //get original admin metadata
+        $admin_metadata_record=$this->select_single($template_id,$sid);
 
-        if (!$project){
+        if (!$admin_metadata_record){
             return;
         }
 
-        $original_metadata=$project['metadata'];
+        $original_metadata=$admin_metadata_record['metadata'];
 
         if(empty($original_metadata)){
             return;
@@ -367,7 +430,7 @@ CCREATE TABLE `admin_metadata` (
         
         $this->audit_log->log_event(
             $obj_type_='admin-metadata',
-            $obj_id_=$project['id'],
+            $obj_id_=$admin_metadata_record['id'],
             $action='update', 
             $metadata_=$diff, 
             $user_id_=$user_id, 

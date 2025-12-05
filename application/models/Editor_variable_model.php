@@ -31,22 +31,14 @@ class Editor_variable_model extends ci_model {
     }
 
 
-	function chunk_reader_generator($sid,$start_uid=0,$limit=50): iterator
+	function chunk_reader_generator($sid,$start_uid=0,$limit=150): iterator
     {
         $last_row_uid=$start_uid;
-        $max_vars=30000;
-        $k=0;
 
         do {
             $variables=$this->chunk_read($sid,$last_row_uid,$limit);
 
             if (!$variables){
-                break;
-            }
-
-            $k++;
-
-            if( ($k*$limit) > $max_vars){
                 break;
             }
 
@@ -360,9 +352,11 @@ class Editor_variable_model extends ci_model {
      * get all variables attached to a study
      * 
      * @metadata_detailed = true|false - include detailed metadata
+     * @offset = offset for pagination (default: 0)
+     * @limit = limit for pagination (default: null, returns all)
      * 
      **/
-    function select_all($sid,$file_id=null,$metadata_detailed=false)
+    function select_all($sid,$file_id=null,$metadata_detailed=false,$offset=0,$limit=null)
     {
         if ($metadata_detailed==true){
             $fields="uid,sid,fid,vid,name,labl,sort_order,metadata";
@@ -376,6 +370,11 @@ class Editor_variable_model extends ci_model {
 
         if($file_id){
             $this->db->where("fid",$file_id);
+        }
+
+        // Apply pagination if limit is specified
+        if($limit !== null && $limit > 0){
+            $this->db->limit($limit, $offset);
         }
 
         $variables=$this->db->get("editor_variables")->result_array();
@@ -473,6 +472,49 @@ class Editor_variable_model extends ci_model {
         }
 
         return $output;
+    }
+
+    /**
+     * 
+     * Return a list of variable UID/VIDs (reverse mapping of vid_uid_list)
+     * 
+     * @sid - study ID
+     * 
+     **/
+    function uid_vid_list($sid)
+    {
+        $this->db->select("uid,vid");
+        $this->db->where("sid",$sid);
+        $result=$this->db->get("editor_variables")->result_array();
+
+        $output=array();
+        foreach($result as $row)
+        {
+            $output[$row['uid']]=$row['vid'];
+        }
+
+        return $output;
+    }
+
+    /**
+     * 
+     * Get total count of variables for a study
+     * 
+     * @sid - study ID
+     * @file_id - optional file ID filter
+     * 
+     **/
+    function count_all($sid,$file_id=null)
+    {
+        $this->db->select("COUNT(*) as total", false);
+        $this->db->where("sid",$sid);
+
+        if($file_id){
+            $this->db->where("fid",$file_id);
+        }
+
+        $result=$this->db->get("editor_variables")->row_array();
+        return (int)$result['total'];
     }
 
 

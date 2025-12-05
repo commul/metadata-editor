@@ -31,6 +31,9 @@ class Variables extends MY_REST_Controller
 	 * 
 	 * List dataset variables
 	 * 
+	 * Pagination with offset and limit parameters
+	 * Query params: detailed (0|1), offset (default: 0), limit (default: null - all)
+	 * 
 	 */
 	function index_get($sid=null,$file_id=null)
 	{
@@ -38,13 +41,33 @@ class Variables extends MY_REST_Controller
 			$this->editor_acl->user_has_project_access($sid,$permission='view', $this->api_user);
 			$user_id=$this->get_api_user_id();        			
 			$variable_detailed=(int)$this->input->get("detailed");
+			
+			$offset=(int)$this->input->get("offset");
+			$limit=$this->input->get("limit");
 
-			$survey_variables=$this->Editor_variable_model->select_all($sid,$file_id,$variable_detailed);
-			$this->update_variable_weight_info($sid,$survey_variables);
+			if($limit !== null){
+				$limit=(int)$limit;
+			}
+
+			$survey_variables=$this->Editor_variable_model->select_all($sid,$file_id,$variable_detailed,$offset,$limit);
+			
+			//pre-load vid_uid mapping
+			$vid_uid_cache=null;
+			if(count($survey_variables) > 0){
+				$vid_uid_cache = $this->Editor_variable_model->vid_uid_list($sid);
+			}
+			$this->update_variable_weight_info($sid,$survey_variables,$vid_uid_cache);
 			
 			$response=array(
 				'variables'=>$survey_variables
 			);
+			
+			//include total count if pagination is used
+			if($limit !== null && $limit > 0){
+				$response['total']=$this->Editor_variable_model->count_all($sid,$file_id);
+				$response['offset']=$offset;
+				$response['limit']=$limit;
+			}
 
 			$this->set_response($response, REST_Controller::HTTP_OK);
 		}
@@ -124,7 +147,12 @@ class Variables extends MY_REST_Controller
 			$this->editor_acl->user_has_project_access($sid,$permission='view',$this->api_user);			
 
 			$survey_variables=$this->Editor_variable_model->key_variables($sid,$file_id);
-			$this->update_variable_weight_info($sid,$survey_variables);
+			// Load vid_uid mapping for weight info update
+			$vid_uid_cache=null;
+			if(count($survey_variables) > 0){
+				$vid_uid_cache = $this->Editor_variable_model->vid_uid_list($sid);
+			}
+			$this->update_variable_weight_info($sid,$survey_variables,$vid_uid_cache);
 			
 			$response=array(
 				'variables'=>$survey_variables
@@ -422,17 +450,20 @@ class Variables extends MY_REST_Controller
 
 
 	//fix variable-weight from VID to UID
-	private function update_variable_weight_info($sid,&$variables)
+	private function update_variable_weight_info($sid,&$variables,&$vid_uid_cache=null)
     {
-        $variable_vid_uids=$this->Editor_variable_model->vid_uid_list($sid);
+        // use cache if provided
+        if($vid_uid_cache === null){
+            $vid_uid_cache = $this->Editor_variable_model->vid_uid_list($sid);
+        }
 
         foreach($variables as $idx=>$variable)
         {
             //if variable var_wgt_id is set
             if (isset($variable['var_wgt_id']))
             {
-                if (isset($variable_vid_uids[$variable['var_wgt_id']])){
-                    $variables[$idx]['var_wgt_id']=$variable_vid_uids[$variable['var_wgt_id']];
+                if (isset($vid_uid_cache[$variable['var_wgt_id']])){
+                    $variables[$idx]['var_wgt_id']=$vid_uid_cache[$variable['var_wgt_id']];
                 }
             }
         }

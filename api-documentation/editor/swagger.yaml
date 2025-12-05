@@ -2594,6 +2594,30 @@ paths:
             description: successful operation
         security:
           - ApiKeyAuth: []
+  /admin-metadata/data_patch/:
+      post:
+        tags:
+          - Admin metadata
+        summary: Partial update (patch)
+        description: Apply JSON patch operations to partially update admin metadata.
+        operationId: patchAdminMetadataData
+        consumes:
+          - application/json
+        produces:
+          - application/json
+        parameters:
+          - in: "body"
+            name: "body"
+            required: true
+            schema:
+              $ref: "#/definitions/PatchAdminMetadataData"
+        responses:
+          '200':
+            description: successful operation
+          '400':
+            description: Bad request - Invalid patch operations or missing required fields
+        security:
+          - ApiKeyAuth: []
   /admin-metadata/data_remove/:
       post:
         tags:
@@ -3471,6 +3495,58 @@ definitions:
         required: true
         title: "Metadata"
         description: "Administrative metadata"
+  PatchAdminMetadataData:
+    type: object
+    required:
+      - project_id
+      - template_uid
+      - patches
+    properties:
+      project_id:
+        type: string
+        required: true
+        title: "Project ID/IDNO"
+        description: "Project ID or IDNO"
+      template_uid:
+        type: string
+        required: true
+        title: "Metadata template UID"
+        description: "Admin metadata template UID"
+      patches:
+        type: array
+        required: true
+        title: "JSON Patch operations"
+        description: "Array of JSON patch operations (RFC 6902)"
+        items:
+          type: object
+          required:
+            - op
+            - path
+          properties:
+            op:
+              type: string
+              enum:
+                - add
+                - remove
+                - replace
+                - move
+                - copy
+                - test
+              description: "Operation type"
+            path:
+              type: string
+              description: "JSON Pointer path (RFC 6901) to the element to be patched. Example: /metadata_container/metadata_section/options/0/value"
+            value:
+              type:
+                - string
+                - number
+                - boolean
+                - object
+                - array
+              description: "Value for add or replace operations"
+            from:
+              type: string
+              description: "Source path for move or copy operations"
   QuerydminMetadataData:
     type: object
     properties:
