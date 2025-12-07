@@ -8,6 +8,7 @@ Vue.component('geospatial-feature-import', {
             update_status: '',
             errors: '',
             has_errors: false,
+            has_partial_success: false,
             dialog_process: false,
             upload_report: [],
             supported_formats: ['geojson', 'shp', 'tiff', 'geotiff', 'tif', 'kml', 'kmz', 'gpx', 'csv', 'json', 'zip', 'gpkg', 'nc', 'hdf', 'hdf5', 'grib', 'grb', 'jpg', 'jpeg', 'png', 'img', 'ecw', 'sid', 'jp2', 'asc', 'dem', 'bil', 'bip', 'bsq', 'dt0', 'dt1', 'dt2'],
@@ -17,16 +18,29 @@ Vue.component('geospatial-feature-import', {
             selectedLayers: [],
             pendingJobs: null,
             pollInterval: null,
-            is_cancelled: false
+            timeoutIds: [],
+            is_cancelled: false,
+            featureCreationProgress: { current: 0, total: 0 }
         }
     },
     mounted: function() {
         this.project_id = this.$store.state.project_id;
     },
     beforeDestroy: function() {
+        // Clear all intervals
         if (this.pollInterval) {
             clearInterval(this.pollInterval);
+            this.pollInterval = null;
         }
+        
+        // Clear all timeouts
+        this.timeoutIds.forEach(timeoutId => {
+            clearTimeout(timeoutId);
+        });
+        this.timeoutIds = [];
+        
+        // Cancel any ongoing operations
+        this.is_cancelled = true;
     },
     methods: {
         addFile: function(event) {
@@ -158,71 +172,110 @@ Vue.component('geospatial-feature-import', {
             this.dialog_process = true;
             this.upload_report = [];
             this.has_errors = false;
+            this.has_partial_success = false;
             this.is_cancelled = false; // Reset cancellation flag
+            this.featureCreationProgress = { current: 0, total: 0 };
             this.update_status = 'Uploading files...';
             
             // Process all files
             this.processAllFiles();
         },
         
-        processAllFiles: function() {
-            let completedFiles = 0;
+        processAllFiles: async function() {
             const totalFiles = this.files.length;
             
-            this.files.forEach((fileData, index) => {
+            // Mark all files as processing
+            this.files.forEach(fileData => {
                 fileData.status = 'processing';
-                
-                this.uploadFile(fileData.file)
-                .then(uploadResult => {
-                    if (uploadResult.status === 'success') {
-                        fileData.status = 'uploaded';
-                        fileData.uploadedFiles = uploadResult.files || [];
-                        this.update_status = `Files uploaded. Starting layer analysis...`;
-                        
-                        // Start layer analysis for all files at once
-                        if (completedFiles === totalFiles - 1) {
-                            this.startLayerAnalysisForAllFiles();
+            });
+            
+            // Create upload promises for all files
+            const uploadPromises = this.files.map((fileData, index) => {
+                return this.uploadFile(fileData.file)
+                    .then(uploadResult => {
+                        if (this.is_cancelled) {
+                            throw new Error('Upload cancelled by user');
                         }
-                    } else {
-                        fileData.status = 'failed';
-                        fileData.error = uploadResult.message || 'Upload failed';
-                        this.has_errors = true;
-                        this.errors = uploadResult.message || 'Upload failed';
-                        this.update_status = 'Upload failed';
-                        this.is_processing = false;
                         
-                        // Add to upload report for visibility
-                        this.upload_report.push({
-                            file_name: fileData.name,
-                            status: 'failed',
-                            error: uploadResult.message || 'Upload failed',
-                            context: 'File Upload'
-                        });
-                    }
-                    completedFiles++;
-                })
-                .catch(error => {
-                    console.error('Upload error:', error);
-                    fileData.status = 'failed';
-                    // Extract error message from axios error response
-                    const errorMessage = error.response?.data?.message || error.message || 'Upload failed';
-                    fileData.error = errorMessage;
-                    this.has_errors = true;
-                    this.errors = errorMessage;
-                    this.update_status = 'Upload failed';
+                        if (uploadResult.status === 'success') {
+                            fileData.status = 'uploaded';
+                            fileData.uploadedFiles = uploadResult.files || [];
+                            return { success: true, fileData, uploadResult };
+                        } else {
+                            fileData.status = 'failed';
+                            fileData.error = uploadResult.message || 'Upload failed';
+                            return { success: false, fileData, error: uploadResult.message || 'Upload failed' };
+                        }
+                    })
+                    .catch(error => {
+                        if (this.is_cancelled) {
+                            fileData.status = 'cancelled';
+                            throw error;
+                        }
+                        
+                        console.error('Upload error:', error);
+                        fileData.status = 'failed';
+                        const errorMessage = error.response?.data?.message || error.message || 'Upload failed';
+                        fileData.error = errorMessage;
+                        return { success: false, fileData, error: errorMessage };
+                    });
+            });
+            
+            try {
+                // Wait for all uploads to complete
+                const results = await Promise.all(uploadPromises);
+                
+                if (this.is_cancelled) {
+                    this.update_status = 'Upload cancelled';
                     this.is_processing = false;
-                    
-                    // Add to upload report for visibility
+                    return;
+                }
+                
+                // Process results
+                const successfulUploads = results.filter(r => r && r.success);
+                const failedUploads = results.filter(r => r && !r.success);
+                
+                // Add failed uploads to report
+                failedUploads.forEach(result => {
                     this.upload_report.push({
-                        file_name: fileData.name,
+                        file_name: result.fileData.name,
                         status: 'failed',
-                        error: errorMessage,
+                        error: result.error,
                         context: 'File Upload'
                     });
-                    
-                    completedFiles++;
                 });
-            });
+                
+                // Check if we have any successful uploads
+                if (successfulUploads.length === 0) {
+                    this.update_status = 'All file uploads failed';
+                    this.has_errors = true;
+                    this.errors = 'All files failed to upload. Please check the errors above.';
+                    this.is_processing = false;
+                    return;
+                }
+                
+                // If some failed but some succeeded, mark as partial success
+                if (failedUploads.length > 0) {
+                    this.has_partial_success = true;
+                    this.errors = `${failedUploads.length} file(s) failed to upload, but ${successfulUploads.length} file(s) uploaded successfully.`;
+                }
+                
+                this.update_status = `Files uploaded. Starting layer analysis...`;
+                
+                // Start layer analysis for all successfully uploaded files
+                this.startLayerAnalysisForAllFiles();
+            } catch (error) {
+                if (this.is_cancelled) {
+                    this.update_status = 'Upload cancelled';
+                    this.is_processing = false;
+                    return;
+                }
+                
+                console.error('Error processing files:', error);
+                this.update_status = 'Error processing files: ' + error.message;
+                this.has_errors = true;
+                this.is_processing = false;
+            }
         },
         
         startLayerAnalysisForAllFiles: function() {
@@ -278,7 +331,9 @@ Vue.component('geospatial-feature-import', {
                 jobs: jobs,
                 completedJobs: [],
                 failedJobs: [],
-                allLayers: []
+                allLayers: [],
+                startTime: Date.now(),
+                maxPollTime: 600000 // 10 minutes max polling time
             };
             
             this.update_status = `Waiting for layer analysis to complete (${jobs.length} job(s) running)...`;
@@ -290,13 +345,38 @@ Vue.component('geospatial-feature-import', {
         },
         
         pollJobStatus: async function() {
-            if (!this.pendingJobs) return;
+            if (!this.pendingJobs) {
+                if (this.pollInterval) {
+                    clearInterval(this.pollInterval);
+                    this.pollInterval = null;
+                }
+                return;
+            }
             
             // Check if user cancelled the import
             if (this.is_cancelled) {
                 console.log('Import cancelled, stopping job polling');
-                clearInterval(this.pollInterval);
-                this.pollInterval = null;
+                if (this.pollInterval) {
+                    clearInterval(this.pollInterval);
+                    this.pollInterval = null;
+                }
+                this.pendingJobs = null;
+                this.is_processing = false;
+                return;
+            }
+            
+            // Check for timeout
+            const elapsedTime = Date.now() - this.pendingJobs.startTime;
+            if (elapsedTime > this.pendingJobs.maxPollTime) {
+                console.error('Job polling timeout after', elapsedTime, 'ms');
+                if (this.pollInterval) {
+                    clearInterval(this.pollInterval);
+                    this.pollInterval = null;
+                }
+                this.update_status = 'Layer analysis timeout - jobs took too long to complete';
+                this.has_errors = true;
+                this.is_processing = false;
+                this.pendingJobs = null;
                 return;
             }
             
@@ -307,10 +387,15 @@ Vue.component('geospatial-feature-import', {
                 
                 if (pendingJobs.length === 0) {
                     // All jobs completed
-                    clearInterval(this.pollInterval);
+                    if (this.pollInterval) {
+                        clearInterval(this.pollInterval);
+                        this.pollInterval = null;
+                    }
                     
                     // Check if there are any failed jobs
                     const failedJobs = this.pendingJobs.failedJobs || [];
+                    const successfulJobs = this.pendingJobs.jobs.length - failedJobs.length;
+                    
                     if (failedJobs.length > 0) {
                         console.warn(`${failedJobs.length} job(s) failed during processing`, failedJobs);
                         // Show errors to user
@@ -319,17 +404,24 @@ Vue.component('geospatial-feature-import', {
                             return `${fileName}: ${job.error}`;
                         }).join('\n');
                         
-                        const errorText = `Some files failed to process:\n${errorMessages}`;
+                        const errorText = `${failedJobs.length} file(s) failed to process:\n${errorMessages}`;
                         console.error('Setting error message:', errorText);
                         this.errors = errorText;
-                        this.has_errors = true;
-                        console.error('Error state set - has_errors:', this.has_errors, 'errors:', this.errors);
+                        
+                        // If we have some successful jobs, mark as partial success
+                        if (successfulJobs > 0) {
+                            this.has_partial_success = true;
+                            this.has_errors = true; // Still show errors, but indicate partial success
+                        } else {
+                            this.has_errors = true;
+                        }
                     }
                     
-                    // Show layer selection if there are any successful layers
+                    // Auto-import all layers if there are any successful layers
                     if (this.pendingJobs.allLayers && this.pendingJobs.allLayers.length > 0) {
-                        this.update_status = 'Layer analysis complete. Please select layers to import.';
-                        this.showLayerSelectionDialog(this.pendingJobs.allLayers);
+                        this.update_status = `Layer analysis complete. Importing ${this.pendingJobs.allLayers.length} layer(s)...`;
+                        // Automatically import all layers without showing selection dialog
+                        this.importAllLayers(this.pendingJobs.allLayers);
                     } else {
                         // No layers to import
                         this.update_status = 'No layers were successfully analyzed.';
@@ -339,11 +431,23 @@ Vue.component('geospatial-feature-import', {
                             this.has_errors = true;
                         }
                     }
+                    this.pendingJobs = null;
                     return;
                 }
                 
                 // Check status of pending jobs
                 for (const job of pendingJobs) {
+                    // Check cancellation before each job check
+                    if (this.is_cancelled) {
+                        if (this.pollInterval) {
+                            clearInterval(this.pollInterval);
+                            this.pollInterval = null;
+                        }
+                        this.pendingJobs = null;
+                        this.is_processing = false;
+                        return;
+                    }
+                    
                     try {
                         const statusResult = await this.checkJobStatus(job.job_id);
                         
@@ -369,16 +473,33 @@ Vue.component('geospatial-feature-import', {
                             this.pendingJobs.completedJobs.push(job);
                             
                             // Extract layers from data.layers array
+                            // Handle both string array and object array formats
                             if (jobData && jobData.layers && jobData.layers.length > 0) {
-                                // Create layer objects with file path and other metadata
-                                const layers = jobData.layers.map(layerName => ({
-                                    name: layerName,
-                                    file_path: job.file_path,
-                                    file_info: jobData.file_info,
-                                    bounding_box: jobData.bounding_box,
-                                    type: jobData.type,
-                                    processing_recommendations: jobData.processing_recommendations
-                                }));
+                                const layers = jobData.layers.map(layerItem => {
+                                    // Handle both string and object formats
+                                    if (typeof layerItem === 'string') {
+                                        return {
+                                            id: layerItem,
+                                            name: layerItem,
+                                            file_path: job.file_path,
+                                            file_info: jobData.file_info,
+                                            bounding_box: jobData.bounding_box,
+                                            type: jobData.type,
+                                            processing_recommendations: jobData.processing_recommendations
+                                        };
+                                    } else {
+                                        // Already an object, ensure it has required fields
+                                        return {
+                                            id: layerItem.id || layerItem.name,
+                                            name: layerItem.name || layerItem.layer_name || layerItem.id,
+                                            file_path: layerItem.file_path || job.file_path,
+                                            file_info: layerItem.file_info || jobData.file_info,
+                                            bounding_box: layerItem.bounding_box || jobData.bounding_box,
+                                            type: layerItem.type || jobData.type,
+                                            processing_recommendations: layerItem.processing_recommendations || jobData.processing_recommendations
+                                        };
+                                    }
+                                });
                                 
                                 this.pendingJobs.allLayers = this.pendingJobs.allLayers.concat(layers);
                             }
@@ -407,10 +528,14 @@ Vue.component('geospatial-feature-import', {
                 }
             } catch (error) {
                 console.error('Job polling failed:', error);
-                clearInterval(this.pollInterval);
-                this.update_status = 'Error during layer analysis';
+                if (this.pollInterval) {
+                    clearInterval(this.pollInterval);
+                    this.pollInterval = null;
+                }
+                this.update_status = 'Error during layer analysis: ' + error.message;
                 this.has_errors = true;
                 this.is_processing = false;
+                this.pendingJobs = null;
             }
         },
         
@@ -428,21 +553,35 @@ Vue.component('geospatial-feature-import', {
             });
         },
         
-        showLayerSelectionDialog: function(layers) {
-            console.log('=== SHOWING LAYER SELECTION DIALOG ===');
+        importAllLayers: async function(layers) {
+            console.log('=== AUTO-IMPORTING ALL LAYERS ===');
             console.log('Available layers:', layers);
+            console.log('Total layers to import:', layers.length);
             
-            // Store data for layer selection
+            // Store data for processing
             this.pendingLayerData = {
                 layers: layers
             };
-            this.show_layer_dialog = true;
             
-            // Update status to show layer analysis is complete
-            this.update_status = 'Layer analysis complete. Please select layers to import.';
-            this.is_processing = false;
+            // Set processing status
+            this.is_processing = true;
+            this.featureCreationProgress = { current: 0, total: layers.length };
+            this.update_status = `Importing ${layers.length} layer(s)...`;
             
-            console.log('Layer selection dialog opened');
+            try {
+                console.log('Starting to create features for all layers...');
+                // Create features for all layers automatically
+                await this.createFeaturesFromAllLayers(layers);
+                console.log('Successfully created features for all layers');
+                this.pendingLayerData = null;
+            } catch (error) {
+                console.error('Error creating features from layers:', error);
+                if (!this.is_cancelled) {
+                    this.errors = 'Error importing layers: ' + error.message;
+                    this.has_errors = true;
+                }
+                this.is_processing = false;
+            }
         },
         
         createFeaturesFromFiles: async function(processedFiles, fileData) {
@@ -544,10 +683,17 @@ Vue.component('geospatial-feature-import', {
                     this.pollInterval = null;
                 }
                 
+                // Clear all timeouts
+                this.timeoutIds.forEach(timeoutId => {
+                    clearTimeout(timeoutId);
+                });
+                this.timeoutIds = [];
+                
                 // Close layer dialog if open
                 this.show_layer_dialog = false;
                 this.pendingLayerData = null;
                 this.selectedLayers = [];
+                this.pendingJobs = null;
                 
                 console.log('Import cancelled by user');
             }
@@ -568,33 +714,18 @@ Vue.component('geospatial-feature-import', {
         },
         
         confirmLayerSelection: async function() {
-            console.log('=== CONFIRM LAYER SELECTION ===');
-            console.log('Selected layers count:', this.selectedLayers.length);
-            console.log('Selected layers:', this.selectedLayers);
+            // This method is kept for backward compatibility but should not be called
+            // as we now auto-import all layers. If called, it will import all layers.
+            console.log('=== CONFIRM LAYER SELECTION (legacy method) ===');
             
-            if (this.selectedLayers.length === 0) {
-                console.log('No layers selected, showing alert');
-                alert(this.$t('Please select at least one layer'));
+            if (!this.pendingLayerData || !this.pendingLayerData.layers) {
+                alert(this.$t('Layer data is not available. Please try again.'));
                 return;
             }
             
-            // Set loading state
-            this.is_processing = true;
-            this.update_status = 'Creating features from selected layers...';
-            
-            try {
-                console.log('Starting to create features for selected layers...');
-                // Create features for selected layers
-                await this.createFeaturesFromSelectedLayers();
-                console.log('Successfully created features for all selected layers');
-                this.show_layer_dialog = false;
-                this.pendingLayerData = null;
-                this.selectedLayers = [];
-            } catch (error) {
-                console.error('Error creating features from selected layers:', error);
-                alert(this.$t('Error creating features: ') + error.message);
-                this.is_processing = false;
-            }
+            // Import all layers (selection is no longer used)
+            const layers = this.pendingLayerData.layers;
+            await this.importAllLayers(layers);
         },
         
         cancelLayerSelection: function() {
@@ -612,6 +743,13 @@ Vue.component('geospatial-feature-import', {
                 this.is_processing = false;
                 this.update_status = 'Layer processing cancelled by user';
                 this.has_errors = true;
+                
+                // Clear all timeouts
+                this.timeoutIds.forEach(timeoutId => {
+                    clearTimeout(timeoutId);
+                });
+                this.timeoutIds = [];
+                
                 console.log('Layer processing cancelled by user');
             }
             
@@ -628,19 +766,23 @@ Vue.component('geospatial-feature-import', {
             console.log('Layer selection cancelled');
         },
         
-        createFeaturesFromSelectedLayers: async function() {
-            if (!this.pendingLayerData) {
+        createFeaturesFromAllLayers: async function(layers) {
+            if (!layers || layers.length === 0) {
+                this.update_status = 'No layers to import';
+                this.is_processing = false;
                 return;
             }
             
-            const { layers } = this.pendingLayerData;
-            
             // Set processing status
             this.is_processing = true;
-            this.update_status = 'Creating features from selected layers...';
+            this.featureCreationProgress = { current: 0, total: layers.length };
+            this.update_status = `Importing ${layers.length} layer(s)...`;
             
-            // Process each selected layer
-            for (let i = 0; i < this.selectedLayers.length; i++) {
+            let successCount = 0;
+            let failureCount = 0;
+            
+            // Process each layer
+            for (let i = 0; i < layers.length; i++) {
                 // Check if user cancelled the processing
                 if (this.is_cancelled) {
                     console.log('Layer processing cancelled by user, stopping...');
@@ -649,28 +791,48 @@ Vue.component('geospatial-feature-import', {
                     return;
                 }
                 
-                const layerId = this.selectedLayers[i];
-                const layer = layers.find(l => (l.id || l.name) === layerId);
+                const layer = layers[i];
                 if (!layer) {
+                    failureCount++;
                     continue;
                 }
                 
-                this.update_status = `Processing layer ${i + 1}/${this.selectedLayers.length}: ${layer.name}...`;
+                // Get layer name for display (handle both string and object formats)
+                const layerName = layer.name || layer.layer_name || layer.id || `Layer ${i + 1}`;
+                
+                this.featureCreationProgress.current = i + 1;
+                this.update_status = `Processing layer ${i + 1}/${layers.length}: ${layerName}...`;
                 
                 try {
-                    // Start metadata extraction job for this single layer
-                    const jobResult = await this.startMetadataJob(layer.file_path, layer.name);
+                    // Start metadata extraction job for this layer
+                    // For raster files, layer.name might be a band index (number)
+                    // For vector files, layer.name is the layer name (string)
+                    const layerIdentifier = layer.name || layer.id || (i + 1);
+                    const jobResult = await this.startMetadataJob(layer.file_path, layerIdentifier);
+                    
+                    if (this.is_cancelled) {
+                        this.is_processing = false;
+                        this.update_status = 'Layer processing cancelled';
+                        return;
+                    }
                     
                     if (jobResult.success) {
                         // Use the new metadata_import endpoint to poll and create features
                         const importResult = await this.pollMetadataImport(jobResult.job_id);
                         
+                        if (this.is_cancelled) {
+                            this.is_processing = false;
+                            this.update_status = 'Layer processing cancelled';
+                            return;
+                        }
+                        
                         if (importResult.status === 'success') {
+                            successCount++;
                             this.upload_report.push({
-                                file_name: layer.name,
+                                file_name: layerName,
                                 status: 'success',
                                 feature_id: importResult.feature_id,
-                                layer_name: layer.name
+                                layer_name: layerName
                             });
                             
                             // CSV generation disabled for geospatial features
@@ -694,30 +856,57 @@ Vue.component('geospatial-feature-import', {
                             }
                             */
                         } else {
+                            failureCount++;
                             this.upload_report.push({
-                                file_name: layer.name,
+                                file_name: layerName,
                                 status: 'failed',
                                 error: importResult.message
                             });
                         }
                     } else {
+                        failureCount++;
                         this.upload_report.push({
-                            file_name: layer.name,
+                            file_name: layerName,
                             status: 'failed',
                             error: jobResult.message
                         });
                     }
                 } catch (error) {
+                    failureCount++;
                     this.upload_report.push({
-                        file_name: layer.name,
+                        file_name: layerName,
                         status: 'failed',
                         error: error.message
                     });
                 }
             }
             
-            // Set final status and refresh features list
-            this.update_status = 'completed';
+            // Set final status based on results
+            if (this.is_cancelled) {
+                this.update_status = 'Layer processing cancelled';
+                this.is_processing = false;
+                return;
+            }
+            
+            // Determine final status
+            if (successCount === 0) {
+                // All failed
+                this.update_status = 'All layers failed to import';
+                this.has_errors = true;
+                this.errors = 'All layers failed to import. Please check the errors above.';
+            } else if (failureCount > 0) {
+                // Partial success
+                this.update_status = `Import completed: ${successCount} succeeded, ${failureCount} failed`;
+                this.has_partial_success = true;
+                this.has_errors = true;
+                this.errors = `${failureCount} layer(s) failed to import, but ${successCount} layer(s) imported successfully.`;
+            } else {
+                // All succeeded
+                this.update_status = 'completed';
+                this.has_errors = false;
+                this.has_partial_success = false;
+            }
+            
             this.is_processing = false;
             
             // Refresh the features list
@@ -725,7 +914,18 @@ Vue.component('geospatial-feature-import', {
                 this.$store.dispatch('loadGeospatialFeatures', { dataset_id: this.project_id });
             }
             
-            console.log('Import process completed successfully');
+            console.log(`Import process completed: ${successCount} succeeded, ${failureCount} failed`);
+        },
+        
+        createFeaturesFromSelectedLayers: async function() {
+            // Legacy method - redirects to createFeaturesFromAllLayers
+            // Kept for backward compatibility if needed
+            if (!this.pendingLayerData) {
+                return;
+            }
+            
+            const { layers } = this.pendingLayerData;
+            await this.createFeaturesFromAllLayers(layers);
         },
         
         startCsvGeneration: function(featureId) {
@@ -770,11 +970,19 @@ Vue.component('geospatial-feature-import', {
                 const pollInterval = 2000; // 2 seconds
                 const maxAttempts = 300; // Extended timeout: 300 attempts (10 minutes)
                 let attempts = 0;
+                let currentTimeoutId = null;
                 
                 const poll = () => {
                     // Check if user cancelled the import
                     if (this.is_cancelled) {
                         console.log(`Import cancelled, stopping CSV polling for job ${jobId}`);
+                        if (currentTimeoutId) {
+                            clearTimeout(currentTimeoutId);
+                            const index = this.timeoutIds.indexOf(currentTimeoutId);
+                            if (index > -1) {
+                                this.timeoutIds.splice(index, 1);
+                            }
+                        }
                         reject(new Error('Import cancelled by user'));
                         return;
                     }
@@ -791,20 +999,48 @@ Vue.component('geospatial-feature-import', {
                         
                         if (response.data.status === 'success') {
                             console.log(`CSV generation completed successfully for feature ${featureId}`);
+                            if (currentTimeoutId) {
+                                const index = this.timeoutIds.indexOf(currentTimeoutId);
+                                if (index > -1) {
+                                    this.timeoutIds.splice(index, 1);
+                                }
+                            }
                             resolve(response.data);
                         } else if (response.data.status === 'processing') {
                             console.log(`CSV job still processing, will check again in ${pollInterval}ms`);
                             if (attempts < maxAttempts) {
-                                setTimeout(poll, pollInterval);
+                                currentTimeoutId = setTimeout(poll, pollInterval);
+                                this.timeoutIds.push(currentTimeoutId);
                             } else {
+                                if (currentTimeoutId) {
+                                    clearTimeout(currentTimeoutId);
+                                    const index = this.timeoutIds.indexOf(currentTimeoutId);
+                                    if (index > -1) {
+                                        this.timeoutIds.splice(index, 1);
+                                    }
+                                }
                                 reject(new Error('CSV generation timeout - job did not complete within expected time'));
                             }
                         } else {
+                            if (currentTimeoutId) {
+                                clearTimeout(currentTimeoutId);
+                                const index = this.timeoutIds.indexOf(currentTimeoutId);
+                                if (index > -1) {
+                                    this.timeoutIds.splice(index, 1);
+                                }
+                            }
                             reject(new Error(response.data.message || 'CSV generation failed'));
                         }
                     })
                     .catch(error => {
                         console.error(`CSV job status error:`, error);
+                        if (currentTimeoutId) {
+                            clearTimeout(currentTimeoutId);
+                            const index = this.timeoutIds.indexOf(currentTimeoutId);
+                            if (index > -1) {
+                                this.timeoutIds.splice(index, 1);
+                            }
+                        }
                         reject(new Error(error.response?.data?.message || 'Failed to check CSV job status'));
                     });
                 };
@@ -848,11 +1084,19 @@ Vue.component('geospatial-feature-import', {
             return new Promise((resolve, reject) => {
                 let pollCount = 0;
                 const maxPolls = 300; // Extended timeout: 300 polls (10 minutes)
+                let currentTimeoutId = null;
                 
                 const pollImport = () => {
                     // Check if user cancelled the import
                     if (this.is_cancelled) {
                         console.log(`Import cancelled, stopping polling for job ${jobId}`);
+                        if (currentTimeoutId) {
+                            clearTimeout(currentTimeoutId);
+                            const index = this.timeoutIds.indexOf(currentTimeoutId);
+                            if (index > -1) {
+                                this.timeoutIds.splice(index, 1);
+                            }
+                        }
                         reject(new Error('Import cancelled by user'));
                         return;
                     }
@@ -862,6 +1106,13 @@ Vue.component('geospatial-feature-import', {
                     
                     if (pollCount > maxPolls) {
                         console.error(`Job ${jobId} polling timeout after ${maxPolls} attempts`);
+                        if (currentTimeoutId) {
+                            clearTimeout(currentTimeoutId);
+                            const index = this.timeoutIds.indexOf(currentTimeoutId);
+                            if (index > -1) {
+                                this.timeoutIds.splice(index, 1);
+                            }
+                        }
                         reject(new Error('Job polling timeout'));
                         return;
                     }
@@ -877,6 +1128,12 @@ Vue.component('geospatial-feature-import', {
                         if (importStatus.status === 'success') {
                             // Feature created successfully
                             console.log(`Feature created successfully for job ${jobId}:`, importStatus);
+                            if (currentTimeoutId) {
+                                const index = this.timeoutIds.indexOf(currentTimeoutId);
+                                if (index > -1) {
+                                    this.timeoutIds.splice(index, 1);
+                                }
+                            }
                             resolve({
                                 status: 'success',
                                 feature_id: importStatus.feature_id,
@@ -886,15 +1143,30 @@ Vue.component('geospatial-feature-import', {
                         } else if (importStatus.status === 'processing') {
                             // Job still processing, poll again in 2 seconds
                             console.log(`Job ${jobId} still processing (status: ${importStatus.job_status}), polling again in 2 seconds...`);
-                            setTimeout(pollImport, 2000);
+                            currentTimeoutId = setTimeout(pollImport, 2000);
+                            this.timeoutIds.push(currentTimeoutId);
                         } else {
                             // Import failed
                             console.error(`Import failed for job ${jobId}:`, importStatus);
+                            if (currentTimeoutId) {
+                                clearTimeout(currentTimeoutId);
+                                const index = this.timeoutIds.indexOf(currentTimeoutId);
+                                if (index > -1) {
+                                    this.timeoutIds.splice(index, 1);
+                                }
+                            }
                             reject(new Error('Metadata import failed: ' + (importStatus.message || 'Unknown error')));
                         }
                     })
                     .catch(error => {
                         console.error(`Error polling import for job ${jobId}:`, error);
+                        if (currentTimeoutId) {
+                            clearTimeout(currentTimeoutId);
+                            const index = this.timeoutIds.indexOf(currentTimeoutId);
+                            if (index > -1) {
+                                this.timeoutIds.splice(index, 1);
+                            }
+                        }
                         reject(error);
                     });
                 };
@@ -1044,18 +1316,29 @@ Vue.component('geospatial-feature-import', {
                             </v-row>
                             
                             <!-- Error State -->
-                            <v-alert type="error" v-if="has_errors" class="mt-3">
-                                <div class="text-h6">{{$t("Import Failed")}}</div>
+                            <v-alert :type="has_partial_success ? 'warning' : 'error'" v-if="has_errors" class="mt-3">
+                                <div class="text-h6">{{has_partial_success ? $t("Import Partially Completed") : $t("Import Failed")}}</div>
                                 <div class="mt-2">{{update_status}}</div>
                                 <div v-if="errors" class="mt-2" style="white-space: pre-wrap;">{{errors}}</div>
                             </v-alert>
                             
                             <!-- Processing State -->
-                            <v-container v-if="update_status!='completed' && !has_errors">
+                            <v-container v-if="is_processing">
                                 <div class="text-center">
                                     <v-progress-circular indeterminate color="primary" size="64"></v-progress-circular>
                                     <div class="mt-3 text-h6">{{update_status}}</div>
-                                    <div class="mt-4" v-if="is_processing">
+                                    <div v-if="featureCreationProgress.total > 0" class="mt-2">
+                                        <v-progress-linear 
+                                            :value="(featureCreationProgress.current / featureCreationProgress.total) * 100"
+                                            color="primary"
+                                            height="20"
+                                            rounded
+                                        ></v-progress-linear>
+                                        <div class="mt-1 text-caption">
+                                            {{featureCreationProgress.current}} / {{featureCreationProgress.total}} layers
+                                        </div>
+                                    </div>
+                                    <div class="mt-4">
                                         <v-btn 
                                             color="error" 
                                             outlined 

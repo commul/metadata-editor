@@ -109,6 +109,29 @@ class Geospatial_features_model extends CI_Model {
     }
 
     /**
+     * Get geospatial feature by code and project ID
+     */
+    function select_by_code_and_project($code, $sid)
+    {
+        $this->db->select('*');
+        $this->db->where('code', $code);
+        $this->db->where('sid', $sid);
+        $result = $this->db->get($this->table)->row_array();
+        
+        // Decode JSON fields
+        if ($result) {
+            if (isset($result['metadata']) && !empty($result['metadata'])) {
+                $result['metadata'] = json_decode($result['metadata'], true);
+            }
+            if (isset($result['bounds']) && !empty($result['bounds'])) {
+                $result['bounds'] = json_decode($result['bounds'], true);
+            }
+        }
+        
+        return $result;
+    }
+
+    /**
      * Get geospatial feature by name
      */
     function select_by_name($name)
@@ -175,10 +198,13 @@ class Geospatial_features_model extends CI_Model {
     /**
      * Check if feature code exists
      */
-    function feature_code_exists($code, $exclude_id = null)
+    function feature_code_exists($code, $sid = null, $exclude_id = null)
     {
         $this->db->select('id');
         $this->db->where('code', $code);
+        if ($sid) {
+            $this->db->where('sid', $sid);
+        }
         if ($exclude_id) {
             $this->db->where('id !=', $exclude_id);
         }
@@ -213,10 +239,10 @@ class Geospatial_features_model extends CI_Model {
             }
         }
 
-        // Check if code is unique (if provided)
+        // Check if code is unique within the project (if provided)
         if (isset($data['code']) && !empty($data['code'])) {
-            if ($this->feature_code_exists($data['code'])) {
-                throw new Exception('Feature code already exists');
+            if ($this->feature_code_exists($data['code'], $data['sid'])) {
+                throw new Exception('Feature code already exists in this project');
             }
         }
 
@@ -225,9 +251,11 @@ class Geospatial_features_model extends CI_Model {
             throw new Exception('Project not found');
         }
 
-        // Check if name is unique within the project
+        // Generate unique name if conflict exists (auto-rename instead of throwing exception)
         if ($this->feature_name_exists($data['name'], $data['sid'])) {
-            throw new Exception('Feature name already exists in this project');
+            $original_name = $data['name'];
+            $data['name'] = $this->generate_unique_feature_name($original_name, $data['sid']);
+            log_message('info', "Feature name auto-renamed during insert: '{$original_name}' -> '{$data['name']}'");
         }
 
         // Handle JSON encoding for metadata and bounds fields
@@ -286,10 +314,10 @@ class Geospatial_features_model extends CI_Model {
             }
         }
 
-        // Check if code is unique (if provided)
+        // Check if code is unique within the project (if provided)
         if (isset($data['code']) && !empty($data['code'])) {
-            if ($this->feature_code_exists($data['code'], $id)) {
-                throw new Exception('Feature code already exists');
+            if ($this->feature_code_exists($data['code'], $data['sid'], $id)) {
+                throw new Exception('Feature code already exists in this project');
             }
         }
 
@@ -358,6 +386,81 @@ class Geospatial_features_model extends CI_Model {
         }
         
         return $result;
+    }
+
+    /**
+     * Calculate global bounding box from all features in a project
+     * 
+     * @param int $sid Project ID
+     * @return array|null Global bounding box or null if no valid bounds found
+     */
+    public function calculate_global_bounding_box($sid)
+    {
+        // Select only bounds column for efficiency
+        $this->db->select('bounds');
+        $this->db->where('sid', $sid);
+        $this->db->where('bounds IS NOT NULL');
+        $this->db->where('bounds !=', '');
+        $result = $this->db->get($this->table)->result_array();
+        
+        if (empty($result)) {
+            return null;
+        }
+        
+        $westValues = array();
+        $eastValues = array();
+        $southValues = array();
+        $northValues = array();
+        
+        foreach ($result as $row) {
+            $bounds = json_decode($row['bounds'], true);
+            
+            if (!$bounds || !is_array($bounds)) {
+                continue;
+            }
+            
+            // Handle both direct bounds structure and nested geographicBoundingBox
+            $bbox = isset($bounds['geographicBoundingBox']) 
+                ? $bounds['geographicBoundingBox'] 
+                : $bounds;
+            
+            if (isset($bbox['westBoundLongitude']) && 
+                isset($bbox['eastBoundLongitude']) && 
+                isset($bbox['southBoundLatitude']) && 
+                isset($bbox['northBoundLatitude'])) {
+                
+                $west = floatval($bbox['westBoundLongitude']);
+                $east = floatval($bbox['eastBoundLongitude']);
+                $south = floatval($bbox['southBoundLatitude']);
+                $north = floatval($bbox['northBoundLatitude']);
+                
+                // Validate ranges
+                if ($west >= -180 && $west <= 180 && 
+                    $east >= -180 && $east <= 180 &&
+                    $south >= -90 && $south <= 90 &&
+                    $north >= -90 && $north <= 90 &&
+                    $west < $east &&
+                    $south < $north) {
+                    
+                    $westValues[] = $west;
+                    $eastValues[] = $east;
+                    $southValues[] = $south;
+                    $northValues[] = $north;
+                }
+            }
+        }
+        
+        if (empty($westValues)) {
+            return null;
+        }
+        
+        // Calculate global bounds
+        return array(
+            'westBoundLongitude' => min($westValues),
+            'eastBoundLongitude' => max($eastValues),
+            'southBoundLatitude' => min($southValues),
+            'northBoundLatitude' => max($northValues)
+        );
     }
 
     /**
@@ -547,16 +650,40 @@ class Geospatial_features_model extends CI_Model {
             $file_extension = strtolower(pathinfo($file_name, PATHINFO_EXTENSION));
             $file_name_without_ext = pathinfo($file_name, PATHINFO_FILENAME);
 
-            // Determine feature name and layer name
+            // Determine feature name and layer name with uniqueness strategy
             if ($is_raster) {
-                // For raster files: use filename as the display name
-                $feature_name = $file_name_without_ext;
-                // Store band index internally for processing
+                // For raster files: use filename + band index for uniqueness
                 $layer_name = $info['layer_name_or_band_index'] ?? 1;
+                $band_index = is_numeric($layer_name) ? $layer_name : 1;
+                
+                // Use filename as base, add band suffix if multiple bands or if name conflicts
+                $preferred_name = $file_name_without_ext;
+                // If band index > 1 or if we need to distinguish, add band suffix
+                if ($band_index > 1 || $this->feature_name_exists($preferred_name, $sid)) {
+                    $preferred_name = $file_name_without_ext . '_band_' . $band_index;
+                }
+                $feature_name = $this->generate_unique_feature_name($preferred_name, $sid);
             } else {
-                // For vector files: use layer name
+                // For vector files: prioritize layer name, fallback to filename
                 $layer_name = $info['layer_name_or_band_index'] ?? $file_name_without_ext;
-                $feature_name = $layer_name;
+                
+                // Strategy: Use layer name if available and different from filename
+                // Otherwise use filename, or filename + layer name if layer name exists
+                if (!empty($layer_name) && $layer_name !== $file_name_without_ext) {
+                    // Layer name exists and is different from filename
+                    // Check if layer name alone would be unique
+                    if (!$this->feature_name_exists($layer_name, $sid)) {
+                        $preferred_name = $layer_name;
+                    } else {
+                        // Layer name conflicts, use filename + layer name combination
+                        $preferred_name = $file_name_without_ext . '_' . $layer_name;
+                    }
+                } else {
+                    // No layer name or same as filename, use filename
+                    $preferred_name = $file_name_without_ext;
+                }
+                
+                $feature_name = $this->generate_unique_feature_name($preferred_name, $sid);
             }
 
             // Generate safe CSV filename based on feature name
@@ -694,6 +821,44 @@ class Geospatial_features_model extends CI_Model {
         }
 
         return $characteristics_created;
+    }
+
+    /**
+     * Generate a unique feature name with conflict resolution
+     * 
+     * @param string $preferred_name The preferred name for the feature
+     * @param int $sid Project ID
+     * @param int $max_attempts Maximum number of attempts to find unique name
+     * @return string Unique feature name
+     */
+    private function generate_unique_feature_name($preferred_name, $sid, $max_attempts = 100)
+    {
+        // Clean the preferred name
+        $base_name = trim($preferred_name);
+        if (empty($base_name)) {
+            $base_name = 'unnamed_feature';
+        }
+        
+        // Check if base name is unique
+        if (!$this->feature_name_exists($base_name, $sid)) {
+            return $base_name;
+        }
+        
+        // Try with numeric suffix
+        $counter = 1;
+        while ($counter <= $max_attempts) {
+            $unique_name = $base_name . '_' . $counter;
+            if (!$this->feature_name_exists($unique_name, $sid)) {
+                log_message('info', "Feature name conflict resolved: '{$base_name}' -> '{$unique_name}'");
+                return $unique_name;
+            }
+            $counter++;
+        }
+        
+        // If we've exhausted all attempts, append timestamp as last resort
+        $unique_name = $base_name . '_' . time();
+        log_message('warning', "Feature name conflict: using timestamp suffix for '{$base_name}' -> '{$unique_name}'");
+        return $unique_name;
     }
 
     /**

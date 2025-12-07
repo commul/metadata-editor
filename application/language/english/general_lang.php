@@ -145,7 +145,8 @@ $lang['add']="Add";
 $lang['changed_by']="Changed by";
 $lang['changed_at']="Changed at";
 $lang['owner']="Owner";
-$lang['export_iso19139']="Export XML";
+$lang['export_iso19139']="Export 19139/XML";
+$lang['export_iso19110']="Export 19110/XML";
 
 $lang['Project']="Project";
 $lang['Metadata']="Metadata";

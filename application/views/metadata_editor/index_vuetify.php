@@ -88,6 +88,9 @@
   <script src="<?php echo base_url(); ?>vue-app/assets/vuex.min.js"></script>
   <script src="<?php echo base_url(); ?>vue-app/assets/axios.min.js"></script>
   <script src="<?php echo base_url();?>vue-app/assets/vuetify.min.js"></script>
+  <script src="<?php echo base_url(); ?>vue-app/assets/session_channel.js"></script>
+  <script src="<?php echo base_url(); ?>vue-app/assets/global-session-handler.js"></script>
+  <script src="<?php echo base_url(); ?>vue-app/assets/global-login-plugin.js"></script>
   <script src="<?php echo base_url(); ?>vue-app/assets/lodash.min.js"></script>
   <script src="<?php echo base_url(); ?>vue-app/assets/vue-deepset.min.js"></script>
   <script src="<?php echo base_url(); ?>vue-app/assets/ajv.min.js"></script>
@@ -160,6 +163,11 @@
             },
             },
         })
+
+    // Use GlobalLoginPlugin for session handling
+    if (typeof GlobalLoginPlugin !== 'undefined') {
+        Vue.use(GlobalLoginPlugin);
+    }
 
     vue_app=new Vue({
       el: '#app',
@@ -242,20 +250,6 @@
         });
       }
       ,
-      mounted: function(){
-        let vm=this;
-        axios.interceptors.response.use(
-          function(resp) {            
-            return resp;
-          },
-          function(error) {
-            if (error.response.status==401){
-              vm.login_dialog=true;
-            }
-            return Promise.reject(error);
-          }
-        );
-      },
       computed:{
         ProjectIsLoading(){
           return this.$store.state.project_isloading;
@@ -518,33 +512,40 @@
           }
 
           let features = this.$store.state.geospatial_features;
-          if (!features || features.length === 0){
-            return [];
-          }
+          
+          // Start with Description as the first item
+          let feature_list=[{
+            title: this.$t('Description'),
+            type:'geospatial-feature-description',
+            key:'geospatial-features/description',
+            file:'database'
+          }];
 
-          let feature_list=[];
-          for (let feature of features){
-            feature_list.push({
-              title: feature.name || feature.file_name || 'Unnamed Feature',
-              type:'geospatial-feature',
-              key:'geospatial-features/'+feature.id,
-              file:'datafile',
-              feature:feature,
-              items:[{
-                    title:this.$t('characteristics'),
-                    type: 'geospatial-feature-characteristics',
-                    file: 'variable',                    
-                    key:'geospatial-features/'+feature.id+'/characteristics',
-                    feature:feature,
-                }
-                /*{
-                    title:this.$t('Data'),
-                    type: 'geospatial-feature-data',
-                    file: 'datafile',                    
-                    key:'geospatial-features/'+feature.id+'/data',
-                    feature:feature,
-                }*/]
-            });
+          // Add features if they exist
+          if (features && features.length > 0){
+            for (let feature of features){
+              feature_list.push({
+                title: feature.name || feature.file_name || 'Unnamed Feature',
+                type:'geospatial-feature',
+                key:'geospatial-features/'+feature.id,
+                file:'datafile',
+                feature:feature,
+                items:[{
+                      title:this.$t('characteristics'),
+                      type: 'geospatial-feature-characteristics',
+                      file: 'variable',                    
+                      key:'geospatial-features/'+feature.id+'/characteristics',
+                      feature:feature,
+                  }
+                  /*{
+                      title:this.$t('Data'),
+                      type: 'geospatial-feature-data',
+                      file: 'datafile',                    
+                      key:'geospatial-features/'+feature.id+'/data',
+                      feature:feature,
+                  }*/]
+              });
+            }
           }
 
           return feature_list;
@@ -665,8 +666,13 @@
               this.initiallyOpen.push("geospatial-features");
             }
             
+            // Handle description route
+            if (path.includes("/description")) {
+              console.log("Setting active node to: geospatial-features/description");
+              this.tree_active_items = ["geospatial-features/description"];
+            }
             // Handle different geospatial feature routes
-            if (path.includes("/edit/") || path.includes("/characteristics") || path.includes("/data")) {
+            else if (path.includes("/edit/") || path.includes("/characteristics") || path.includes("/data")) {
               // Extract feature ID from path
               const pathParts = path.split("/");
               const featureId = pathParts[pathParts.length - 1];
@@ -863,6 +869,24 @@
               items:this.VariableGroupsTreeNodes
             });
           }
+
+          if (this.dataset_type=='geospatial'){
+            tree_data.push({
+              title: this.$t('Geospatial features'),
+              type: 'geospatial-features',
+              file: 'database',
+              key:'geospatial-features',
+              items:this.GeospatialFeatures
+            });
+
+            tree_data.push({
+              title: this.$t('Image Gallery'),
+              type: 'geospatial-gallery',
+              file: 'database',
+              key:'geospatial-gallery'
+            });
+
+          }
           
           tree_data.push({
               title: this.$t('external-resources'),
@@ -888,24 +912,6 @@
               key:'files'
           });
           */
-
-          if (this.dataset_type=='geospatial'){
-            tree_data.push({
-              title: this.$t('Geospatial features'),
-              type: 'geospatial-features',
-              file: 'database',
-              key:'geospatial-features',
-              items:this.GeospatialFeatures
-            });
-
-            tree_data.push({
-              title: this.$t('Image Gallery'),
-              type: 'geospatial-gallery',
-              file: 'database',
-              key:'geospatial-gallery'
-            });
-
-          }
 
           if (this.MetadataTypesTreeNodes.length>0){
             //metadata types
@@ -1042,6 +1048,11 @@
 
           if (node.type=='geospatial-features'){
             router.push('/geospatial-features');
+            return;
+          }
+
+          if (node.type=='geospatial-feature-description'){
+            router.push('/geospatial-features/description');
             return;
           }
 

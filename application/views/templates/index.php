@@ -19,6 +19,9 @@
   <script src="<?php echo base_url(); ?>vue-app/assets/vuex.min.js"></script>
   <script src="<?php echo base_url(); ?>vue-app/assets/axios.min.js"></script>
   <script src="<?php echo base_url();?>vue-app/assets/vuetify.min.js"></script>
+  <script src="<?php echo base_url(); ?>vue-app/assets/session_channel.js"></script>
+  <script src="<?php echo base_url(); ?>vue-app/assets/global-session-handler.js"></script>
+  <script src="<?php echo base_url(); ?>vue-app/assets/global-login-plugin.js"></script>
   <script src="<?php echo base_url(); ?>vue-app/assets/lodash.min.js"></script>
   <script src="<?php echo base_url(); ?>vue-app/assets/vue-deepset.min.js"></script>
   <script src="<?php echo base_url(); ?>vue-app/assets/ajv.min.js"></script>
@@ -63,6 +66,7 @@
 
       <?php //echo $this->load->view('editor_common/global-header', null, true); ?>
       <vue-global-site-header></vue-global-site-header>
+      <v-login v-model="login_dialog"></v-login>
 
       <div class="content-wrapper">
         <section class="content">
@@ -353,6 +357,7 @@
   <script>
   
     
+    <?php echo $this->load->view("metadata_editor/vue-login-component.js", null, true); ?>
     <?php include_once("vue-template-revision-history.js"); ?>
 
     <?php include_once("vue-template-share-component.js"); ?>
@@ -399,6 +404,11 @@
             },
             },
         })
+
+    // Use GlobalLoginPlugin for session handling
+    if (typeof GlobalLoginPlugin !== 'undefined') {
+        Vue.use(GlobalLoginPlugin);
+    }
 
     vue_app = new Vue({
       i18n,
@@ -454,9 +464,11 @@
         //this.init_tree_data();
       },
       mounted: function() {
+        var vm = this;
         this.init_data_types();
         this.loadTemplates();
         this.loadDataTypes();
+        this.visiblility_change_handler();        
       },
       computed: {
         Title() {
@@ -468,6 +480,33 @@
       },
       watch: {},
       methods: {
+        visiblility_change_handler: function() {
+          var vm = this;
+          
+          // Reload templates when page/tab becomes visible/active
+          document.addEventListener('visibilitychange', function() {
+            if (!document.hidden) {
+              if (!vm.loading_status) {
+                vm.loadTemplates();
+              } else {
+                console.log("Skipping reload - templates already loading");
+              }
+            }
+          });
+          
+          var focusTimeout;
+          window.addEventListener('focus', function() {
+            console.log("window focus event fired");
+            clearTimeout(focusTimeout);
+            focusTimeout = setTimeout(function() {
+              if (!vm.loading_status && !document.hidden) {
+                console.log("Reloading templates due to window focus");
+                vm.loadTemplates();
+              }
+            }, 500);
+          });
+          
+        },
         init_data_types(){
           
           this.sidebar_data_types=[
@@ -594,7 +633,7 @@
             })
             .then(function() {
               console.log("request completed");
-              this.loading_status = "";
+              vm.loading_status = "";
             });
         },
         initDataTypes: function() {

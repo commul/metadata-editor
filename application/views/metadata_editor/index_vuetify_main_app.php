@@ -144,6 +144,7 @@
             echo $this->load->view("metadata_editor/vue-toast-component.js",null,true);
             echo $this->load->view("metadata_editor/vue-login-component.js",null,true);
             echo $this->load->view("metadata_editor/fields/vue-field-date.js",null,true);
+            echo $this->load->view("metadata_editor/fields/vue-field-bounding-box.js",null,true);
 
             echo $this->load->view("metadata_editor/vue-spreadmetadata-component.js",null,true);
             echo $this->load->view("metadata_editor/vue-form-main-component.js",null,true);
@@ -234,6 +235,7 @@
             echo $this->load->view("metadata_editor/vue-geospatial-feature-import-component.js",null,true);
             echo $this->load->view("metadata_editor/vue-geospatial-feature-characteristics-component.js",null,true);
             echo $this->load->view("metadata_editor/vue-geospatial-feature-data-component.js",null,true);
+            echo $this->load->view("metadata_editor/vue-geospatial-feature-description-component.js",null,true);
 
         ?>
 
@@ -282,6 +284,7 @@
         const GeoFeature ={props: ['id'],template: '<div><geospatial-feature-edit :feature_id="id"/></div>'}
         const GeoFeatureCharacteristics ={props: ['feature_id'],template: '<div><geospatial-feature-characteristics :feature_id="feature_id"/></div>'}
         const GeoFeatureData ={props: ['feature_id'],template: '<div><geospatial-feature-data :feature_id="feature_id"/></div>'}
+        const GeoFeatureDescription ={template: '<div><geospatial-feature-description/></div>'}
         const PagePreview ={template: '<div><page-preview/></div>'}
         const GeoGallery ={template: '<div><geospatial-gallery/></div>'}
         const ProjectHistory ={template: '<div><project-history/></div>'}
@@ -313,10 +316,12 @@
             { path: '/external-resources/:index', component: ResourcesEditComp, props: true, name: 'external-resources-edit'},            
             { path: '/files', component: FileManager, props: true},
             { path: '/geospatial-features', component: GeoFeatures, props: true},
+            { path: '/geospatial-features/description', component: GeoFeatureDescription, props: true},
             { path: '/geospatial-features/import', component: GeoFeaturesImport, props: true},
             { path: '/geospatial-features/edit/:id', component: GeoFeature, props: true },
             { path: '/geospatial-features/:feature_id/characteristics', component: GeoFeatureCharacteristics, props: true },
             { path: '/geospatial-features/:feature_id/data', component: GeoFeatureData, props: true },
+            // This route must come last to avoid matching /description or /import
             { path: '/geospatial-features/:id', component: GeoFeature, props: true },
             { path: '/geospatial-gallery', component: GeoGallery, props: true },
             { path: '/change-log', component: ProjectHistory },

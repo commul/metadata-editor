@@ -2501,44 +2501,17 @@
                                     "props": [
                                         {
                                             "key": "geographicBoundingBox",
-                                            "title": "Bounding box",
-                                            "type": "section",
-                                            "props": [
-                                                {
-                                                    "key": "geographicBoundingBox.westBoundLongitude",
-                                                    "type": "string",
-                                                    "title": "West bound longitude",
-                                                    "prop_key": "description.identificationInfo.extent.geographicElement.geographicBoundingBox.westBoundLongitude",
-                                                    "help_text": "West",
-                                                    "display_type": "text"
-                                                },
-                                                {
-                                                    "key": "geographicBoundingBox.eastBoundLongitude",
-                                                    "type": "string",
-                                                    "title": "East bound longitude",
-                                                    "help_text": "East",
-                                                    "prop_key": "description.identificationInfo.extent.geographicElement.geographicBoundingBox.eastBoundLongitude",
-                                                    "display_type": "text"
-                                                },
-                                                {
-                                                    "key": "geographicBoundingBox.southBoundLatitude",
-                                                    "type": "string",
-                                                    "title": "South bound latitude",
-                                                    "help_text": "South",
-                                                    "prop_key": "description.identificationInfo.extent.geographicElement.geographicBoundingBox.southBoundLatitude",
-                                                    "display_type": "text"
-                                                },
-                                                {
-                                                    "key": "geographicBoundingBox.northBoundLatitude",
-                                                    "type": "string",
-                                                    "title": "North bound latitude",
-                                                    "help_text": "North",
-                                                    "prop_key": "description.identificationInfo.extent.geographicElement.geographicBoundingBox.northBoundLatitude",
-                                                    "display_type": "text"
-                                                }
-                                            ],
+                                            "title": "Geographic Bounding Box",
+                                            "type": "object",
+                                            "display_type": "bounding_box",
                                             "prop_key": "description.identificationInfo.extent.geographicElement.geographicBoundingBox",
-                                            "help_text": "This is the extent of the resource in the geographic space, given as a bounding box. Defining the coordinates of a rectangle representing the resource area on a map allows the discovery by geographical area.\nProvide the coordinates bounding the limits of the dataset, by means of four properties: \n- Western-most coordinate of the limit of the dataset extent, expressed in longitude in decimal degrees (positive east).\n- Eastern-most coordinate of the limit of the dataset extent, expressed in longitude in decimal degrees (positive east)\n- Northern-most coordinate of the limit of the dataset extent, expressed in latitude in decimal degrees (positive north)\n- Southern-most coordinate of the limit of the dataset extent, expressed in latitude in decimal degrees (positive north).\n"
+                                            "help_text": "This is the extent of the resource in the geographic space, given as a bounding box. Defining the coordinates of a rectangle representing the resource area on a map allows the discovery by geographical area. Click to draw a bounding box on the map or enter coordinates manually.\n\nProvide the coordinates bounding the limits of the dataset, by means of four properties: \n- Western-most coordinate of the limit of the dataset extent, expressed in longitude in decimal degrees (positive east).\n- Eastern-most coordinate of the limit of the dataset extent, expressed in longitude in decimal degrees (positive east)\n- Northern-most coordinate of the limit of the dataset extent, expressed in latitude in decimal degrees (positive north)\n- Southern-most coordinate of the limit of the dataset extent, expressed in latitude in decimal degrees (positive north).\n\nThe bounding box shall be as small as possible.\nThe bounding box shall be expressed in decimal degree with a precision of at least 2 decimals.",
+                                            "bounding_box_options": {
+                                                "west": "westBoundLongitude",
+                                                "east": "eastBoundLongitude",
+                                                "south": "southBoundLatitude",
+                                                "north": "northBoundLatitude"
+                                            }
                                         },
                                         {
                                             "key": "geohash",
@@ -8099,6 +8072,7 @@
                     "key": "description.feature_catalogue_section",
                     "title": "Feature catalogue",
                     "type": "section",
+                    "is_custom": true,
                     "items": [
                         {
                             "key": "description.feature_catalogue.name",
@@ -8110,7 +8084,7 @@
                         {
                             "key": "description.feature_catalogue.scope",
                             "title": "Scope",
-                            "type": "string",
+                            "type": "simple_array",
                             "enum": [],
                             "help_text": "Subject domain(s) of feature types defined in this feature catalogue.",
                             "display_type": "textarea"
@@ -8118,7 +8092,7 @@
                         {
                             "key": "description.feature_catalogue.fieldOfApplication",
                             "title": "Fields of application",
-                            "type": "string",
+                            "type": "simple_array",
                             "enum": [],
                             "help_text": "One or more fields of applications for this feature catalogue.",
                             "display_type": "textarea"

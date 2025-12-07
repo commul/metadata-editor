@@ -58,6 +58,7 @@
 
   <div id="app" data-app >    
     <v-app >
+      <v-login v-model="login_dialog"></v-login>
 
     <alert-dialog></alert-dialog>
     <confirm-dialog></confirm-dialog>
@@ -613,6 +614,9 @@
   <script src="<?php echo base_url(); ?>vue-app/assets/vuex.min.js"></script>
   <script src="<?php echo base_url(); ?>vue-app/assets/axios.min.js"></script>
   <script src="<?php echo base_url();?>vue-app/assets/vuetify.min.js"></script>
+  <script src="<?php echo base_url(); ?>vue-app/assets/session_channel.js"></script>
+  <script src="<?php echo base_url(); ?>vue-app/assets/global-session-handler.js"></script>
+  <script src="<?php echo base_url(); ?>vue-app/assets/global-login-plugin.js"></script>
   <script src="<?php echo base_url(); ?>vue-app/assets/lodash.min.js"></script>
   <!--
   <script src="https://cdn.jsdelivr.net/npm/vue-deepset@0.6.3/vue-deepset.min.js"></script>
@@ -639,6 +643,7 @@
     echo $this->load->view("project/vue-project-access-component.js", null, true);
     echo $this->load->view("project/vue-transfer-ownership-component.js", null, true);
     echo $this->load->view("editor_common/navigation-tabs-component.js", null, true);
+    echo $this->load->view("metadata_editor/vue-login-component.js", null, true);
     echo $this->load->view("editor_common/global-site-header-component.js", null, true);
     echo $this->load->view("project/vue-create-revision-component.js", null, true);
     echo $this->load->view("project/vue-list-revisions-component.js", null, true);
@@ -728,7 +733,10 @@
 
     Vue.mixin(momentMixin);
 
-
+    // Use GlobalLoginPlugin for session handling
+    if (typeof GlobalLoginPlugin !== 'undefined') {
+        Vue.use(GlobalLoginPlugin);
+    }
 
     vue_app = new Vue({
       el: '#app',

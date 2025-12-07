@@ -1451,6 +1451,61 @@ class Editor extends MY_REST_Controller
 
 	/**
 	 * 
+	 * Export feature catalogue to ISO19110/XML
+	 * 
+	 */
+	function iso19110_get($sid=null)
+	{		
+		try{
+			$sid=$this->get_sid($sid);
+			$exists=$this->Editor_model->check_id_exists($sid, $type='geospatial');
+			$download=$this->input->get("download");
+
+			if(!$exists){
+				throw new Exception("Project not found");
+			}
+
+			$this->editor_acl->user_has_project_access($sid,$permission='view');
+			$this->load->library('ISO19110Writer');
+			$this->load->library('Geospatial_metadata_writer');
+			
+			// Get project info for filename
+			$project_info = $this->Editor_model->get_basic_info($sid);
+			
+			// Get merged feature catalogue metadata
+			$feature_catalogue = $this->geospatial_metadata_writer->get_merged_feature_catalogue($sid);
+			
+			// If feature catalogue is empty, throw error
+			if (empty($feature_catalogue)) {
+				throw new Exception("Feature catalogue not found and no features available in database");
+			}
+
+			// Generate XML
+			$xml=$this->iso19110writer->generate($feature_catalogue);
+
+			if ($download=='true' || $download==1){
+				$this->load->helper('download');
+				$filename = isset($project_info['idno']) && !empty($project_info['idno']) 
+					? $project_info['idno'].'_feature_catalogue.xml' 
+					: 'feature_catalogue_'.$sid.'.xml';
+				force_download($filename, $xml);
+				die();
+			}
+
+			echo $xml;
+			die();
+		}
+		catch(Exception $e){
+			$error_output=array(
+				'status'=>'failed',
+				'message'=>$e->getMessage()
+			);
+			$this->set_response($error_output, REST_Controller::HTTP_BAD_REQUEST);
+		}
+	}
+
+	/**
+	 * 
 	 * Get project lock status
 	 * 
 	 */

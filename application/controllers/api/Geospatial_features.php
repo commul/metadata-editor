@@ -1516,28 +1516,23 @@ class Geospatial_features extends MY_REST_Controller
 	{
 		try{
 			$sid=$this->get_sid($sid);
-			$exists=$this->Editor_model->check_id_exists($sid);
-
-			if(!$exists){
-				throw new Exception("Project not found");
+			if(!$sid){
+				throw new Exception("Missing parameter: project ID (sid)");
 			}
 
-			$this->editor_acl->user_has_project_access($sid,$permission='view',$this->api_user);
-
-			$job_id = $this->input->post('job_id');
+			$options = $this->raw_json_input();
+			$job_id = isset($options['job_id']) ? $options['job_id'] : null;
+			
 			if (!$job_id) {
 				throw new Exception("Missing parameter: job_id");
 			}
 
-			$api_client = $this->geospatial_api_client;
-			$status_result = $api_client->get_processing_status($job_id);
+			$this->editor_acl->user_has_project_access($sid, 'view', $this->api_user);
 			
-			$output = array(
-				'status' => 'success',
-				'job_status' => $status_result
-			);
-
-			$this->set_response($output, REST_Controller::HTTP_OK);			
+			$api_client = $this->geospatial_api_client;
+			$result = $api_client->get_analysis_status($job_id);
+			
+			$this->set_response($result, REST_Controller::HTTP_OK);
 		}
 		catch(Exception $e){
 			$error_output = array(
@@ -1545,7 +1540,51 @@ class Geospatial_features extends MY_REST_Controller
 				'message' => $e->getMessage()
 			);
 			$this->set_response($error_output, REST_Controller::HTTP_BAD_REQUEST);
+		}	
+	}
+
+	/**
+	 * Calculate global bounding box from all features in a project
+	 * GET /api/geospatial-features/{project_id}/global-bounds
+	 */
+	function global_bounds_get($sid = null)
+	{
+		try {
+			$sid = $this->get_sid($sid);
+			
+			if (!$sid) {
+				throw new Exception("Missing parameter: project ID (sid)");
+			}
+			
+			$this->editor_acl->user_has_project_access($sid, 'view', $this->api_user);
+			
+			$globalBounds = $this->Geospatial_features_model->calculate_global_bounding_box($sid);
+			
+			if ($globalBounds === null) {
+				$response = array(
+					'status' => 'success',
+					'project_id' => $sid,
+					'global_bounds' => null,
+					'message' => 'No valid bounding boxes found in project features'
+				);
+			} else {
+				$response = array(
+					'status' => 'success',
+					'project_id' => $sid,
+					'global_bounds' => $globalBounds
+				);
+			}
+			
+			$this->set_response($response, REST_Controller::HTTP_OK);
+		}
+		catch(Exception $e) {
+			$error_output = array(
+				'status' => 'failed',
+				'message' => $e->getMessage()
+			);
+			$this->set_response($error_output, REST_Controller::HTTP_BAD_REQUEST);
 		}
 	}
+
 
 }

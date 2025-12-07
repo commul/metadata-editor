@@ -144,6 +144,7 @@
             <v-app>
             <?php //echo $this->load->view('editor_common/global-header', null, true); ?>
             <vue-global-site-header></vue-global-site-header>
+            <v-login v-model="login_dialog"></v-login>
             <router-view :key="$route.fullPath"></router-view>
             </v-app>
         </div>
@@ -155,10 +156,14 @@
     <script src="<?php echo base_url(); ?>vue-app/assets/vue-router.min.js"></script>
     <script src="<?php echo base_url(); ?>vue-app/assets/axios.min.js"></script>
     <script src="<?php echo base_url();?>vue-app/assets/vuetify.min.js"></script>
+    <script src="<?php echo base_url(); ?>vue-app/assets/session_channel.js"></script>
+    <script src="<?php echo base_url(); ?>vue-app/assets/global-session-handler.js"></script>
+    <script src="<?php echo base_url(); ?>vue-app/assets/global-login-plugin.js"></script>
   
 
     <script>
         <?php
+            echo $this->load->view("metadata_editor/vue-login-component.js", null, true);
             echo $this->load->view("collections/vue-tree-list-component.js", null, true);
             echo $this->load->view("collections/vue-collections-component.js", null, true);
             echo $this->load->view("collections/vue-edit-collection-component.js", null, true);
@@ -227,6 +232,11 @@
             },
             },
         })
+
+        // Use GlobalLoginPlugin for session handling
+        if (typeof GlobalLoginPlugin !== 'undefined') {
+            Vue.use(GlobalLoginPlugin);
+        }
 
         vue_app = new Vue({
             el: '#app',
