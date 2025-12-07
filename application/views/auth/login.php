@@ -51,6 +51,10 @@
 <h1><?php echo t('log_in');?></h1>
 <form method="post" class="form" autocomplete="off">
 
+<?php if (isset($popup_mode) && $popup_mode): ?>
+<input type="hidden" name="mode" value="popup">
+<?php endif; ?>
+
 <div style="padding:5px;">
 
     <div class="form-group">

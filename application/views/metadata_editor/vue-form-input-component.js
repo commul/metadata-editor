@@ -357,6 +357,17 @@ Vue.component("form-input", {
                         <editor-date-field v-model="local" :field="field"></editor-date-field>
                         <small class="help-text form-text text-muted">{{field.help_text}}</small>                            
                     </div>
+                </div>
+
+                <div v-else-if="fieldDisplayType(field)=='bounding_box'">
+                    <div class="form-field-bounding-box">
+                        <label :for="'field-' + normalizeClassID(field.key)">{{field.title}}
+                            <span class="small" v-if="field.help_text" role="button" data-toggle="collapse" :data-target="'#field-toggle-' + normalizeClassID(field.key)" ><i class="far fa-question-circle"></i></span>
+                            <span v-if="field.required==true" class="required-label"> * </span>
+                        </label>
+                        <editor-bounding-box-field v-model="local" :field="field"></editor-bounding-box-field>
+                        <small :id="'field-toggle-' + normalizeClassID(field.key)" class="collapse help-text form-text text-muted mb-2">{{field.help_text}}</small>
+                    </div>
                 </div>               
                 
                 

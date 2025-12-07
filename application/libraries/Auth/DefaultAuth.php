@@ -149,8 +149,15 @@ class DefaultAuth implements AuthInterface
 			return $this->login_ajax();
 		}
 
-		$this->ci->template->set_template('blank');
+		$this->ci->template->set_template('default');
         $this->data['title'] = t("login");
+
+		// Check for popup mode
+		$popup_mode = $this->ci->input->get('mode') === 'popup' || $this->ci->input->post('mode') === 'popup';
+
+		if ($popup_mode) {
+			$this->ci->template->set_template('blank');
+		}
 
         //validate form input
     	$this->ci->form_validation->set_rules('email', t('email'), 'trim|required|valid_email|max_length[100]');
@@ -167,8 +174,7 @@ class DefaultAuth implements AuthInterface
 			{
         		$remember = false;
         	}
-
-
+			
 			//track login attempts?
 			if ($this->ci->config->item("track_login_attempts")===TRUE)
 			{
@@ -179,7 +185,12 @@ class DefaultAuth implements AuthInterface
 				{
 					$this->ci->session->set_flashdata('error', t("max_login_attempted"));
 					sleep(3);
-					redirect("auth/login");
+					// Preserve popup mode
+					if ($popup_mode) {
+						redirect("auth/login?mode=popup", 'refresh');
+					} else {
+						redirect("auth/login", 'refresh');
+					}
 				}
 			}
 
@@ -189,16 +200,21 @@ class DefaultAuth implements AuthInterface
 				//log
 				$this->ci->db_logger->write_log('login',$this->ci->input->post('email'));
 
-				$destination=$this->ci->session->userdata("destination");
+				// If popup mode, redirect to success page instead of destination
+				if ($popup_mode) {
+					redirect("auth/login_success?mode=popup", 'refresh');
+				} else {
+					$destination=$this->ci->session->userdata("destination");
 
-				if ($destination!="")
-				{
-					$this->ci->session->unset_userdata('destination');
-					redirect($destination, 'refresh');
-				}
-				else
-				{
-				 	redirect($this->ci->config->item('base_url'), 'refresh');
+					if ($destination!="")
+					{
+						$this->ci->session->unset_userdata('destination');
+						redirect($destination, 'refresh');
+					}
+					else
+					{
+					 	redirect($this->ci->config->item('base_url'), 'refresh');
+					}
 				}
 	        }
 	        else
@@ -209,13 +225,21 @@ class DefaultAuth implements AuthInterface
 				//log
 				//$this->ci->db_logger->write_log('login-failed',$this->ci->input->post('email'));
 
-	        	redirect("auth/login", 'refresh'); //use redirects instead of loading views for compatibility with MY_Controller libraries
+	        	// Preserve popup mode in redirect
+	        	if ($popup_mode) {
+	        		redirect("auth/login?mode=popup", 'refresh');
+	        	} else {
+	        		redirect("auth/login", 'refresh');
+	        	}
 	        }
         }
 		else
 		{  	//the user is not logging in so display the login page
 	        //set the flash data error message if there is one
 	        $this->data['error'] = (validation_errors()) ? validation_errors() : $this->ci->session->flashdata('error');
+			
+			// Pass popup mode to view
+			$this->data['popup_mode'] = $this->ci->input->get('mode') === 'popup';
 
 			$this->data['email']      = array('name'    => 'email',
                                               'id'      => 'email',
@@ -235,6 +259,33 @@ class DefaultAuth implements AuthInterface
 			$this->ci->template->render();
 		}
     }
+
+	/**
+	 * Login success page (for popup mode)
+	 * Only accessible if user is logged in
+	 */
+	function login_success()
+	{
+		// Check if user is logged in - if not, redirect to login
+		if (!$this->ci->ion_auth->logged_in()) {
+			$popup_mode = $this->ci->input->get('mode') === 'popup';
+			if ($popup_mode) {
+				redirect("auth/login?mode=popup", 'refresh');
+			} else {
+				redirect("auth/login", 'refresh');
+			}
+		}
+
+		$this->ci->template->set_template('blank');
+		$this->data['title'] = "Login Successful";
+		$this->data['popup_mode'] = $this->ci->input->get('mode') === 'popup';
+		
+		$content = $this->ci->load->view('auth/login_success', $this->data, TRUE);
+		
+		$this->ci->template->write('content', $content, true);
+		$this->ci->template->write('title', "Login Successful", true);
+		$this->ci->template->render();
+	}
 
 	function login_ajax()
     {

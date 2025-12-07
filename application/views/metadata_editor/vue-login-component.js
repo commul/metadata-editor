@@ -14,11 +14,24 @@ Vue.component('v-login', {
     },
     methods: {
         loginRedirect: function() {
-            let url = CI.site_url + '/auth/login';
-            window.open(url, '_blank');
+            
+            
+            if (window.GlobalSessionHandler) {
+                window.GlobalSessionHandler.openLoginPopup();
+            } else {
+                // fallback
+                let url = CI.site_url + '/auth/login?mode=popup';
+                const w = 500, h = 600;
+                const left = (screen.width - w) / 2;
+                const top = (screen.height - h) / 2;
+                window.open(url, 'loginPopup', `width=${w},height=${h},left=${left},top=${top},resizable=yes,scrollbars=yes`);
+            }
         },
         closeDialog: function() {
             this.$emit('input', false);
+            if (window.GlobalSessionHandler) {
+                window.GlobalSessionHandler.closeLoginDialog();
+            }
         },
         isLoggedIn: function() {
             if (this.is_loading) {
@@ -33,6 +46,10 @@ Vue.component('v-login', {
                 .then(function(response) {
                     vm.is_logged_in = true;
                     vm.is_loading = false;
+                    // Close dialog if logged in
+                    if (vm.is_logged_in && vm.value) {
+                        vm.closeDialog();
+                    }
                 })
                 .catch(function(response) {
                     vm.is_logged_in = false;

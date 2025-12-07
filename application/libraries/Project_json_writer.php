@@ -224,6 +224,19 @@ class Project_json_writer
 			};*/
 		}
 		
+		if($project['type']=='geospatial'){
+			// Merge feature catalogue metadata from project-level and database
+			$this->ci->load->library('Geospatial_metadata_writer');
+			$merged_feature_catalogue = $this->ci->geospatial_metadata_writer->get_merged_feature_catalogue($sid);
+			
+			if (!empty($merged_feature_catalogue)) {
+				if (!isset($output['description'])) {
+					$output['description'] = array();
+				}
+				$output['description']['feature_catalogue'] = $merged_feature_catalogue;
+			}
+		}
+		
 		$encoder = new \Violet\StreamingJsonEncoder\StreamJsonEncoder(
 			$output,
 			function ($json) use ($fp) {
@@ -243,7 +256,9 @@ class Project_json_writer
 		unset($variable['metadata']['uid']);
 		unset($variable['metadata']['sid']);
 
-		$var_catgry_labels=$this->get_indexed_variable_category_labels($variable['metadata']["var_catgry_labels"]);
+		$var_catgry_labels=isset($variable['metadata']["var_catgry_labels"]) 
+			? $this->get_indexed_variable_category_labels($variable['metadata']["var_catgry_labels"]) 
+			: array();
 
 		//process summary statistics
 		$sum_stats_options = isset($variable['metadata']['sum_stats_options']) ? $variable['metadata']['sum_stats_options'] : [];
@@ -366,8 +381,80 @@ class Project_json_writer
 			unset($variable['metadata']['var_catgry_labels']);
 		}
 
+		// Convert numeric strings to actual numbers in statistical fields only
+		$variable['metadata'] = $this->convert_statistics_to_numeric($variable['metadata']);
+		
 		array_remove_empty($variable);
 		return $variable;
+	}
+	
+	/**
+	 * Convert numeric strings to numbers ONLY in statistical fields
+	 * This preserves strings like "01", "02" in category values while fixing numeric stats
+	 */
+	private function convert_statistics_to_numeric($metadata)
+	{
+		// Convert summary statistics values
+		if (isset($metadata['var_sumstat']) && is_array($metadata['var_sumstat'])) {
+			foreach ($metadata['var_sumstat'] as $idx => $stat) {
+				if (isset($stat['value'])) {
+					$metadata['var_sumstat'][$idx]['value'] = $this->to_number_if_appropriate($stat['value']);
+				}
+			}
+		}
+		
+		// Convert value ranges (min, max, count)
+		if (isset($metadata['var_valrng']['range']) && is_array($metadata['var_valrng']['range'])) {
+			foreach ($metadata['var_valrng']['range'] as $key => $value) {
+				if (in_array($key, ['min', 'max', 'count'])) {
+					$metadata['var_valrng']['range'][$key] = $this->to_number_if_appropriate($value);
+				}
+			}
+		}
+		
+		// Convert category statistics (freq counts) but NOT category values
+		if (isset($metadata['var_catgry']) && is_array($metadata['var_catgry'])) {
+			foreach ($metadata['var_catgry'] as $idx => $cat) {
+				if (isset($cat['stats']) && is_array($cat['stats'])) {
+					foreach ($cat['stats'] as $stat_idx => $stat) {
+						if (isset($stat['value'])) {
+							$metadata['var_catgry'][$idx]['stats'][$stat_idx]['value'] = 
+								$this->to_number_if_appropriate($stat['value']);
+						}
+					}
+				}
+			}
+		}
+		
+		return $metadata;
+	}
+	
+	/**
+	 * Convert a value to number only if it's truly meant to be numeric
+	 * Preserves strings with leading zeros like "01", "001", etc.
+	 */
+	private function to_number_if_appropriate($value)
+	{
+		// Not a string? Return as-is
+		if (!is_string($value)) {
+			return $value;
+		}
+		
+		// Not numeric? Return as-is
+		if (!is_numeric($value)) {
+			return $value;
+		}
+		
+		// Has leading zero (but not "0" itself or "0.something")? Keep as string
+		if (strlen($value) > 1 && $value[0] === '0' && $value[1] !== '.') {
+			return $value;
+		}
+		
+		// Convert to appropriate numeric type
+		if (strpos($value, '.') !== false) {
+			return (float)$value;
+		}
+		return (int)$value;
 	}
 
 

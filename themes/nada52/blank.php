@@ -32,7 +32,7 @@ $use_cdn=false;
 <body class="wb-template-blank">
 
 <!-- site header -->
-<?php include_once 'header.php';?>
+<?php include_once 'header-login.php';?>
 
 <!-- page body -->
 <div class="wb-page-body container-fluid">

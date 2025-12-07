@@ -57,8 +57,11 @@ $route['about'] = "page/about";
 
 $route['editor'] = "projects";
 $route['editor/(.*)'] = "projects/$1";
+$route['api/geospatial-features/global-bounds/(:num)'] = "api/geospatial_features/global_bounds/$1";
+$route['api/geospatial-features/(:num)/global-bounds'] = "api/geospatial_features/global_bounds/$1";
 $route['api/geospatial-features'] = "api/geospatial_features";
 $route['api/geospatial-features/(.*)'] = "api/geospatial_features/$1";
+
 
 
 //admin paths
