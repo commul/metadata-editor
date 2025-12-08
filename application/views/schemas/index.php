@@ -91,11 +91,20 @@
 
 <?php
   $user=$this->session->userdata('username');
+  $this->load->library('Editor_acl');
+  
+  $has_schema_permission = false;
+  try {
+      $has_schema_permission = $this->editor_acl->has_access('schema', 'view');
+  } catch (Exception $e) {
+      $has_schema_permission = false;
+  }
 
   $user_info=[
     'username'=> $user,
     'is_logged_in'=> !empty($user),
     'is_admin'=> $this->ion_auth->is_admin(),
+    'has_schema_permission'=> $has_schema_permission,
   ];
 ?>
 
@@ -340,24 +349,7 @@
               <div class="row">
                 <div class="col-12">
                   <div class="mt-5 mb-4">
-                    <v-tabs background-color="transparent" v-model="navTabsModel">
-                      <v-tab :value="0" @click="pageLink('editor')">
-                        <v-icon>mdi-text-box</v-icon>
-                        <span class="ml-2">{{$t('projects')}}</span>
-                      </v-tab>
-                      <v-tab :value="1" @click="pageLink('collections')">
-                        <v-icon>mdi-folder-text</v-icon>
-                        <span class="ml-2">{{$t('collections')}}</span>
-                      </v-tab>
-                      <v-tab :value="2" @click="pageLink('templates')">
-                        <v-icon>mdi-alpha-t-box</v-icon>
-                        <span class="ml-2">{{$t('templates')}}</span>
-                      </v-tab>
-                      <v-tab :value="3" @click="pageLink('schemas')">
-                        <v-icon>mdi-file-tree</v-icon>
-                        <span class="ml-2">{{$t('schemas')}}</span>
-                      </v-tab>
-                    </v-tabs>
+                    <main-navigation-tabs active-tab="schemas" v-model="navTabsModel"></main-navigation-tabs>
                   </div>
                 </div>
               </div>
@@ -771,6 +763,7 @@
       echo $this->load->view("vue/vue-alert-dialog-component.js", null, true);
       echo $this->load->view("vue/vue-confirm-dialog-component.js", null, true);
       echo $this->load->view("editor_common/global-site-header-component.js", null, true);
+      echo $this->load->view("editor_common/main-navigation-tabs-component.js", null, true);
       echo $this->load->view("schemas/vue-schemas-app.js", array('translations'=>$translations), true);
     ?>
   </script>

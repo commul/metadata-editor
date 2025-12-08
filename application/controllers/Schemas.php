@@ -14,7 +14,7 @@ class Schemas extends MY_Controller {
 
     public function index()
     {
-        $this->editor_acl->has_access_or_die($resource_='template_manager',$privilege='view');
+        $this->editor_acl->has_access_or_die($resource_='schema',$privilege='view');
         $options = array(
             'translations' => $this->lang->language
         );
@@ -23,7 +23,7 @@ class Schemas extends MY_Controller {
 
     public function preview($uid = null)
     {
-        $this->editor_acl->has_access_or_die($resource_='template_manager',$privilege='view');
+        $this->editor_acl->has_access_or_die($resource_='schema',$privilege='view');
 
         if (!$uid) {
             show_404();

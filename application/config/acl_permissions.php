@@ -113,6 +113,28 @@ $config['acl_permissions'] = [
         ]
     ],
     
+    "schema"=>[ 
+        "title" => "Schema",
+        "description"=> "Allow user to manage schemas",
+        "permissions"=>[
+            [
+                "permission" => "view"
+            ],
+            [
+                "permission" => "edit",
+                "sub_permissions"=>["view"]
+            ],
+            [
+                "permission" => "delete",
+                "sub_permissions"=>["view"]
+            ],
+            [
+                "permission" => "admin",
+                "sub_permissions"=>["view","edit","delete"]
+            ]
+        ]
+    ],
+    
    
     
     "configurations"=>[ 

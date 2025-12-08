@@ -15,23 +15,31 @@ Vue.component('vue-global-site-header', {
             window.location.href = CI.site_url + '/' + page;
         },
         switchLanguage: function(lang) {
-            let page = window.location.pathname;            
-
-            if (page.endsWith('/')) {
-                page = page.slice(0, -1);
-            }
-            page = page.split('/').pop();
-
-            if (page === 'index.php' || page === '/') {
-                page = 'projects';
-            }
-
-            //remove starting slash if exists
-            if (page.startsWith('/')) {
-                page = page.slice(1);
-            }
-
-            window.location.href = CI.site_url + '/switch_language/' + lang + '/?destination=' + page;
+            const params = new URLSearchParams();
+            params.append('language', lang);
+            
+            axios.post(CI.site_url + '/api/languages/switch', params, {
+                headers: {
+                    'Content-Type': 'application/x-www-form-urlencoded'
+                }
+            })
+            .then(response => {
+                if (response.data && response.data.status === 'success') {
+                    // Update current language display
+                    if (response.data.language_display) {
+                        this.current_language.title = response.data.language_display;
+                    }
+                    // Reload the page to apply the new language
+                    window.location.reload();
+                } else {
+                    console.error('Language switch failed:', response.data);
+                    alert('Failed to switch language. Please try again.');
+                }
+            })
+            .catch(error => {
+                console.error('Error switching language:', error);
+                alert('Error switching language. Please try again.');
+            });
         },
         loadLanguages: function() {
             axios.get(CI.site_url + '/api/languages')

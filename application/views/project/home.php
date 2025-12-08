@@ -18,11 +18,20 @@
 
 <?php
   $user=$this->session->userdata('username');
+  $this->load->library('Editor_acl');
+  
+  $has_schema_permission = false;
+  try {
+      $has_schema_permission = $this->editor_acl->has_access('schema', 'view');
+  } catch (Exception $e) {
+      $has_schema_permission = false;
+  }
 
   $user_info=[
     'username'=> $user,
     'is_logged_in'=> !empty($user),
     'is_admin'=> $this->ion_auth->is_admin(),
+    'has_schema_permission'=> $has_schema_permission,
   ];
   
 ?>
@@ -180,7 +189,7 @@
                 <div class="mt-5 mb-5">                  
 
                       <div class="mb-5">
-                        <vue-navigation-tabs></vue-navigation-tabs>
+                        <main-navigation-tabs active-tab="projects"></main-navigation-tabs>
                       </div>
 
                   <div class="d-flex">
@@ -649,7 +658,7 @@
     echo $this->load->view("project/vue-collection-share-component.js", null, true);
     echo $this->load->view("project/vue-project-access-component.js", null, true);
     echo $this->load->view("project/vue-transfer-ownership-component.js", null, true);
-    echo $this->load->view("editor_common/navigation-tabs-component.js", null, true);
+    echo $this->load->view("editor_common/main-navigation-tabs-component.js", null, true);
     echo $this->load->view("metadata_editor/vue-login-component.js", null, true);
     echo $this->load->view("editor_common/global-site-header-component.js", null, true);
     echo $this->load->view("project/vue-create-revision-component.js", null, true);

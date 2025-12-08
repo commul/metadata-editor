@@ -66,11 +66,20 @@
 <body class="layout-top-nav">
     <?php
       $user=$this->session->userdata('username');
+      $this->load->library('Editor_acl');
+      
+      $has_schema_permission = false;
+      try {
+          $has_schema_permission = $this->editor_acl->has_access('schema', 'view');
+      } catch (Exception $e) {
+          $has_schema_permission = false;
+      }
 
       $user_info=[
         'username'=> $user,
         'is_logged_in'=> !empty($user),
         'is_admin'=> $this->ion_auth->is_admin(),
+        'has_schema_permission'=> $has_schema_permission,
       ];
       
     ?>
@@ -146,12 +155,7 @@
 
                 <div class="mt-5 mb-5">
 
-                    <v-tabs background-color="transparent" v-model="nav_tabs_model">
-                        <v-tab @click="pageLink('projects')"><v-icon>mdi-text-box</v-icon> <a :href="site_base_url + '/editor'">{{$t("projects")}}</a></v-tab>
-                        <v-tab @click="pageLink('collections')" active><v-icon>mdi-folder-text</v-icon> <a :href="site_base_url + '/collections'">{{$t("collections")}}</a> </v-tab>                        
-                        <v-tab @click="pageLink('templates')"><v-icon>mdi-alpha-t-box</v-icon> <a :href="site_base_url + '/templates'">{{$t("templates")}}</a></v-tab>                        
-                        <v-tab @click="pageLink('schemas')"><v-icon>mdi-file-tree</v-icon> <a :href="site_base_url + '/schemas'">{{$t("schemas")}}</a></v-tab>
-                    </v-tabs>
+                    <main-navigation-tabs active-tab="templates" v-model="nav_tabs_model"></main-navigation-tabs>
 
                   <div class="d-flex">
                     <div class="flex-grow-1 flex-shrink-0 mr-auto">
@@ -407,6 +411,7 @@
     <?php include_once("vue-template-acl-component.js"); ?>
     <?php include_once("vue-template-uuid-component.js"); ?>
     <?php echo $this->load->view("editor_common/global-site-header-component.js", null, true);?>
+    <?php echo $this->load->view("editor_common/main-navigation-tabs-component.js", null, true);?>
   
 
     const translation_messages = {
