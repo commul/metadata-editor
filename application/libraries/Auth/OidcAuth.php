@@ -336,8 +336,10 @@ class OidcAuth extends DefaultAuth implements AuthInterface {
                 throw new Exception('No authorization code or ID token received');
             }
             
-            // Exchange code for tokens if needed
-            if (!empty($code)) {
+            // Exchange code for tokens only if id_token is not already present
+            // Hybrid flow (response_type=code id_token with form_post) provides id_token directly
+            // Authorization code flow (response_type=code) requires token exchange
+            if (empty($id_token) && !empty($code)) {
                 $tokens = $this->ci->oidcclient->exchangeCodeForTokens($code, $state);
                 $id_token = $tokens['id_token'];
             }

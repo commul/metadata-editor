@@ -164,9 +164,14 @@ class OidcClient
             'grant_type' => 'authorization_code',
             'code' => $code,
             'redirect_uri' => $redirect_uri,
-            'client_id' => $this->config['client_id'],
-            'client_secret' => $this->config['client_secret']
+            'client_id' => $this->config['client_id']
         );
+        
+        // Include client_secret only if configured (for confidential clients)
+        // Public clients (no secret) can use hybrid flow or PKCE
+        if (!empty($this->config['client_secret'])) {
+            $data['client_secret'] = $this->config['client_secret'];
+        }
 
         // Make token request
         $context = stream_context_create([

@@ -111,11 +111,23 @@ $config['oidc_auth'] = array(
     
     // Client credentials
     'client_id' => '',
+    // client_secret is optional:
+    // - Required for authorization code flow (response_type=code with query/fragment)
+    // - Optional for hybrid flow (response_type=code id_token with form_post)
+    // - Leave empty for public clients or when using hybrid flow without secret
     'client_secret' => '',
     'redirect_uri' => '', // Will default to site_url('auth/oidc_callback') if empty
     
     // OIDC/OAuth settings
+    // response_type options:
+    //   - 'code': Authorization code flow (requires client_secret)
+    //   - 'code id_token': Hybrid flow (client_secret optional, works with form_post)
+    //   - 'id_token': Implicit flow (deprecated, not recommended)
     'response_type' => 'code',  // Authorization code flow
+    // response_mode options:
+    //   - 'query': Code/token in URL query string (default)
+    //   - 'form_post': Code/token in POST body (more secure, required for hybrid flow)
+    //   - 'fragment': Code/token in URL fragment (less secure, not recommended)
     'response_mode' => 'query', // 'query', 'form_post', or 'fragment'
     'scopes' => 'openid profile email',
     
