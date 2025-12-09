@@ -333,12 +333,16 @@ class ISO19110Writer
         $definition->addChild('gco:CharacterString', $featureAttribute['definition'], 'http://www.isotc211.org/2005/gco');
 
         //cardinality
-        $cardinality = $fcFeatureAttribute->addChild('gfc:cardinality');
-        $multiplicity = $cardinality->addChild('gco:Multiplicity');
-        $range = $multiplicity->addChild('gco:range');
-        $multiplicityRange = $range->addChild('gco:MultiplicityRange');
-        $multiplicityRange->addChild('gco:lower', $featureAttribute['cardinality.lower'], 'http://www.isotc211.org/2005/gco');
-        $multiplicityRange->addChild('gco:upper', $featureAttribute['cardinality.upper'], 'http://www.isotc211.org/2005/gco');
+        if (isset($featureAttribute['cardinality']) && is_array($featureAttribute['cardinality'])) {
+            $cardinality = $fcFeatureAttribute->addChild('gfc:cardinality');
+            $multiplicity = $cardinality->addChild('gco:Multiplicity');
+            $range = $multiplicity->addChild('gco:range');
+            $multiplicityRange = $range->addChild('gco:MultiplicityRange');
+            $lower = isset($featureAttribute['cardinality']['lower']) ? $featureAttribute['cardinality']['lower'] : 0;
+            $upper = isset($featureAttribute['cardinality']['upper']) ? $featureAttribute['cardinality']['upper'] : 1;
+            $multiplicityRange->addChild('gco:lower', $lower, 'http://www.isotc211.org/2005/gco');
+            $multiplicityRange->addChild('gco:upper', $upper, 'http://www.isotc211.org/2005/gco');
+        }
         
         //valueType
         $valueType = $fcFeatureAttribute->addChild('gfc:valueType');
@@ -347,11 +351,13 @@ class ISO19110Writer
         $aName->addChild('gco:LocalName', $featureAttribute['valueType'], 'http://www.isotc211.org/2005/gco');
 
         //listedValue [repeatable]
-        foreach ((array)$featureAttribute['listedValue'] as $listedValue) {
-            $listedValue = new \Adbar\Dot($listedValue);
-            $listedValueNode = $fcFeatureAttribute->addChild('gfc:listedValue');
-            $fcListedValue = $listedValueNode->addChild('gfc:FC_ListedValue');
-            $this->createListedValue($fcListedValue, $listedValue);
+        if (isset($featureAttribute['listedValue']) && is_array($featureAttribute['listedValue']) && !empty($featureAttribute['listedValue'])) {
+            foreach ($featureAttribute['listedValue'] as $listedValue) {
+                $listedValue = new \Adbar\Dot($listedValue);
+                $listedValueNode = $fcFeatureAttribute->addChild('gfc:listedValue');
+                $fcListedValue = $listedValueNode->addChild('gfc:FC_ListedValue');
+                $this->createListedValue($fcListedValue, $listedValue);
+            }
         }
     }
 
@@ -359,12 +365,14 @@ class ISO19110Writer
     private function createListedValue($parentNode,$listedValue)
     {
         $listedValue = new \Adbar\Dot($listedValue);
-        $fcListedValue = $parentNode->addChild('gfc:FC_ListedValue');
-        $label = $fcListedValue->addChild('gfc:label');
+        
+        $label = $parentNode->addChild('gfc:label');
         $label->addChild('gco:CharacterString', $listedValue['label'], 'http://www.isotc211.org/2005/gco');
-        $code = $fcListedValue->addChild('gfc:code');
+        
+        $code = $parentNode->addChild('gfc:code');
         $code->addChild('gco:CharacterString', $listedValue['code'], 'http://www.isotc211.org/2005/gco');
-        $definition = $fcListedValue->addChild('gfc:definition');
+        
+        $definition = $parentNode->addChild('gfc:definition');
         $definition->addChild('gco:CharacterString', $listedValue['definition'], 'http://www.isotc211.org/2005/gco');
     }
 }

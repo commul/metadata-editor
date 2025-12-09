@@ -119,12 +119,16 @@ class Geospatial_metadata_writer
 				'memberName' => $char['name'],
 				'definition' => isset($char['metadata']['definition']) ? $char['metadata']['definition'] : (isset($char['label']) && !empty($char['label']) ? $char['label'] : $char['name']),
 				'code' => isset($char['metadata']['code']) ? $char['metadata']['code'] : $char['name'],
-				'valueType' => isset($char['data_type']) && !empty($char['data_type']) ? $char['data_type'] : 'string',
-				'cardinality' => array(
+				'valueType' => isset($char['data_type']) && !empty($char['data_type']) ? $char['data_type'] : 'string'
+			);
+			
+			// Add cardinality only if it exists in metadata (should not be present after import)
+			if (isset($char['metadata']['cardinality']) && is_array($char['metadata']['cardinality'])) {
+				$characteristic['cardinality'] = array(
 					'lower' => isset($char['metadata']['cardinality']['lower']) ? $char['metadata']['cardinality']['lower'] : 0,
 					'upper' => isset($char['metadata']['cardinality']['upper']) ? $char['metadata']['cardinality']['upper'] : 1
-				)
-			);
+				);
+			}
 			
 			// Add valueMeasurementUnit if available
 			if (isset($char['metadata']['valueMeasurementUnit']) && !empty($char['metadata']['valueMeasurementUnit'])) {

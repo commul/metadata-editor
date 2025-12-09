@@ -731,6 +731,81 @@ class Geospatial_features_model extends CI_Model {
     }
 
     /**
+     * Map pandas data type to ISO 19110 data type
+     * 
+     * @param string $pandas_type Pandas data type (e.g., 'object', 'int32', 'float64')
+     * @return string ISO data type (e.g., 'CharacterString', 'Integer', 'Real')
+     */
+    private function map_pandas_to_iso_type($pandas_type)
+    {
+        $type_mapping = array(
+            'object' => 'string',
+            'string' => 'string',
+            'category' => 'string',
+            'bool' => 'boolean',
+            'boolean' => 'boolean',
+            'int8' => 'integer',
+            'int16' => 'integer',
+            'int32' => 'integer',
+            'int64' => 'integer',
+            'uint8' => 'integer',
+            'uint16' => 'integer',
+            'uint32' => 'integer',
+            'uint64' => 'integer',
+            'float16' => 'real',
+            'float32' => 'real',
+            'float64' => 'real',
+            'datetime64[ns]' => 'datetime',
+            'datetime64[D]' => 'date',
+            'timedelta64[ns]' => 'duration',
+            'geometry' => 'string'
+        );
+        
+        // Return mapped type or default to CharacterString if not found
+        return isset($type_mapping[$pandas_type]) ? $type_mapping[$pandas_type] : 'string';
+    }
+
+    /**
+     * Check if data type supports listed values (allowListed)
+     * 
+     * @param string $iso_type ISO data type
+     * @return bool True if type supports listed values
+     */
+    private function is_allow_listed_type($iso_type)
+    {
+        $allow_listed_types = array(
+            'string',
+            'boolean',
+            'integer',
+        );
+        
+        return in_array($iso_type, $allow_listed_types);
+    }
+
+    /**
+     * Create listedValue array from data_dictionary
+     * 
+     * @param array $data_dictionary Array of values from data_dictionary
+     * @return array Array of listedValue objects with code, label, definition
+     */
+    private function create_listed_values_from_data_dictionary($data_dictionary)
+    {
+        $listed_values = array();
+        
+        if (is_array($data_dictionary)) {
+            foreach ($data_dictionary as $value) {
+                $listed_values[] = array(
+                    'code' => (string)$value,
+                    'label' => '',
+                    'definition' => ''
+                );
+            }
+        }
+        
+        return $listed_values;
+    }
+
+    /**
      * Create feature characteristics from analytics data
      * 
      * @param int $sid Project ID
@@ -798,14 +873,35 @@ class Geospatial_features_model extends CI_Model {
                         $field_statistics = $analytics['feature_statistics'][$field_name];
                     }
 
+                    // Map pandas data type to ISO type
+                    $mapped_data_type = $this->map_pandas_to_iso_type($data_type);
+
+                    // Prepare metadata object
+                    $metadata = $field_statistics ? $field_statistics : array();
+                    
+                    // Remove cardinality field from metadata
+                    if (isset($metadata['cardinality'])) {
+                        unset($metadata['cardinality']);
+                    }
+                    
+                    // Create listedValue array from data_dictionary if available
+                    if (isset($metadata['data_dictionary']) && is_array($metadata['data_dictionary'])) {
+                        // Check if type supports listed values
+                        if ($this->is_allow_listed_type($mapped_data_type)) {
+                            $metadata['listedValue'] = $this->create_listed_values_from_data_dictionary($metadata['data_dictionary']);
+                        }
+                        // Remove data_dictionary after mapping to listedValue
+                        unset($metadata['data_dictionary']);
+                    }
+
                     // Prepare characteristic data
                     $char_data = array(
                         'sid' => $sid,
                         'feature_id' => $feature_id,
                         'name' => $field_name,
                         'label' => null, // Will be populated by user
-                        'data_type' => $data_type,
-                        'metadata' => $field_statistics,
+                        'data_type' => $mapped_data_type, // Store mapped ISO type
+                        'metadata' => $metadata,
                         'created_by' => $user_id,
                         'changed_by' => $user_id
                     );
