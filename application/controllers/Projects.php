@@ -57,7 +57,12 @@ class Projects extends MY_Controller {
 			$options['sid']=$id;
 			$options['idno']=$project['idno'];
 			$options['title']=$project['title'];
-			$options['type']=$project['type'];			
+			$options['type']=$project['type'];
+			
+			if ($project['type']=='geospatial'){
+				$this->lang->load("geospatial");
+			}
+
 			$options['translations']=$this->lang->language;
 
 			$template=$this->get_project_template($project);

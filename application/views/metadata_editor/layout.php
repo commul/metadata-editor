@@ -22,21 +22,21 @@
                     <v-btn text outlined title="Show mandatory fields" :class="{ active: show_fields_mandatory }" @click="toggleFields('mandatory')">
                         <v-icon class="icon">mdi-check-circle</v-icon>
                     </v-btn>
-                    <div class="text-capitalize"><small>Required</small></div>
+                    <div class="text-capitalize"><small>{{$t('required')}}</small></div>
                 </div>
 
                 <div class="text-center pa-2" >
                     <v-btn text outlined title="Show recommended fields" :class="{ active: show_fields_recommended }" @click="toggleFields('recommended')">
                         <v-icon class="icon">mdi-circle-half-full</v-icon>
                     </v-btn>
-                    <div class="text-capitalize"><small>Recommended</small></div>
+                    <div class="text-capitalize"><small>{{$t('recommended')}}</small></div>
                 </div>
 
                 <div class="text-center pa-2" >
                     <v-btn text outlined title="Show empty fields" :class="{ active: show_fields_empty }" @click="toggleFields('empty')">
                         <v-icon class="icon">mdi-circle-outline</v-icon>
                     </v-btn>
-                    <div class="text-capitalize"><small>Empty</small></div>
+                    <div class="text-capitalize"><small>{{$t('empty')}}</small></div>
                 </div>
 
             </div>

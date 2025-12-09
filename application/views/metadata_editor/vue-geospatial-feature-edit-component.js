@@ -169,7 +169,7 @@ Vue.component('geospatial-feature-edit', {
             })
             .catch(error => {
                 console.error('Error loading feature:', error);
-                this.errors = 'Error loading feature: ' + (error.response?.data?.message || error.message);
+                this.errors = this.$t('error_loading_feature') + ': ' + (error.response?.data?.message || error.message);
                 this.loading = false;
             });
         },
@@ -344,7 +344,7 @@ Vue.component('geospatial-feature-edit', {
                 console.error('Error parsing WKT:', error);
                 return {
                     type: 'WKT',
-                    name: 'Unknown CRS',
+                    name: this.$t('unknown_crs'),
                     original_wkt: wktString,
                     parse_error: error.message
                 };
@@ -452,7 +452,7 @@ Vue.component('geospatial-feature-edit', {
                             <v-card-title class="d-flex justify-space-between">
                                 <div>
                                     <v-icon class="mr-2">{{getFileTypeIcon(form_data.file_type)}}</v-icon>
-                                    {{$t("Edit Geospatial Feature")}}: {{form_data.name || 'Loading...'}}
+                                    {{$t("edit_geospatial_feature")}}: {{form_data.name || $t('loading')}}
                                 </div>
                                 <div>
                                     <v-btn color="primary" @click="saveFeature" :loading="loading" :disabled="!form_data.id">
@@ -461,7 +461,7 @@ Vue.component('geospatial-feature-edit', {
                                     </v-btn>
                                     <v-btn @click="exitEdit" class="ml-2">
                                         <v-icon left>mdi-arrow-left</v-icon>
-                                        {{$t("Back to Features")}}
+                                        {{$t("back_to_features")}}
                                     </v-btn>
                                 </div>
                             </v-card-title>
@@ -482,7 +482,7 @@ Vue.component('geospatial-feature-edit', {
                                         <v-col cols="12" md="6">
                                             <v-text-field
                                                 v-model="form_data.name"
-                                                :label="$t('Feature Name')"
+                                                :label="$t('feature_name')"
                                                 required
                                                 outlined
                                                 dense
@@ -491,7 +491,7 @@ Vue.component('geospatial-feature-edit', {
                                         <v-col cols="12" md="6">
                                             <v-text-field
                                                 v-model="form_data.code"
-                                                :label="$t('Feature Code')"
+                                                :label="$t('feature_code')"
                                                 outlined
                                                 dense
                                             ></v-text-field>
@@ -502,7 +502,7 @@ Vue.component('geospatial-feature-edit', {
                                         <v-col cols="12" md="6">
                                             <v-text-field
                                                 v-model="form_data.file_name"
-                                                :label="$t('File Name')"
+                                                :label="$t('file_name')"
                                                 readonly
                                                 outlined
                                                 dense
@@ -511,7 +511,7 @@ Vue.component('geospatial-feature-edit', {
                                         <v-col cols="12" md="6">
                                             <v-text-field
                                                 v-model="form_data.file_type"
-                                                :label="$t('File Type')"
+                                                :label="$t('file_type')"
                                                 readonly
                                                 outlined
                                                 dense
@@ -523,7 +523,7 @@ Vue.component('geospatial-feature-edit', {
                                         <v-col cols="12" md="6">
                                             <v-text-field
                                                 v-model="form_data.layer_name"
-                                                :label="$t('Layer Name')"
+                                                :label="$t('layer_name')"
                                                 readonly
                                                 outlined
                                                 dense
@@ -532,7 +532,7 @@ Vue.component('geospatial-feature-edit', {
                                         <v-col cols="12" md="6">
                                             <v-text-field
                                                 v-model="form_data.feature_count"
-                                                :label="$t('Feature Count')"
+                                                :label="$t('count')"
                                                 readonly
                                                 outlined
                                                 dense
@@ -544,7 +544,7 @@ Vue.component('geospatial-feature-edit', {
                                         <v-col cols="12" md="6">
                                             <v-text-field
                                                 v-model="form_data.geometry_type"
-                                                :label="$t('Geometry Type')"
+                                                :label="$t('geometry_type')"
                                                 readonly
                                                 outlined
                                                 dense
@@ -553,7 +553,7 @@ Vue.component('geospatial-feature-edit', {
                                         <v-col cols="12" md="6">
                                             <v-text-field
                                                 :value="formatFileSize(form_data.file_size)"
-                                                :label="$t('File Size')"
+                                                :label="$t('file_size')"
                                                 readonly
                                                 outlined
                                                 dense
@@ -567,7 +567,7 @@ Vue.component('geospatial-feature-edit', {
                                             <v-card outlined>
                                                 <v-card-title>
                                                     <v-icon class="mr-2">mdi-map</v-icon>
-                                                    {{$t('Geographic Extent')}}
+                                                    {{$t('geographic_extent')}}
                                                 </v-card-title>
                                                 <v-card-text>
                                                     <div id="geospatial-map" style="height: 400px; width: 100%;"></div>
@@ -576,25 +576,25 @@ Vue.component('geospatial-feature-edit', {
                                                     <div v-if="boundingBox" class="mt-4">
                                                         <div class="text-subtitle-2 mb-2">
                                                             <v-icon small class="mr-1">mdi-vector-square</v-icon>
-                                                            {{$t('Bounding Box Coordinates')}}
+                                                            {{$t('bounding_box_coordinates')}}
                                                         </div>
                                                         <v-simple-table dense>
                                                             <template v-slot:default>
                                                                 <tbody>
                                                                     <tr>
-                                                                        <td class="font-weight-medium">{{$t('North Latitude')}}</td>
+                                                                        <td class="font-weight-medium">{{$t('north_latitude')}}</td>
                                                                         <td>{{form_data.metadata.layer_info.geographicBoundingBox.northBoundLatitude.toFixed(6)}}°</td>
                                                                     </tr>
                                                                     <tr>
-                                                                        <td class="font-weight-medium">{{$t('South Latitude')}}</td>
+                                                                        <td class="font-weight-medium">{{$t('south_latitude')}}</td>
                                                                         <td>{{form_data.metadata.layer_info.geographicBoundingBox.southBoundLatitude.toFixed(6)}}°</td>
                                                                     </tr>
                                                                     <tr>
-                                                                        <td class="font-weight-medium">{{$t('East Longitude')}}</td>
+                                                                        <td class="font-weight-medium">{{$t('east_longitude')}}</td>
                                                                         <td>{{form_data.metadata.layer_info.geographicBoundingBox.eastBoundLongitude.toFixed(6)}}°</td>
                                                                     </tr>
                                                                     <tr>
-                                                                        <td class="font-weight-medium">{{$t('West Longitude')}}</td>
+                                                                        <td class="font-weight-medium">{{$t('west_longitude')}}</td>
                                                                         <td>{{form_data.metadata.layer_info.geographicBoundingBox.westBoundLongitude.toFixed(6)}}°</td>
                                                                     </tr>
                                                                 </tbody>
@@ -612,14 +612,14 @@ Vue.component('geospatial-feature-edit', {
                                             <v-card outlined>
                                                 <v-card-title class="text-subtitle-1">
                                                     <v-icon class="mr-2">mdi-information</v-icon>
-                                                    {{$t('Coordinate Reference System (CRS)')}}
+                                                    {{$t('coordinate_reference_system_crs')}}
                                                 </v-card-title>
                                                 <v-card-text>
                                                     <v-row>
                                                         <v-col cols="12" md="6">
                                                             <v-text-field
                                                                 :value="crsInfo.name"
-                                                                label="CRS Name"
+                                                                :label="$t('crs_name')"
                                                                 readonly
                                                                 outlined
                                                                 dense
@@ -628,7 +628,7 @@ Vue.component('geospatial-feature-edit', {
                                                         <v-col cols="12" md="6">
                                                             <v-text-field
                                                                 :value="crsInfo.type"
-                                                                label="CRS Type"
+                                                                :label="$t('crs_type')"
                                                                 readonly
                                                                 outlined
                                                                 dense
@@ -640,7 +640,7 @@ Vue.component('geospatial-feature-edit', {
                                                         <v-col cols="12" md="6">
                                                             <v-text-field
                                                                 :value="crsInfo.id.code"
-                                                                label="EPSG Code"
+                                                                :label="$t('epsg_code')"
                                                                 readonly
                                                                 outlined
                                                                 dense
@@ -693,7 +693,7 @@ Vue.component('geospatial-feature-edit', {
                                                         <v-col cols="12" md="4">
                                                             <v-text-field
                                                                 :value="crsInfo.ellipsoid.inverse_flattening"
-                                                                label="Inverse Flattening"
+                                                                :label="$t('inverse_flattening')"
                                                                 readonly
                                                                 outlined
                                                                 dense
@@ -715,7 +715,7 @@ Vue.component('geospatial-feature-edit', {
                                                         <v-col cols="12" md="6">
                                                             <v-text-field
                                                                 :value="crsInfo.units.conversion_factor"
-                                                                label="Conversion Factor"
+                                                                :label="$t('conversion_factor')"
                                                                 readonly
                                                                 outlined
                                                                 dense
@@ -727,7 +727,7 @@ Vue.component('geospatial-feature-edit', {
                                                         <v-col cols="12">
                                                             <v-textarea
                                                                 :value="crsInfo.area"
-                                                                label="Coverage Area"
+                                                                :label="$t('coverage_area')"
                                                                 readonly
                                                                 outlined
                                                                 dense
@@ -770,8 +770,8 @@ Vue.component('geospatial-feature-edit', {
                                 
                                 <div v-else-if="!loading && !feature" class="text-center py-8">
                                     <v-icon size="64" color="grey">mdi-alert-circle</v-icon>
-                                    <div class="text-h6 mt-4">{{$t("Feature not found")}}</div>
-                                    <div class="text-body-2 text--secondary">{{$t("The requested geospatial feature could not be found.")}}</div>
+                                    <div class="text-h6 mt-4">{{$t("error")}}</div>
+                                    <div class="text-body-2 text--secondary">{{$t("feature_not_found")}}</div>
                                 </div>
                             </v-card-text>
                         </v-card>

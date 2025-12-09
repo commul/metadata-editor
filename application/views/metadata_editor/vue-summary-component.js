@@ -175,7 +175,7 @@ Vue.component('summary-component', {
                                     </div>
 
                                     <div class="mb-3">
-                                        <strong>{{$t("Version")}}:</strong>
+                                        <strong>{{$t("version")}}:</strong>
                                         <div v-if="ProjectVersionInfo && ProjectVersionInfo.version_number">{{ProjectVersionInfo.version_number}}</div>
                                         <div v-else>{{$t('latest')}}</div>
                                     </div>

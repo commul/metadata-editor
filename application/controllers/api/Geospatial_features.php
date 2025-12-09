@@ -1360,6 +1360,104 @@ class Geospatial_features extends MY_REST_Controller
 	}
 	
 	/**
+	 * Update characteristic metadata
+	 * POST /api/geospatial-features/chars/{id}/metadata
+	 */
+	function chars_metadata_post($id)
+	{
+		try{
+			$characteristic = $this->Geospatial_feature_chars_model->select_single($id);
+			
+			if (!$characteristic) {
+				throw new Exception("Characteristic not found");
+			}
+
+			$feature = $this->Geospatial_features_model->select_single($characteristic['feature_id']);
+			
+			if (!$feature) {
+				throw new Exception("Feature not found");
+			}
+
+			$this->editor_acl->user_has_project_access($feature['sid'], $permission='edit', $this->api_user);
+
+			$input_data = $this->raw_json_input();
+			
+			// Prepare update data
+			$update_data = array();
+			
+			// Update direct fields if provided
+			if (isset($input_data['memberName'])) {
+				$update_data['name'] = $input_data['memberName'];
+			}
+			
+			if (isset($input_data['valueType'])) {
+				$update_data['data_type'] = $input_data['valueType'];
+			}
+			
+			if (isset($input_data['definition'])) {
+				// Store definition in metadata
+				if (!isset($input_data['metadata'])) {
+					$input_data['metadata'] = array();
+				}
+				$input_data['metadata']['definition'] = $input_data['definition'];
+			}
+			
+			// Build complete metadata object (replace entire metadata)
+			$metadata = isset($input_data['metadata']) ? $input_data['metadata'] : array();
+			
+			// Add carrierOfCharacteristics fields to metadata
+			if (isset($input_data['code'])) {
+				$metadata['code'] = $input_data['code'];
+			}
+			
+			if (isset($input_data['valueMeasurementUnit'])) {
+				$metadata['valueMeasurementUnit'] = $input_data['valueMeasurementUnit'];
+			}
+			
+			if (isset($input_data['listedValue'])) {
+				$metadata['listedValue'] = $input_data['listedValue'];
+			}
+			
+			// Preserve existing metadata fields that aren't being updated
+			$current_metadata = $characteristic['metadata'] ? $characteristic['metadata'] : array();
+			
+			// Preserve frequencies and summary_statistics if they exist
+			if (isset($current_metadata['frequencies'])) {
+				$metadata['frequencies'] = $current_metadata['frequencies'];
+			}
+			if (isset($current_metadata['summary_statistics'])) {
+				$metadata['summary_statistics'] = $current_metadata['summary_statistics'];
+			}
+			if (isset($current_metadata['valid'])) {
+				$metadata['valid'] = $current_metadata['valid'];
+			}
+			if (isset($current_metadata['data_dictionary'])) {
+				$metadata['data_dictionary'] = $current_metadata['data_dictionary'];
+			}
+			
+			// Store metadata
+			$update_data['metadata'] = $metadata;
+			
+			// Update the characteristic
+			$this->Geospatial_feature_chars_model->update($id, $update_data);
+
+			$output = array(
+				'status' => 'success',
+				'message' => 'Characteristic metadata updated successfully'
+			);
+
+			$this->set_response($output, REST_Controller::HTTP_OK);
+		}
+		catch(Exception $e){
+			$output = array(
+				'status' => 'failed',
+				'message' => $e->getMessage()
+			);
+			$this->set_response($output, REST_Controller::HTTP_BAD_REQUEST);
+		}
+	}
+	
+	/**
 	 * 
      * Read CSV data for a geospatial feature
 	 * 

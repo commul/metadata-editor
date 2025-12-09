@@ -142,7 +142,7 @@ Vue.component('geospatial-feature', {
     },
     template: `
             <div class="geospatial-feature-component mt-5 p-5" style="height:100%;">
-            <h2>Feature - {{name}}</h2>
+            <h2>{{$t('feature')}} - {{name}}</h2>
 
             <div v-for="(column,idx_col) in FeatureTemplate.props" scope="row" :key="column.key" >
                 <template v-if="column.type=='section'">
@@ -164,7 +164,7 @@ Vue.component('geospatial-feature', {
                 </template>
             </div>
 
-            <h3 class="mt-5 pt-5">Characteristics</h3>
+            <h3 class="mt-5 pt-5">{{$t('characteristics')}}</h3>
 
             <div class="d-flex border" style="max-height:700px;">
               <div style="min-width: 300px;overflow:auto;" class="flex-grow-0 flex-shrink-1 bg-light">
@@ -172,8 +172,8 @@ Vue.component('geospatial-feature', {
                     <thead>
                         <tr>
                             <th>#</th>
-                            <th>Feature</th>
-                            <th>Feature Type</th>
+                            <th>{{$t('feature')}}</th>
+                            <th>{{$t('feature_type')}}</th>
                         </tr>
                     </thead>
                     <tbody>

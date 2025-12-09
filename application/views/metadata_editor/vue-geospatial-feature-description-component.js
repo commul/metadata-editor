@@ -33,14 +33,14 @@ Vue.component('geospatial-feature-description', {
             return [
                 {
                     key: 'description.feature_catalogue.name',
-                    title: 'Name',
+                    title: this.$t('name'),
                     type: 'string',
                     display_type: 'text',
                     help_text: 'The name of the geospatial feature catalogue'
                 },
                 {
                     key: 'description.feature_catalogue.scope',
-                    title: 'Scope',
+                    title: this.$t('scope'),
                     type: 'string',
                     display_type: 'textarea',
                     help_text: 'The scope of the geospatial feature catalogue'

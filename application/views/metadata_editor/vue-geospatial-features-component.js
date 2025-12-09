@@ -85,11 +85,11 @@ Vue.component('geospatial-features', {
             }
             
             if (!feature.file_name) {
-                alert(this.$t('Cannot refresh metadata: Feature has no associated file'));
+                alert(this.$t('cannot_refresh_no_file'));
                 return;
             }
             
-            if (!confirm(this.$t('Refresh metadata for') + ' "' + feature.name + '"? ' + this.$t('This will reload all metadata and characteristics from the geospatial file.'))) {
+            if (!confirm(this.$t('refresh_metadata_for') + ' "' + feature.name + '"? ' + this.$t('reload_metadata_confirmation'))) {
                 return;
             }
             
@@ -120,13 +120,13 @@ Vue.component('geospatial-features', {
                     vm.pollRefreshStatus();
                 } else {
                     vm.refresh_dialog.is_refreshing = false;
-                    vm.refresh_dialog.error_message = response.data.message || vm.$t('Failed to start metadata refresh');
+                    vm.refresh_dialog.error_message = response.data.message || vm.$t('failed_to_start_metadata_refresh');
                 }
             })
             .catch(function (error) {
                 console.error('Failed to start metadata refresh:', error);
                 vm.refresh_dialog.is_refreshing = false;
-                vm.refresh_dialog.error_message = error.response?.data?.message || vm.$t('Failed to start metadata refresh');
+                vm.refresh_dialog.error_message = error.response?.data?.message || vm.$t('failed_to_start_metadata_refresh');
             });
         },
         
@@ -142,7 +142,7 @@ Vue.component('geospatial-features', {
                     // Refresh completed successfully
                     vm.refresh_dialog.is_refreshing = false;
                     vm.refresh_dialog.status_message = vm.$t('Metadata refreshed successfully!') + ' ' + 
-                                                       vm.$t('Characteristics updated') + ': ' + 
+                                                       vm.$t('characteristics_updated') + ': ' + 
                                                        response.data.characteristics_updated;
                     
                     // Reload features list
@@ -156,13 +156,13 @@ Vue.component('geospatial-features', {
                 } else {
                     // Error occurred
                     vm.refresh_dialog.is_refreshing = false;
-                    vm.refresh_dialog.error_message = response.data.message || vm.$t('Metadata refresh failed');
+                    vm.refresh_dialog.error_message = response.data.message || vm.$t('metadata_refresh_failed');
                 }
             })
             .catch(function (error) {
                 console.error('Failed to check refresh status:', error);
                 vm.refresh_dialog.is_refreshing = false;
-                vm.refresh_dialog.error_message = error.response?.data?.message || vm.$t('Failed to check refresh status');
+                vm.refresh_dialog.error_message = error.response?.data?.message || vm.$t('failed_to_check_refresh_status');
             });
         },
         
@@ -177,7 +177,7 @@ Vue.component('geospatial-features', {
         
         batchDelete: function() {
             if (this.selected_features.length === 0) {
-                alert(this.$t("Please select features to delete"));
+                alert(this.$t("select_features_to_delete"));
                 return;
             }
             
@@ -203,14 +203,14 @@ Vue.component('geospatial-features', {
                         vm.select_all_features = false;
                         
                         if (errors.length > 0) {
-                            alert('Deleted ' + deleted_count + ' features. Errors: ' + errors.join(', '));
+                            alert(vm.$t('deleted_features_with_errors', {count: deleted_count, errors: errors.join(', ')}));
                         } else {
-                            alert('Successfully deleted ' + deleted_count + ' features');
+                            alert(vm.$t('successfully_deleted_features', {count: deleted_count}));
                         }
                     }
                 })
                 .catch(function (error) {
-                    errors.push('Feature ' + feature_id + ': ' + (error.response?.data?.message || 'Delete failed'));
+                    errors.push(vm.$t('feature_delete_error', {id: feature_id, message: (error.response?.data?.message || vm.$t('delete_failed'))}));
                     deleted_count++;
                     
                     if (deleted_count === vm.selected_features.length) {
@@ -220,9 +220,9 @@ Vue.component('geospatial-features', {
                         vm.select_all_features = false;
                         
                         if (errors.length > 0) {
-                            alert('Deleted ' + (vm.selected_features.length - errors.length) + ' features. Errors: ' + errors.join(', '));
+                            alert(vm.$t('deleted_features_with_errors', {count: (vm.selected_features.length - errors.length), errors: errors.join(', ')}));
                         } else {
-                            alert('Successfully deleted ' + deleted_count + ' features');
+                            alert(vm.$t('successfully_deleted_features', {count: deleted_count}));
                         }
                     }
                 });
@@ -388,7 +388,7 @@ Vue.component('geospatial-features', {
                                             type="button" 
                                             class="btn btn-sm btn-outline-danger" 
                                             @click="batchDelete">
-                                        {{$t("Delete")}} {{selected_features.length}} {{$t("selected")}}
+                                        {{$t("delete")}} {{selected_features.length}} {{$t("selected")}}
                                     </button>
                                 </v-col>
                                 <v-col md="4" align="right" class="mb-2">
@@ -414,8 +414,8 @@ Vue.component('geospatial-features', {
                                         <th>{{$t("file_type")}}</th>
                                         <th>{{$t("file_size")}}</th>
                                         <th>{{$t("status")}}</th>
-                                        <th>{{$t("Modified")}}</th>
-                                        <th style="width: 50px;">{{$t("Actions")}}</th>
+                                        <th>{{$t("modified")}}</th>
+                                        <th style="width: 50px;">{{$t("actions")}}</th>
                                     </tr>
                                 </thead>
                                 <tbody>
@@ -456,12 +456,12 @@ Vue.component('geospatial-features', {
                                             </span>
                                         </td>
                                         <td>
-                                            <v-chip v-if="feature.upload_status" 
+                                            <v-icon v-if="feature.upload_status" 
                                                    :color="getStatusColor(feature.upload_status)" 
+                                                   :title="feature.upload_status"
                                                    small>
-                                                <v-icon left small>{{getStatusIcon(feature.upload_status)}}</v-icon>
-                                                {{feature.upload_status}}
-                                            </v-chip>
+                                                {{getStatusIcon(feature.upload_status)}}
+                                            </v-icon>                                                
                                         </td>
                                         <td>{{momentDate(feature.changed)}}</td>
                                         <td>
@@ -469,7 +469,7 @@ Vue.component('geospatial-features', {
                                                 <v-menu offset-y>
                                                     <template v-slot:activator="{ on, attrs }">
                                                         <v-btn small icon v-on="on" v-bind="attrs" 
-                                                               :title="$t('More options')" 
+                                                               :title="$t('more_options')" 
                                                                color="primary">
                                                             <v-icon>mdi-dots-vertical</v-icon>
                                                         </v-btn>
@@ -484,7 +484,7 @@ Vue.component('geospatial-features', {
                                                         </v-list-item>
                                                         
                                                         <v-list-item :to="'/geospatial-features/' + feature.id + '/characteristics'"
-                                                                   :title="$t('View characteristics')">
+                                                                   :title="$t('view_characteristics')">
                                                             <v-list-item-icon>
                                                                 <v-icon>mdi-table</v-icon>
                                                             </v-list-item-icon>
@@ -493,7 +493,7 @@ Vue.component('geospatial-features', {
                                                         
                                                         <v-list-item v-if="feature.file_name" 
                                                                    :to="'/geospatial-features/' + feature.id + '/view'"
-                                                                   :title="$t('View feature')">
+                                                                   :title="$t('view_feature')">
                                                             <v-list-item-icon>
                                                                 <v-icon>mdi-eye</v-icon>
                                                             </v-list-item-icon>
@@ -505,11 +505,11 @@ Vue.component('geospatial-features', {
                                                         <v-list-item v-if="feature.file_name" 
                                                                    @click="refreshFeatureMetadata(index)"
                                                                    :disabled="!isProjectEditable"
-                                                                   :title="$t('Refresh metadata from file')">
+                                                                   :title="$t('refresh_metadata_from_file')">
                                                             <v-list-item-icon>
                                                                 <v-icon color="blue">mdi-refresh</v-icon>
                                                             </v-list-item-icon>
-                                                            <v-list-item-title class="blue--text">{{$t("Refresh")}}</v-list-item-title>
+                                                            <v-list-item-title class="blue--text">{{$t("refresh")}}</v-list-item-title>
                                                         </v-list-item>
                                                         
                                                         <v-divider></v-divider>
@@ -518,7 +518,7 @@ Vue.component('geospatial-features', {
                                                             <v-list-item-icon>
                                                                 <v-icon color="red">mdi-delete-outline</v-icon>
                                                             </v-list-item-icon>
-                                                            <v-list-item-title class="red--text">{{$t("Delete")}}</v-list-item-title>
+                                                            <v-list-item-title class="red--text">{{$t("delete")}}</v-list-item-title>
                                                         </v-list-item>
                                                     </v-list>
                                                 </v-menu>
@@ -581,13 +581,13 @@ Vue.component('geospatial-features', {
                 <v-card>
                     <v-card-title class="text-h5 blue lighten-4">
                         <v-icon left color="blue">mdi-refresh</v-icon>
-                        {{$t("Refresh Metadata")}}
+                        {{$t("refresh_metadata")}}
                     </v-card-title>
 
                     <v-card-text class="pt-4">
                         <div>
                             <div class="mb-3">
-                                <strong>{{$t("Feature")}}:</strong> {{refresh_dialog.feature_name}}
+                                <strong>{{$t("feature")}}:</strong> {{refresh_dialog.feature_name}}
                             </div>
                             
                             <!-- Loading State -->
@@ -615,7 +615,7 @@ Vue.component('geospatial-features', {
                                 <div class="d-flex align-center">
                                     <v-icon left color="error" large>mdi-alert-circle</v-icon>
                                     <div>
-                                        <div class="text-h6">{{$t("Error")}}</div>
+                                        <div class="text-h6">{{$t("error")}}</div>
                                         <div class="mt-2">{{refresh_dialog.error_message}}</div>
                                     </div>
                                 </div>
@@ -629,7 +629,7 @@ Vue.component('geospatial-features', {
                                text 
                                @click="closeRefreshDialog" 
                                :disabled="refresh_dialog.is_refreshing">
-                            {{$t("Close")}}
+                            {{$t("close")}}
                         </v-btn>
                     </v-card-actions>
                 </v-card>

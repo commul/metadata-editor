@@ -143,7 +143,7 @@ class Versions extends MY_REST_Controller
 			$this->editor_acl->user_has_project_access($id,$permission='admin',$this->user);
 			$this->audit_log->log_event($obj_type='project',$obj_id=$id,$action='version', $metadata='new versions created');
 			
-			$result=$this->project_versions->create_project_version($sid, $this->user_id, $version_type, $version_notes);
+			$result=$this->project_versions->create_project_version($id, $this->user_id, $version_type, $version_notes);
 
 			$response=array(
 				'status'=>'success',

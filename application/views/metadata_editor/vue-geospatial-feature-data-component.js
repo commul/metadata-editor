@@ -55,7 +55,7 @@ Vue.component('geospatial-feature-data', {
                 value: 'row_number',
                 sortable: false,
                 dataType: 'number',
-                label: 'Row Number',
+                label: this.$t('row_number'),
                 metadata: null,
                 width: '60px'
             }];
@@ -133,15 +133,15 @@ Vue.component('geospatial-feature-data', {
                             this.loadData();
                         });
                     } else {
-                        this.errors = ['No data file available for this feature'];
+                        this.errors = [this.$t('no_data_file_available')];
                     }
                 } else {
-                    this.errors = ['Feature not found'];
+                    this.errors = [this.$t('feature_not_found')];
                 }
             })
             .catch(error => {
                 console.error('Error loading feature:', error);
-                this.errors = ['Error loading feature: ' + (error.response?.data?.message || error.message)];
+                this.errors = [this.$t('error_loading_feature') + ': ' + (error.response?.data?.message || error.message)];
             });
         },
         
@@ -169,7 +169,7 @@ Vue.component('geospatial-feature-data', {
         
         loadData: function(offset=0,limit=50) {
             if (!this.feature || !this.feature.data_file) {
-                this.errors = ['No data file available for this feature'];
+                this.errors = [this.$t('no_data_file_available')];
                 return;
             }
             
@@ -240,7 +240,7 @@ Vue.component('geospatial-feature-data', {
                 <v-col cols="12">
                     <v-card>
                         <v-card-title>
-                            {{$t('Data')}} - {{feature.name || feature.file_name || 'Unnamed Feature'}}
+                            {{$t('Data')}} - {{feature.name || feature.file_name || $t('unnamed_feature')}}
                         </v-card-title>
                         
                         <v-card-text>

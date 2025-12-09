@@ -52,8 +52,10 @@ $lang['label']="Label";
 
 $lang['required']="Required";
 $lang['recommended']="Recommended";
+$lang['empty']="Empty";
 $lang['private']="Private";
 $lang['readonly']="Read-only";
+$lang['exclude_private_fields']="Exclude private fields";
 
 $lang['na']="N/A";
 $lang['json']="JSON";

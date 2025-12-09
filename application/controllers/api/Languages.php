@@ -78,5 +78,67 @@ class Languages extends MY_REST_Controller
 		}
 	}
 
+	/**
+	 * 
+	 * Switch user language
+	 * 
+	 * 
+	 */
+	function switch_post()
+	{
+		try{
+			$lang = $this->input->post('language');
+			
+			if (empty($lang)) {
+				$json_data = $this->raw_json_input();
+				if ($json_data && isset($json_data['language'])) {
+					$lang = $json_data['language'];
+				}
+			}
+			
+			if (empty($lang)) {
+				$this->set_response(array(
+					'status' => 'failed',
+					'message' => 'Language parameter is required'
+				), REST_Controller::HTTP_BAD_REQUEST);
+				return;
+			}
+			
+			$valid_languages = $this->config->item("supported_languages");
+			
+			if (!in_array(strtolower($lang), $valid_languages)) {
+				$this->set_response(array(
+					'status' => 'failed',
+					'message' => 'Invalid language selected'
+				), REST_Controller::HTTP_BAD_REQUEST);
+				return;
+			}
+			
+			// Set language in the user session
+			$this->session->set_userdata('language', strtolower($lang));
+			
+			$language_codes = $this->config->item("language_codes");
+			$lang_display = isset($language_codes[strtolower($lang)]) 
+				? $language_codes[strtolower($lang)]['display'] 
+				: $lang;
+			
+			$response = array(
+				'status' => 'success',
+				'message' => 'Language switched successfully',
+				'language' => strtolower($lang),
+				'language_display' => $lang_display
+			);
+			
+			$this->set_response($response, REST_Controller::HTTP_OK);
+		}
+		catch(Exception $e){
+			$error_output = array(
+				'status' => 'failed',
+				'message' => $e->getMessage()
+			);
+			$this->set_response($error_output, REST_Controller::HTTP_BAD_REQUEST);
+		}
+	}
+
 	
 }
