@@ -4,87 +4,43 @@ defined('BASEPATH') OR exit('No direct script access allowed');
 
 
 /*
-|--------------------------------------------------------------------------
-| Authentication providers
-|--------------------------------------------------------------------------
-|
-| List of supported authentication providers
-|
-|
-|
+||--------------------------------------------------------------------------
+|| Authentication providers
+||--------------------------------------------------------------------------
+||
+|| List of supported authentication providers
+||
+||
+||
 */
 $config['authentication_drivers'] = array(
     'DefaultAuth'   => 'application/libraries/Auth/DefaultAuth.php',
-    'SsoAuth'       => 'application/libraries/Auth/SsoAuth.php',
-    'AzureAuth'     => 'application/libraries/Auth/AzureAuth.php',
-    'OidcAuth'      => 'application/libraries/Auth/OidcAuth.php'        
+    'OidcAuth'      => 'application/libraries/Auth/OidcAuth.php',
+    'OidcAuthSpa'   => 'application/libraries/Auth/OidcAuthSpa.php'        
 );
 
 
 /*
-|--------------------------------------------------------------------------
-| Set active authentication
-|--------------------------------------------------------------------------
-|
-| Set authentication provider to use
-|
+||--------------------------------------------------------------------------
+|| Set active authentication
+||--------------------------------------------------------------------------
+||
+|| Set authentication provider to use
+||
 */
 $config['authentication_driver'] = 'DefaultAuth';
 
 
-
 /*
-|--------------------------------------------------------------------------
-| AzureAuth Config options
-|--------------------------------------------------------------------------
-|
-| Configurations for AzureAuth
-|
-
-* OAuth 2.0 Endpoints  
-*
-* Authorization endpoint (v1) 
-* https://login.microsoftonline.com/{tenent-id}/oauth2/authorize  
-* 
-* Token endpoint (v1) 
-* https://login.microsoftonline.com/{tenent-id}/oauth2/token 
-*
-* Logout endpoint (v1) 
-* https://login.microsoftonline.com/{tenent-id}/oauth2/logout 
-*
-* Authorization endpoint (v2) 
-* https://login.microsoftonline.com/{tenent-id}/oauth2/v2.0/authorize  
-*
-*
-* Token endpoint (v2) 
-* https://login.microsoftonline.com/{tenent-id}/oauth2/v2.0/token 
-*
-* Microsoft Graph API endpoint 
-* https://graph.microsoft.com 
-
-* Login request format
-* https://login.microsoftonline.com/{tenant-id}/oauth2/authorize?client_id={client-id}&response_mode=form_post&response_type=code%20id_token&nonce=any-random-value
-
-
-*/
-
-$config['azure_auth']['client_id']='';
-$config['azure_auth']['tenant_id']='';
-$config['azure_auth']['authorize_endpoint']='https://login.microsoftonline.com/'.$config['azure_auth']['tenant_id'].'/oauth2/authorize';
-$config['azure_auth']['token_endpoint'] = 'https://login.microsoftonline.com/'.$config['azure_auth']['tenant_id'].'/oauth2/token';
-$config['azure_auth']['logout_endpoint'] = 'https://login.microsoftonline.com/'.$config['azure_auth']['tenant_id'].'/oauth2/logout';
-
-
-/*
-||--------------------------------------------------------------------------
-|| OIDC Authentication Config options
-||--------------------------------------------------------------------------
-||
-|| Configurations for OIDC (OpenID Connect) authentication
-||
-|| When OidcAuth driver is used, these settings control the authentication
-|| behavior and UI display options.
-||
+|||--------------------------------------------------------------------------
+||| OIDC Authentication Config options
+|||--------------------------------------------------------------------------
+|||
+||| Configurations for OIDC (OpenID Connect) authentication
+|||
+||| When OidcAuth driver is used, these settings control the authentication
+||| behavior and UI display options.
+|||
 */
 $config['oidc_auth'] = array(
     // Enable/disable OIDC authentication
@@ -109,25 +65,33 @@ $config['oidc_auth'] = array(
     //          'https://dev-<domain>.us.auth0.com'
     'issuer' => '',
     
-    // Client credentials
+    // Client type and credentials
+    // client_type options:
+    //   - 'confidential': Server-side PHP application (requires client_secret)
+    //   - 'public': SPA/frontend application (uses PKCE, no client_secret)
+    'client_type' => 'public',  // 'confidential' | 'public'
+    
+    // Use PKCE (Proof Key for Code Exchange)
+    // - Required for public clients (client_type='public')
+    // - Optional for confidential clients (adds extra security)
+    'use_pkce' => true,  // true | false
+    
     'client_id' => '',
-    // client_secret is optional:
-    // - Required for authorization code flow (response_type=code with query/fragment)
-    // - Optional for hybrid flow (response_type=code id_token with form_post)
-    // - Leave empty for public clients or when using hybrid flow without secret
+    // client_secret:
+    // - Required for confidential clients (client_type='confidential')
+    // - Not used for public clients (client_type='public')
     'client_secret' => '',
     'redirect_uri' => '', // Will default to site_url('auth/oidc_callback') if empty
     
     // OIDC/OAuth settings
     // response_type options:
-    //   - 'code': Authorization code flow (requires client_secret)
-    //   - 'code id_token': Hybrid flow (client_secret optional, works with form_post)
+    //   - 'code': Authorization code flow (standard, recommended)
     //   - 'id_token': Implicit flow (deprecated, not recommended)
     'response_type' => 'code',  // Authorization code flow
     // response_mode options:
-    //   - 'query': Code/token in URL query string (default)
-    //   - 'form_post': Code/token in POST body (more secure, required for hybrid flow)
-    //   - 'fragment': Code/token in URL fragment (less secure, not recommended)
+    //   - 'query': Code in URL query string (default)
+    //   - 'form_post': Code in POST body (more secure)
+    //   - 'fragment': Code in URL fragment (less secure, not recommended)
     'response_mode' => 'query', // 'query', 'form_post', or 'fragment'
     'scopes' => 'openid profile email',
     

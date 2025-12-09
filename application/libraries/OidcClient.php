@@ -94,22 +94,77 @@ class OidcClient
     }
 
     /**
+     * Generate PKCE code verifier and challenge
+     * 
+     * @return array Array with 'code_verifier', 'code_challenge', and 'code_challenge_method'
+     */
+    public function generatePkceCodes()
+    {
+        // Generate random code verifier (43-128 characters, URL-safe)
+        $length = 128; // Use maximum length for better security
+        $code_verifier = $this->generateRandomString($length);
+        
+        // Generate code challenge: base64url(sha256(code_verifier))
+        $code_challenge = $this->base64urlEncode(hash('sha256', $code_verifier, true));
+        
+        return array(
+            'code_verifier' => $code_verifier,
+            'code_challenge' => $code_challenge,
+            'code_challenge_method' => 'S256'
+        );
+    }
+    
+    /**
+     * Generate random URL-safe string
+     * 
+     * @param int $length Length of string to generate
+     * @return string Random URL-safe string
+     */
+    private function generateRandomString($length = 128)
+    {
+        $characters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-._~';
+        $charactersLength = strlen($characters);
+        $randomString = '';
+        
+        for ($i = 0; $i < $length; $i++) {
+            $randomString .= $characters[random_int(0, $charactersLength - 1)];
+        }
+        
+        return $randomString;
+    }
+    
+    /**
+     * Base64URL encode (RFC 4648)
+     * 
+     * @param string $data Data to encode
+     * @return string Base64URL encoded string
+     */
+    private function base64urlEncode($data)
+    {
+        return rtrim(strtr(base64_encode($data), '+/', '-_'), '=');
+    }
+
+    /**
      * Get authorization URL
      * 
      * @param string $state CSRF state parameter
      * @param string $nonce Nonce for replay protection
+     * @param string|null $code_challenge PKCE code challenge (optional)
      * @param array $additional_params Additional query parameters to include
+     * @param string|null $redirect_uri Override redirect URI (optional)
      * @return string Authorization URL
      * @throws Exception
      */
-    public function getAuthorizationUrl($state, $nonce, $additional_params = array())
+    public function getAuthorizationUrl($state, $nonce, $code_challenge = null, $additional_params = array(), $redirect_uri = null)
     {
         $discovery = $this->discover();
         $auth_endpoint = $discovery['authorization_endpoint'];
 
-        $redirect_uri = !empty($this->config['redirect_uri']) 
-            ? $this->config['redirect_uri'] 
-            : site_url('auth/oidc_callback');
+        if (empty($redirect_uri)) {
+            $redirect_uri = !empty($this->config['redirect_uri']) 
+                ? $this->config['redirect_uri'] 
+                : site_url('auth/oidc_callback');
+        }
 
         $params = array(
             'client_id' => $this->config['client_id'],
@@ -119,6 +174,12 @@ class OidcClient
             'state' => $state,
             'nonce' => $nonce
         );
+
+        // Add PKCE code challenge if provided
+        if (!empty($code_challenge)) {
+            $params['code_challenge'] = $code_challenge;
+            $params['code_challenge_method'] = 'S256';
+        }
 
         // Add response_mode if specified
         if (!empty($this->config['response_mode'])) {
@@ -138,19 +199,26 @@ class OidcClient
      * 
      * @param string $code Authorization code
      * @param string $state State parameter (for validation)
+     * @param string|null $code_verifier PKCE code verifier (for public clients)
      * @return array Tokens (id_token, access_token, etc.)
      * @throws Exception
      */
-    public function exchangeCodeForTokens($code, $state)
+    public function exchangeCodeForTokens($code, $state, $code_verifier = null)
     {
         // Validate state
-        if ($this->config['validate_state']) {
+        // For public clients (PKCE flow), state validation happens on frontend
+        // For confidential clients, validate state from session
+        $client_type = isset($this->config['client_type']) ? $this->config['client_type'] : 'confidential';
+        
+        if ($this->config['validate_state'] && $client_type === 'confidential') {
+            // Only validate state from session for confidential clients
             $stored_state = $this->ci->session->userdata('oidc_state');
             if (empty($stored_state) || $stored_state !== $state) {
                 throw new Exception('Invalid state parameter');
             }
             $this->ci->session->unset_userdata('oidc_state');
         }
+        // For public clients, state is validated by frontend before calling this endpoint
 
         $discovery = $this->discover();
         $token_endpoint = $discovery['token_endpoint'];
@@ -167,10 +235,23 @@ class OidcClient
             'client_id' => $this->config['client_id']
         );
         
-        // Include client_secret only if configured (for confidential clients)
-        // Public clients (no secret) can use hybrid flow or PKCE
-        if (!empty($this->config['client_secret'])) {
+        // Choose authentication method based on client type
+        $client_type = isset($this->config['client_type']) ? $this->config['client_type'] : 'confidential';
+        
+        if ($client_type === 'confidential') {
+            // Confidential client: use client_secret
+            if (empty($this->config['client_secret'])) {
+                throw new Exception('client_secret is required for confidential clients');
+            }
             $data['client_secret'] = $this->config['client_secret'];
+        } else if ($client_type === 'public') {
+            // Public client: use PKCE
+            if (empty($code_verifier)) {
+                throw new Exception('code_verifier is required for public clients using PKCE');
+            }
+            $data['code_verifier'] = $code_verifier;
+        } else {
+            throw new Exception('Invalid client_type. Must be "confidential" or "public"');
         }
 
         // Make token request

@@ -1,29 +1,19 @@
 <?php
 
 require_once 'application/libraries/Auth/AuthInterface.php';
-require_once 'application/libraries/Auth/DefaultAuth.php';
+require_once 'application/libraries/Auth/OidcAuthBase.php';
 
-class OidcAuth extends DefaultAuth implements AuthInterface {
-
-    protected $oidc_config;
-    protected $oidc_enabled;
-
-    function __construct()
-    {
-        parent::__construct($skip_auth=TRUE);
-        
-        $this->oidc_config = $this->ci->config->item('oidc_auth');
-        $this->oidc_enabled = !empty($this->oidc_config) && 
-                             isset($this->oidc_config['enabled']) && 
-                             $this->oidc_config['enabled'] === true;
-        
-        $this->ci->load->model("Ion_auth_model");
-    }
+/**
+ * OIDC Authentication Driver for Confidential Clients (Server-Side)
+ * 
+ * This driver handles OIDC authentication for server-side PHP applications
+ * that can securely store a client secret. Uses standard authorization code flow
+ * with optional PKCE for additional security.
+ */
+class OidcAuth extends OidcAuthBase implements AuthInterface {
 
     /**
-     * 
      * Main login method - shows dual login options if OIDC enabled
-     * 
      */
     function login()
     {
@@ -157,90 +147,7 @@ class OidcAuth extends DefaultAuth implements AuthInterface {
     }
 
     /**
-     * Default username/password login (accessible at auth/alternate)
-     */
-    function alternate()
-    {
-        $this->ci->template->set_template('blank');
-        $this->data['title'] = t("login");
-
-        if($this->ci->input->get('destination'))
-        {
-            $destination=$this->ci->input->get('destination');
-            $this->ci->session->unset_userdata('destination');
-        }
-        else {
-            $destination=$this->ci->session->userdata("destination");
-        }
-
-        //validate form input
-        $this->ci->form_validation->set_rules('email', t('email'), 'trim|required|valid_email|max_length[100]');
-        $this->ci->form_validation->set_rules('password', t('password'), 'required|max_length[100]');
-
-        if ($this->ci->form_validation->run() == true) {
-            $remember = false;
-            if ($this->ci->config->item("track_login_attempts")===TRUE)
-            {
-                $max_login_limit=$this->ci->ion_auth->is_max_login_attempts_exceeded($this->ci->input->post('email'));
-
-                if ($max_login_limit)
-                {
-                    $this->ci->session->set_flashdata('error', t("max_login_attempted"));
-                    sleep(3);
-                    redirect("auth/alternate", 'refresh');
-                }
-            }
-
-            if ($this->ci->ion_auth->login($this->ci->input->post('email'), $this->ci->input->post('password'), $remember)) //if the login is successful
-            {
-                //log
-                $this->ci->db_logger->write_log('login',$this->ci->input->post('email'));
-
-                if ($destination!="")
-                {
-                    redirect($destination, 'refresh');
-                }
-                else
-                {
-                    redirect($this->ci->config->item('base_url'), 'refresh');
-                }
-            }
-            else
-            { 	//if the login was un-successful
-                //redirect them back to the login page
-                $this->ci->session->set_flashdata('error', t("login_failed"));
-
-                //log
-                $this->ci->db_logger->write_log('login-failed',$this->ci->input->post('email'));
-
-                redirect("auth/alternate", 'refresh');
-            }
-        }
-        else
-        {  	//the user is not logging in so display the login page
-            //set the flash data error message if there is one
-            $this->data['error'] = (validation_errors()) ? validation_errors() : $this->ci->session->flashdata('error');
-
-            $this->data['email']      = array('name'    => 'email',
-                                              'id'      => 'email',
-                                              'type'    => 'text',
-                                              'value'   => $this->ci->form_validation->set_value('email'),
-                                             );
-            $this->data['password']   = array('name'    => 'password',
-                                              'id'      => 'password',
-                                              'type'    => 'password',
-                                             );
-
-            $content=$this->ci->load->view('auth/login', $this->data,TRUE);
-
-            $this->ci->template->write('content', $content,true);
-            $this->ci->template->write('title', t('login'),true);
-            $this->ci->template->render();
-        }
-    }
-
-    /**
-     * Initiate OIDC login flow
+     * Initiate OIDC login flow (server-side for confidential clients)
      */
     function oidc_login()
     {
@@ -258,6 +165,16 @@ class OidcAuth extends DefaultAuth implements AuthInterface {
             $state = nada_random_hash(32);
             $nonce = nada_random_hash(32);
             
+            // Generate PKCE codes if enabled (even for confidential clients, PKCE adds extra security)
+            $code_challenge = null;
+            $code_verifier = null;
+            if (isset($this->oidc_config['use_pkce']) && $this->oidc_config['use_pkce']) {
+                $pkce_codes = $this->ci->oidcclient->generatePkceCodes();
+                $code_challenge = $pkce_codes['code_challenge'];
+                $code_verifier = $pkce_codes['code_verifier'];
+                $this->ci->session->set_userdata('oidc_code_verifier', $code_verifier);
+            }
+            
             // Store in session for validation
             $this->ci->session->set_userdata('oidc_state', $state);
             $this->ci->session->set_userdata('oidc_nonce', $nonce);
@@ -273,8 +190,8 @@ class OidcAuth extends DefaultAuth implements AuthInterface {
                 $this->ci->session->set_userdata('oidc_destination', $destination);
             }
             
-            // Get authorization URL
-            $auth_url = $this->ci->oidcclient->getAuthorizationUrl($state, $nonce);
+            // Get authorization URL (with PKCE if enabled)
+            $auth_url = $this->ci->oidcclient->getAuthorizationUrl($state, $nonce, $code_challenge);
             
             // Redirect to OIDC provider
             redirect($auth_url, 'refresh');
@@ -294,7 +211,7 @@ class OidcAuth extends DefaultAuth implements AuthInterface {
     }
 
     /**
-     * Handle OIDC callback
+     * Handle OIDC callback (server-side for confidential clients)
      */
     function oidc_callback()
     {
@@ -305,7 +222,7 @@ class OidcAuth extends DefaultAuth implements AuthInterface {
         try {
             $this->ci->load->library('OidcClient');
             
-            // Get stored nonce
+            // Get stored nonce (for confidential clients only)
             $nonce = $this->ci->session->userdata('oidc_nonce');
             if (empty($nonce)) {
                 throw new Exception('Session expired. Please try logging in again.');
@@ -337,11 +254,34 @@ class OidcAuth extends DefaultAuth implements AuthInterface {
             }
             
             // Exchange code for tokens only if id_token is not already present
-            // Hybrid flow (response_type=code id_token with form_post) provides id_token directly
             // Authorization code flow (response_type=code) requires token exchange
             if (empty($id_token) && !empty($code)) {
-                $tokens = $this->ci->oidcclient->exchangeCodeForTokens($code, $state);
+                // Validate state parameter
+                // State is required when using authorization code flow
+                if (empty($state)) {
+                    throw new Exception('State parameter is required for authorization code flow');
+                }
+                if (!$this->validate_state($state, 'confidential')) {
+                    throw new Exception('Invalid state parameter - possible CSRF attack');
+                }
+                
+                // Get code_verifier from session if PKCE was used
+                $code_verifier = $this->ci->session->userdata('oidc_code_verifier');
+                if (!empty($code_verifier)) {
+                    $this->ci->session->unset_userdata('oidc_code_verifier');
+                }
+                
+                $tokens = $this->ci->oidcclient->exchangeCodeForTokens($code, $state, $code_verifier);
                 $id_token = $tokens['id_token'];
+                
+                // Clear state from session after successful validation
+                $this->ci->session->unset_userdata('oidc_state');
+            } elseif (!empty($id_token) && !empty($state)) {
+                // If id_token is present directly (e.g., form_post response), still validate state if provided
+                if (!$this->validate_state($state, 'confidential')) {
+                    throw new Exception('Invalid state parameter - possible CSRF attack');
+                }
+                $this->ci->session->unset_userdata('oidc_state');
             }
             
             // Validate ID token
@@ -349,6 +289,7 @@ class OidcAuth extends DefaultAuth implements AuthInterface {
             
             // Clear OIDC session data
             $this->ci->session->unset_userdata('oidc_nonce');
+            // State already cleared above after validation
             
             // Store ID token for logout if needed
             if (isset($this->oidc_config['logout_endpoint']) && $this->oidc_config['logout_endpoint']) {
@@ -414,180 +355,6 @@ class OidcAuth extends DefaultAuth implements AuthInterface {
             }
         }
     }
-
-    /**
-     * Enhanced logout with OIDC support
-     */
-    function logout()
-    {
-        $this->disable_page_cache();
-        $this->data['title'] = t("logout");
-        
-        // Clear local session
-        $logout = $this->ci->ion_auth->logout();
-        
-        // If OIDC logout endpoint is configured, redirect to provider logout
-        if ($this->oidc_enabled && 
-            isset($this->oidc_config['logout_endpoint']) && 
-            $this->oidc_config['logout_endpoint']) {
-            
-            try {
-                $this->ci->load->library('OidcClient');
-                $logout_url = $this->ci->oidcclient->getEndSessionUrl(site_url(''));
-                
-                if ($logout_url) {
-                    redirect($logout_url, 'refresh');
-                    return;
-                }
-            } catch (Exception $e) {
-                log_message('error', 'OIDC logout failed: ' . $e->getMessage());
-                // Fall through to default logout
-            }
-        }
-        
-        // Default logout redirect
-        redirect('', 'refresh');
-    }
-
-    /**
-     * Map OIDC claims to user data
-     */
-    private function mapClaimsToUserData($claims)
-    {
-        $mappings = isset($this->oidc_config['claim_mappings']) 
-            ? $this->oidc_config['claim_mappings'] 
-            : array(
-                'email' => 'email',
-                'first_name' => 'given_name',
-                'last_name' => 'family_name',
-                'username' => 'preferred_username'
-            );
-        
-        $user_data = array();
-        
-        // Map email (required)
-        if (isset($mappings['email']) && isset($claims[$mappings['email']])) {
-            $user_data['email'] = $claims[$mappings['email']];
-        } elseif (isset($claims['email'])) {
-            $user_data['email'] = $claims['email'];
-        }
-        
-        // Map first name
-        if (isset($mappings['first_name']) && isset($claims[$mappings['first_name']])) {
-            $user_data['first_name'] = $claims[$mappings['first_name']];
-        } elseif (isset($claims['given_name'])) {
-            $user_data['first_name'] = $claims['given_name'];
-        }
-        
-        // Map last name
-        if (isset($mappings['last_name']) && isset($claims[$mappings['last_name']])) {
-            $user_data['last_name'] = $claims[$mappings['last_name']];
-        } elseif (isset($claims['family_name'])) {
-            $user_data['last_name'] = $claims['family_name'];
-        }
-        
-        // Map username (fallback to email)
-        if (isset($mappings['username']) && isset($claims[$mappings['username']])) {
-            $user_data['username'] = $claims[$mappings['username']];
-        } elseif (isset($claims['preferred_username'])) {
-            $user_data['username'] = $claims['preferred_username'];
-        } else {
-            $user_data['username'] = $user_data['email'];
-        }
-        
-        return $user_data;
-    }
-
-    /**
-     * Login user from OIDC
-     */
-    private function login_user_from_oidc($email)
-    {
-        if (empty($email)) {
-            return FALSE;
-        }
-
-        $query = $this->ci->db->select('username,email, id, password')
-            ->where("email", $email)
-            ->where($this->ci->ion_auth->_extra_where)
-            ->where('active', 1)
-            ->get($this->ci->config->item('tables')['users']);
-                  
-        $result = $query->row();
-
-        if ($query->num_rows() == 1){
-            $this->update_last_login($result->id);
-            $this->ci->session->set_userdata('email',  $result->email);
-            $this->ci->session->set_userdata('username',  $result->username);
-            $this->ci->session->set_userdata('user_id',  $result->id);
-            
-            // Log the login
-            $this->ci->db_logger->write_log('login', $result->email);
-            
-            return TRUE;
-        }
-        
-        return FALSE;
-    }
-
-    /**
-     * Register user from OIDC claims
-     */
-    private function register_user_from_oidc($user_data)
-    {
-        $username = isset($user_data['username']) ? $user_data['username'] : $user_data['email'];
-        $email = $user_data['email'];
-        $password = nada_random_hash(); // Random password since OIDC handles auth
-        
-        $additional_data = array(
-            'first_name' => isset($user_data['first_name']) ? $user_data['first_name'] : '',
-            'last_name'  => isset($user_data['last_name']) ? $user_data['last_name'] : '',
-            'email'      => $email,
-            'identity'   => $username
-        );
-        
-        $this->ci->ion_auth_model->register(
-            $username, 
-            $password, 
-            $email, 
-            $additional_data, 
-            $group_name = 'user', 
-            $auth_type = 'OIDC'
-        );
-    }
-
-    /**
-     * Update last login timestamp
-     */
-    private function update_last_login($id)
-    {
-        $this->ci->load->helper('date');
-
-        if (isset($this->ci->ion_auth) && isset($this->ci->ion_auth->_extra_where)){
-            $this->ci->db->where($this->ci->ion_auth->_extra_where);
-        }
-        
-        $this->ci->db->update(
-            $this->ci->config->item('tables')['users'], 
-            array('last_login' => now()), 
-            array('id' => $id)
-        );
-        
-        return $this->ci->db->affected_rows() == 1;
-    }
-
-    /**
-     * Disable page cache
-     */
-    private function disable_page_cache()
-    {
-        header( 'Expires: Sat, 26 Jul 1997 05:00:00 GMT' );
-        header( 'Last-Modified: ' . gmdate( 'D, d M Y H:i:s' ) . ' GMT' );
-        header( 'Cache-Control: no-store, no-cache, must-revalidate, max-age=0' );
-        header( 'Cache-Control: post-check=0, pre-check=0', false );
-        header( 'Pragma: no-cache' );
-    }
 }
 
 //end-class
-
