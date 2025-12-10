@@ -18,7 +18,9 @@ $lang['organisation']="Organisation";
 $lang['author']="Author";
 
 $lang['microdata']="Microdata";
+$lang['survey']="Microdata";
 $lang['timeseries']="Indicator";
+$lang['indicator']="Indicator";
 $lang['geospatial']="Geospatial";
 $lang['script']="Script";
 $lang['document']="Document";
@@ -28,6 +30,7 @@ $lang['video']="Video";
 $lang['external-resources']="External resources";
 $lang['external-resource']="External resource";
 $lang['timeseries-db']="Indicators database";
+$lang['indicator-db']="Indicator database";
 
 $lang['file_name']="File name";
 $lang['size']="Size";
@@ -471,6 +474,46 @@ $lang['are_you_sure_permanently_remove']='Are you sure you want to permanently r
 $lang['remove']='Remove';
 $lang['view_full_validation_report']='View full validation report';
 
+// Dashboard
+$lang['Dashboard']='Dashboard';
+$lang['Last updated']='Last updated';
+$lang['Refresh']='Refresh';
+
+// Disk Space
+$lang['Disk Space']='Disk Space';
+$lang['Total Capacity']='Total Capacity';
+$lang['Used']='Used';
+$lang['Free']='Free';
+$lang['Used Percentage']='Used Percentage';
+$lang['Storage Path']='Storage Path';
+$lang['Unavailable']='Unavailable';
+$lang['Critical']='Critical';
+$lang['Warning']='Warning';
+$lang['Healthy']='Healthy';
+$lang['Disk space information unavailable']='Disk space information unavailable';
+
+// Analytics
+$lang['Analytics']='Analytics';
+$lang['Page Views Today']='Page Views Today';
+$lang['Page Views']='Page Views';
+$lang['Traffic Overview']='Traffic Overview';
+$lang['Today\'s Traffic']='Today\'s Traffic';
+$lang['By Hour']='By Hour';
+$lang['Live']='Live';
+$lang['Updates every minute']='Updates every minute';
+$lang['Active Users']='Active Users';
+$lang['Sessions']='Sessions';
+$lang['Errors Today']='Errors Today';
+$lang['Top Pages']='Top Pages';
+$lang['Top Users']='Top Users';
+$lang['No user activity tracked']='No user activity tracked';
+$lang['Browser & Device']='Browser & Device';
+$lang['Page']='Page';
+$lang['Views']='Views';
+$lang['Today']='Today';
+$lang['Last hour']='Last hour';
+$lang['Last 30 days']='Last 30 days';
+$lang['No data available']='No data available';
 
 /* End of file general_lang.php */
 /* Location: ./application/language/english/general_lang.php */

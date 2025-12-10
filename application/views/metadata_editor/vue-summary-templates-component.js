@@ -135,7 +135,7 @@ Vue.component('summary-templates-component', {
 
                         <!--admin metadata-->
                         <div style="position:relative;">
-                            <div class="mt-2 font-weight-bold">Administrative metadata templates:</div>
+                            <div class="mt-2 font-weight-bold">{{$t('administrative_metadata_templates')}}:</div>
                             <v-btn style="position:absolute;top:0;right:0" text small color="primary" @click="dialog_admin_metadata=true" :disabled="!isProjectEditable">
                                 <v-icon>mdi-cog</v-icon>
                             </v-btn>

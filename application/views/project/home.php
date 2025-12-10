@@ -463,7 +463,7 @@
                 >
                   <img v-if="schemaIcon(s.uid)" :src="schemaIcon(s.uid)" alt="" style="width:16px;height:16px;margin-right:8px;">
                   <v-icon v-else style="margin-right:8px;">mdi-file-tree</v-icon>
-                  {{ s.display_name || s.title || s.uid }}
+                  {{ getSchemaLabel(s) }}
                 </a>
               </div>
             </v-card-text>
@@ -848,10 +848,17 @@
         ProjectTypes() {
           let types = [];
           for (k in this.data_types) {
+            let translatedText = this.data_types[k];
+            if (k && this.$te && this.$te(k)) {
+              const translated = this.$t(k);
+              if (translated && translated !== k) {
+                translatedText = translated;
+              }
+            }
             types.push(
               {
                 value: k,
-                text: this.data_types[k]                
+                text: translatedText                
               }
             );
           }
@@ -1222,6 +1229,26 @@
 
           console.log('Loading projects with URL:', url);
 
+          // Track search/filter event
+          let searchData = null;
+          if (typeof Analytics !== 'undefined') {
+            const searchParams = new URLSearchParams(window.location.search);
+            const collectedParams = {};
+            
+            // Only include non-empty parameters
+            if (searchParams.get('type')) collectedParams.types = searchParams.get('type');
+            if (searchParams.get('keywords')) collectedParams.keywords = searchParams.get('keywords');
+            if (searchParams.get('collection')) collectedParams.collection = searchParams.get('collection');
+            if (searchParams.get('ownership')) collectedParams.ownership = searchParams.get('ownership');
+            if (searchParams.get('sort_by')) collectedParams.sort_by = searchParams.get('sort_by');
+            
+            // Track if there are any filters/search
+            if (Object.keys(collectedParams).length > 0) {
+              searchData = collectedParams;
+              Analytics.trackSearch(searchData);
+            }
+          }
+
           this.loading_status = this.$t('loading_projects');
           this.is_searching = true;
           this.errors = [];
@@ -1237,6 +1264,13 @@
 
               vm.projects = response.data;
               vm.pagination_page = vm.PaginationCurrentPage;
+              
+              // Track search results count
+              if (typeof Analytics !== 'undefined' && searchData) {
+                Analytics.trackEvent('search_results', {
+                  results_count: response.data.found || 0
+                });
+              }
             })
             .catch(function(error) {
               console.log("error", error);
@@ -1390,6 +1424,20 @@
             return this.schema_map[canonical].icon;
           }
           return null;
+        },
+        getSchemaLabel: function(schema){
+          if (!schema){
+            return this.$te && this.$te('unknown') ? this.$t('unknown') : 'Unknown';
+          }
+          // Try to translate using the schema UID (like facets do)
+          if (schema.uid && this.$te && this.$te(schema.uid)){
+            const translated = this.$t(schema.uid);
+            if (translated && translated !== schema.uid){
+              return translated;
+            }
+          }
+          // Fallback to the label (display_name || title || uid)
+          return schema.display_name || schema.title || schema.uid || (this.$te && this.$te('unknown') ? this.$t('unknown') : 'Unknown');
         },
         PaginatePage: function(page) {
           this.loadProjects();
@@ -1695,6 +1743,8 @@
       }
     })
   </script>
+
+  <?php $this->load->view('common/analytics'); ?>
 </body>
 
 </html>

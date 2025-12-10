@@ -257,6 +257,8 @@
             }
         })
     </script>
+
+    <?php $this->load->view('common/analytics'); ?>
 </body>
 
 </html>

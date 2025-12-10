@@ -292,7 +292,7 @@
               }
             }
           }
-          return (this.$store.state.project_info && this.$store.state.project_info.title) || 'Untitled';
+          return (this.$store.state.project_info && this.$store.state.project_info.title) || this.$te && this.$te('untitled') ? this.$t('untitled') : 'Untitled';
 
         },
         StudyIDNO(){          
@@ -489,42 +489,44 @@
             return [];
           }
 
-          let features = this.$store.state.geospatial_features;
-          
-          // Start with Description as the first item
-          let feature_list=[{
-            title: this.$t('Description'),
-            type:'geospatial-feature-description',
-            key:'geospatial-features/description',
-            file:'database'
-          }];
+          let features = this.$store.state.geospatial_features;          
+          let feature_list = [
+            {
+              title: this.$t('Description'),
+              type:'geospatial-feature-description',
+              key:'feature-catalogue/description',
+              file:'database'
+            }
+          ];
 
-          // Add features if they exist
+          // Create features array for the features parent node
+          let features_array = [];
           if (features && features.length > 0){
             for (let feature of features){
-              feature_list.push({
+              features_array.push({
                 title: feature.name || feature.file_name || 'Unnamed Feature',
                 type:'geospatial-feature',
-                key:'geospatial-features/'+feature.id,
+                key:'feature-catalogue/features/'+feature.id,
                 file:'datafile',
                 feature:feature,
                 items:[{
                       title:this.$t('characteristics'),
                       type: 'geospatial-feature-characteristics',
                       file: 'variable',                    
-                      key:'geospatial-features/'+feature.id+'/characteristics',
+                      key:'feature-catalogue/features/'+feature.id+'/characteristics',
                       feature:feature,
-                  }
-                  /*{
-                      title:this.$t('Data'),
-                      type: 'geospatial-feature-data',
-                      file: 'datafile',                    
-                      key:'geospatial-features/'+feature.id+'/data',
-                      feature:feature,
-                  }*/]
+                  }]
               });
             }
           }
+
+          feature_list.push({
+            title: this.$t('features'),
+            type:'geospatial-features-list',
+            key:'feature-catalogue/features',
+            file:'database',
+            items: features_array
+          });
 
           return feature_list;
         }
@@ -675,36 +677,52 @@
           if (path.startsWith("/geospatial-features")) {
             console.log("Handling geospatial features route:", path);
             
-            // Always expand the geospatial-features parent node
-            if (!this.initiallyOpen.includes("geospatial-features")) {
-              this.initiallyOpen.push("geospatial-features");
+            // Always expand the feature-catalogue parent node
+            if (!this.initiallyOpen.includes("feature-catalogue")) {
+              this.initiallyOpen.push("feature-catalogue");
             }
             
             // Handle description route
             if (path.includes("/description")) {
-              console.log("Setting active node to: geospatial-features/description");
-              this.tree_active_items = ["geospatial-features/description"];
+              console.log("Setting active node to: feature-catalogue/description");
+              this.tree_active_items = ["feature-catalogue/description"];
             }
             // Handle different geospatial feature routes
             else if (path.includes("/edit/") || path.includes("/characteristics") || path.includes("/data")) {
               // Extract feature ID from path
               const pathParts = path.split("/");
-              const featureId = pathParts[pathParts.length - 1];
-              const featureNodeKey = "geospatial-features/" + featureId;
+              let featureId = pathParts[pathParts.length - 1];
+              
+              // For characteristics route, the ID is in the path before /characteristics
+              if (path.includes("/characteristics")) {
+                featureId = pathParts[pathParts.length - 2];
+              }
+              
+              const featureNodeKey = "feature-catalogue/features/" + featureId;
               
               console.log("Setting active node to:", featureNodeKey);
+              
+              // Expand the features parent node
+              if (!this.initiallyOpen.includes("feature-catalogue/features")) {
+                this.initiallyOpen.push("feature-catalogue/features");
+              }
               
               // Expand the specific feature node to show its children
               if (!this.initiallyOpen.includes(featureNodeKey)) {
                 this.initiallyOpen.push(featureNodeKey);
               }
               
-              // Set active node to the specific feature (matching the key format from GeospatialFeatures)
-              this.tree_active_items = [featureNodeKey];
+              // For characteristics route, set active to the characteristics node
+              if (path.includes("/characteristics")) {
+                this.tree_active_items = [featureNodeKey + "/characteristics"];
+              } else {
+                // Set active node to the specific feature
+                this.tree_active_items = [featureNodeKey];
+              }
             } else {
-              console.log("Setting active node to: geospatial-features");
-              // Just the main geospatial features page
-              this.tree_active_items = ["geospatial-features"];
+              console.log("Setting active node to: feature-catalogue");
+              // Just the main feature catalogue page
+              this.tree_active_items = ["feature-catalogue"];
             }
             console.log("Final tree_active_items:", this.tree_active_items);
             console.log("Final initiallyOpen:", this.initiallyOpen);
@@ -886,10 +904,10 @@
 
           if (this.dataset_type=='geospatial'){
             tree_data.push({
-              title: this.$t('Geospatial features'),
+              title: this.$t('feature_catalogue'),
               type: 'geospatial-features',
               file: 'database',
-              key:'geospatial-features',
+              key:'feature-catalogue',
               items:this.GeospatialFeatures
             });
 
@@ -990,7 +1008,7 @@
               this.items[k]["items"]=this.ExternalResourcesTreeNodes;
             }
 
-            if (this.items[k]["key"]=="geospatial-features"){
+            if (this.items[k]["key"]=="feature-catalogue"){
               this.items[k]["items"]=this.GeospatialFeatures;
             }
             
@@ -1061,12 +1079,19 @@
           }
 
           if (node.type=='geospatial-features'){
-            router.push('/geospatial-features');
+            // Feature catalogue node - show description preview
+            router.push('/geospatial-features/description');
             return;
           }
 
           if (node.type=='geospatial-feature-description'){
             router.push('/geospatial-features/description');
+            return;
+          }
+
+          if (node.type=='geospatial-features-list'){
+            // Features parent node - show list of features
+            router.push('/geospatial-features');
             return;
           }
 
@@ -1234,5 +1259,7 @@
       resize_variable_list();
     });
   </script>
+
+  <?php $this->load->view('common/analytics'); ?>
 </body>
 </html>

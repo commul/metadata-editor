@@ -173,8 +173,13 @@ class Editor_resource_model extends ci_model {
             $temp_upload_folder=$storage_path.'/tmp'; 
         }
 
+		// Ensure storage path exists first
+		if (!file_exists($storage_path)){
+			@mkdir($storage_path, 0777, true);
+		}
+
 		if (!file_exists($temp_upload_folder)){
-			@mkdir($temp_upload_folder);
+			@mkdir($temp_upload_folder, 0777, true);
 		}
 		
 		if (!file_exists($temp_upload_folder)){

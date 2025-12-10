@@ -140,7 +140,7 @@
                                         <span v-else class="schema-icon-placeholder">{{ getSchemaInitial(schema) }}</span>
                                     </div>
                                     <v-list-item-content>
-                                        <v-list-item-title>{{ schema.label }}</v-list-item-title>
+                                        <v-list-item-title>{{ getSchemaLabel(schema) }}</v-list-item-title>
                                     </v-list-item-content>
                                 </v-list-item>
                             </v-list-item-group>
@@ -207,7 +207,7 @@
                             <span class="schema-icon-placeholder" v-else>{{ getSchemaInitial(schema) }}</span>
                           </div>
                           <div class="v-data-table--title font-weight-bold">
-                            {{ schema.label }}
+                            {{ getSchemaLabel(schema) }}
                           </div>
                             </div>
                         </template>                                                   
@@ -675,6 +675,21 @@
             return '?';
           }
           return schema.label.trim().charAt(0).toUpperCase() || '?';
+        },
+        getSchemaLabel(schema){
+
+          if (!schema){
+            return this.$te && this.$te('unknown') ? this.$t('unknown') : 'Unknown';
+          }
+          // Try to translate using the schema UID (like projects page does)
+          if (schema.uid && this.$te && this.$te(schema.uid)){
+            const translated = this.$t(schema.uid);
+            if (translated && translated !== schema.uid){
+              return translated;
+            }
+          }
+          // Fallback to the label (display_name || title || uid)
+          return schema.label || schema.uid || (this.$te && this.$te('unknown') ? this.$t('unknown') : 'Unknown');
         },
         getFallbackLabel(type){
           if (!type){

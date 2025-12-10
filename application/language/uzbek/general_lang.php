@@ -28,6 +28,9 @@ $lang['video']="Video";
 $lang['external-resources']="Tashqi resurslar";
 $lang['external-resource']="Tashqi resurs";
 $lang['timeseries-db']="Ko'rsatkichlar ma'lumotlar bazasi";
+$lang['indicator']="Ko'rsatkich";
+$lang['indicator-db']="Ko'rsatkichlar ma'lumotlar bazasi";
+$lang['survey']="Mikromalumotlar";
 
 $lang['file_name']="Fayl nomi";
 $lang['size']="Hajmi";

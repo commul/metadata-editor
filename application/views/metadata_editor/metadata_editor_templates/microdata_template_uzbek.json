@@ -4107,11 +4107,11 @@
             "type": "section_container",
             "id": "tags",
             "key": "tags_container",
-            "title": "Tags",
+            "title": "Teglar",
             "items": [
                 {
                     "key": "tags",
-                    "title": "Tags",
+                    "title": "Teglar",
                     "type": "array",
                     "props": [
                         {
@@ -4139,11 +4139,11 @@
             "type": "section_container",
             "id": "datacite",
             "key": "datacite_container",
-            "title": "DataCite",
+            "title": "Iqtibos (DataCite)",
             "items": [
                 {
                     "key": "datacite_section",
-                    "title": "DataCite",
+                    "title": "Iqtibos (DataCite)",
                     "type": "section",
                     "items": [
                         {
@@ -4269,14 +4269,14 @@
                         },
                         {
                             "key": "datacite.url",
-                            "title": "URL",
+                            "title": "Manba URL",
                             "type": "string",
                             "help_text": "",
                             "display_type": "text"
                         },
                         {
                             "key": "datacite.language",
-                            "title": "Language",
+                            "title": "Til",
                             "type": "string",
                             "help_text": "",
                             "display_type": "text"
@@ -4289,13 +4289,13 @@
             "type": "section_container",
             "id": "provenance",
             "key": "provenance_container",
-            "title": "Provenance",
+            "title": "Manba",
             "items": [
                 {
                     "key": "provenance",
-                    "title": "Provenance",
+                    "title": "Manba",
                     "type": "section",
-                    "help_text": "Provenance information is used to document the origin of the metadata.",
+                    "help_text": "Manba ma'lumotlari foydalanilgan metadata manbasini aniqlash uchun ishlatiladi.",
                     "items": [
                         {
                             "key": "provenance.original_repository",
@@ -4305,14 +4305,14 @@
                             "items": [
                                 {
                                     "key": "provenance.original_repository.repository_name",
-                                    "title": "Repository name",
+                                    "title": "Omborxona nomi",
                                     "type": "string",
                                     "help_text": "The name of the original repository.",
                                     "display_type": "text"
                                 },
                                 {
                                     "key": "provenance.original_repository.url",
-                                    "title": "URL",
+                                    "title": "Manba URL",
                                     "type": "string",
                                     "help_text": "The URL of the original repository or dataset.",
                                     "rules": {
@@ -4322,21 +4322,21 @@
                                 },
                                 {
                                     "key": "provenance.original_repository.dataset_identifier",
-                                    "title": "Dataset identifier",
+                                    "title": "Ma'lumotlar to'plami ID",
                                     "type": "string",
                                     "help_text": "The identifier of the dataset in the original repository.",
                                     "display_type": "text"
                                 },
                                 {
                                     "key": "provenance.original_repository.doi",
-                                    "title": "DOI",
+                                    "title": "Digital Object Identifier (DOI)",
                                     "type": "string",
                                     "help_text": "The Digital Object Identifier (DOI) of the dataset in the original repository.",
                                     "display_type": "text"
                                 },
                                 {
                                     "key": "provenance.original_repository.dataset_title",
-                                    "title": "Dataset title",
+                                    "title": "Ma'lumotlar to'plami sarlavhasi",
                                     "type": "string",
                                     "help_text": "The title of the dataset in the original repository.",
                                     "display_type": "text"
@@ -4350,18 +4350,18 @@
                                 },
                                 {
                                     "key": "provenance.original_repository.notes",
-                                    "title": "Notes",
+                                    "title": "Qo'shimcha ma'lumotlar",
                                     "type": "string",
-                                    "help_text": "Additional information about the original repository.",
+                                    "help_text": "Asl omborxona haqida qo'shimcha ma'lumotlar.",
                                     "display_type": "textarea"
                                 }
                             ]
                         },
                         {
                             "key": "provenance.source_repository_section",
-                            "title": "Manba omborxonasi",
+                            "title": "Manba omborxonalari",
                             "type": "section",
-                            "help_text": "Information about the source repository from which the metadata was harvested.",
+                            "help_text": "Manba omborxonalari haqida ma'lumotlar.",
                             "items": [
                                 {
                                     "key": "provenance.source_repository",

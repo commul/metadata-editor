@@ -28,6 +28,9 @@ $lang['video']="Video";
 $lang['external-resources']="Recursos externos";
 $lang['external-resource']="Recurso externo";
 $lang['timeseries-db']="Base de datos de indicadores";
+$lang['indicator']="Indicador";
+$lang['indicator-db']="Base de datos de indicadores";
+$lang['survey']="Microdatos";
 
 $lang['file_name']="Nombre del archivo";
 $lang['size']="Tamaño";

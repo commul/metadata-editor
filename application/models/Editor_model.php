@@ -1388,7 +1388,7 @@ class Editor_model extends CI_Model {
 		$temp_upload_folder='datafiles/tmp';
 			
 		if (!file_exists($temp_upload_folder)){
-			@mkdir($temp_upload_folder);
+			@mkdir($temp_upload_folder, 0777, true);
 		}
 		
 		if (!file_exists($temp_upload_folder)){
