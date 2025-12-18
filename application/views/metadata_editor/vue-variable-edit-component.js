@@ -89,6 +89,9 @@ Vue.component('variable-edit', {
         },
         Variable:{
             get(){
+                if (!this.variable.sum_stats_options) {
+                    Vue.set(this.variable, 'sum_stats_options', JSON.parse(JSON.stringify(this.sum_stats_options)));
+                }
                 return this.variable;
             },
             set(newValue){
@@ -351,7 +354,7 @@ Vue.component('variable-edit', {
             return 0;
         },
         variableSumStatEnabled: function (stat){
-            if (this.Variable.sum_stats_options[stat]){
+            if (this.Variable.sum_stats_options && this.Variable.sum_stats_options[stat]){
                 return this.Variable.sum_stats_options[stat];
             }
             return false;
@@ -378,7 +381,7 @@ Vue.component('variable-edit', {
         },
         getWgtFieldValue: function(field,value)
         {
-            if (!this.Variable.sum_stats_options.wgt){
+            if (!this.Variable.sum_stats_options || !this.Variable.sum_stats_options.wgt){
                 return false;
             }
 
@@ -430,7 +433,7 @@ Vue.component('variable-edit', {
                     <!-- statistics tab -->
                     <div style="overflow:auto;padding:10px;font-size:smaller;">
 
-                    <div class="row no-gutters">
+                    <div class="row no-gutters" v-if="Variable.sum_stats_options">
                         <div class="col-md-3 v-checkbox-rm-styles v-checkbox-summary-stats">
                             <div><v-checkbox @change="(value) => onSumStatsOptionChange('wgt', value)" v-model="Variable.sum_stats_options.wgt" :indeterminate="Variable.sum_stats_options.wgt==null" :label="$t('weighted_statistics')"></v-checkbox></div>
                             <div><v-checkbox @change="(value) => onSumStatsOptionChange('freq', value)" v-model="Variable.sum_stats_options.freq" :indeterminate="Variable.sum_stats_options.freq==null" :label="$t('frequencies')"></v-checkbox></div>
@@ -446,7 +449,7 @@ Vue.component('variable-edit', {
                         </div>
                         <div class="col-md-9">
 
-                            <div v-if="variable.var_catgry && variable.var_catgry.length>0 && Variable.sum_stats_options.freq==true">
+                            <div v-if="variable.var_catgry && variable.var_catgry.length>0 && Variable.sum_stats_options && Variable.sum_stats_options.freq==true">
                             <h5>{{$t('frequencies')}}</h5>
                             
                             <table class="table table-sm variable-frequencies">
@@ -483,7 +486,7 @@ Vue.component('variable-edit', {
                                             <span class="progress-text">{{VariablePercent(variable, catgry)}}%</span>
                                         </div>
 
-                                        <div class="progress" v-if="isWeighted==true && Variable.sum_stats_options.wgt">
+                                        <div class="progress" v-if="isWeighted==true && Variable.sum_stats_options && Variable.sum_stats_options.wgt">
                                             <div class="progress-bar progress-bar bg-warning" role="progressbar" :style="'width: ' + VariablePercentWeighted(variable, catgry) + '%'" :aria-valuenow="VariablePercentWeighted(variable, catgry)"  aria-valuemin="0" aria-valuemax="100"></div>
                                             <span class="progress-text">{{VariablePercentWeighted(variable, catgry)}}%</span>
                                         </div>
