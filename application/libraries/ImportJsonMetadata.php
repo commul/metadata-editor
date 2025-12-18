@@ -343,6 +343,33 @@ class ImportJsonMetadata
                 $variable['var_catgry_labels']=$this->get_variable_category_value_labels($variable);
             }
 
+            // Populate var_invalrng.values from categories with is_missing=1
+            // Extract is_missing information before removing it
+            if (isset($variable['var_catgry']) && is_array($variable['var_catgry'])) {
+                $missing_values = array();
+                foreach($variable['var_catgry'] as $cat) {
+                    if (isset($cat['is_missing']) && 
+                        ($cat['is_missing'] == '1' || $cat['is_missing'] == 1)) {
+                        if (isset($cat['value']) && $cat['value'] !== null && $cat['value'] !== '') {
+                            $missing_values[] = (string)$cat['value'];
+                        }
+                    }
+                }
+                if (!empty($missing_values)) {
+                    $variable['var_invalrng'] = array('values' => array_values(array_unique($missing_values)));
+                } else if (!isset($variable['var_invalrng'])) {
+                    $variable['var_invalrng'] = array('values' => array());
+                }
+
+                // Remove is_missing from categories (single source of truth is var_invalrng.values)
+                foreach($variable['var_catgry'] as &$cat) {
+                    if (isset($cat['is_missing'])) {
+                        unset($cat['is_missing']);
+                    }
+                }
+                unset($cat);
+            }
+
             //remove fields
             $exclude=array("uid","sid");
             foreach($exclude as $field)

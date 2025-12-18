@@ -575,32 +575,44 @@ class Editor_DDI_Writer
             ]);
         }
 
-        //catgry
         $categories=new \Adbar\Dot($var->get('var_catgry'));
-        $var_catgry_labels=$var->get('var_catgry_labels');
-        $categories_value_labels=null;
-        
-        if ($var_catgry_labels){
-            $categories_value_labels=$this->get_var_categories_value_labels_indexed($var_catgry_labels);
-        }else{
-            $categories_value_labels=new \Adbar\Dot();
+
+        // Get missing values from var_invalrng.values
+        $missing_values = array();
+        if (isset($var['var_invalrng']['values']) && is_array($var['var_invalrng']['values'])) {
+            $missing_values = array_map('strval', $var['var_invalrng']['values']);
         }
 
         foreach($categories->all() as $idx=>$cat){
+            
+            // Get category value
+            $cat_value = isset($categories["{$idx}.value"]) ? (string)$categories["{$idx}.value"] : '';
+            $is_missing = false;
+
+            // Check if value is in var_invalrng.values 
+            if (!empty($cat_value) && !empty($missing_values)) {
+                $is_missing = in_array($cat_value, $missing_values, true);
+            }
+            
+            //get category stats
+            $cat_stats = isset($categories["{$idx}.stats"]) ? $categories["{$idx}.stats"] : [];
+            $cat_stats= new \Adbar\Dot($cat_stats);
+
             $output->set([
                 'catgry.'.$idx=>[                    
                     '_attributes'=>[
-                        'missing'=> isset($categories["{$idx}.is_missing"]) && intval($categories["{$idx}.is_missing"])==1 ? 'Y' : ''
+                        'missing'=> $is_missing ? 'Y' : ''
                     ]
                 ],
                 'catgry.'.$idx.'.catValu'=> $categories["{$idx}.value"],
-                'catgry.'.$idx.'.labl'=> isset($categories_value_labels->{$categories["{$idx}.value"]}) ? $categories_value_labels->{$categories["{$idx}.value"]} : '',
+                'catgry.'.$idx.'.labl'=> $categories["{$idx}.labl"],
+                //catStat for category if stats exist
                 'catgry.'.$idx.'.catStat'=>[                    
                     '_attributes'=>[
-                        'type'=>$sumstats["{$idx}.type"],
-                        'wgtd'=>$sumstats["{$idx}.wgtd"],
+                        'type'=>$cat_stats["{$idx}.type"],
+                        'wgtd'=>$cat_stats["{$idx}.wgtd"],
                     ],
-                    '_value'=> (string)$categories["{$idx}.stats.value"]
+                    '_value'=> (string)$cat_stats["{$idx}.value"]
                 ]
             ]);
         }

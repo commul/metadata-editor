@@ -670,6 +670,9 @@ class Editor_variable_model extends ci_model {
 
         //metadata
         if(isset($options['metadata'])){
+            // Sync var_invalrng.values and is_missing on categories
+            $options['metadata'] = $this->sync_invalrng_and_is_missing($options['metadata']);
+            
             $core=$this->get_variable_core_fields($options['metadata']);
             $options=array_merge($options,$core);
             $options['metadata']=$this->Editor_model->encode_metadata($options['metadata']);
@@ -694,7 +697,10 @@ class Editor_variable_model extends ci_model {
         
 
         //metadata
-        if(isset($options['metadata'])){            
+        if(isset($options['metadata'])){
+            // Sync var_invalrng.values and is_missing on categories
+            $options['metadata'] = $this->sync_invalrng_and_is_missing($options['metadata']);
+            
             $core=$this->get_variable_core_fields($options['metadata']);
             $options=array_merge($options,$core);
             $options['metadata']=$this->Editor_model->encode_metadata($options['metadata']);
@@ -729,6 +735,60 @@ class Editor_variable_model extends ci_model {
         );
 
         return $core_fields;
+    }
+
+    /**
+     * 
+     * Sync var_invalrng.values and is_missing on categories
+     *      
+     * 1. var_invalrng.values is populated from categories with is_missing=1
+     * 2. is_missing on categories is set based on var_invalrng.values
+     * 
+     * @param array $variable Variable metadata array
+     * @return array Variable with synced var_invalrng.values and is_missing
+     */
+    private function sync_invalrng_and_is_missing($variable)
+    {
+        // Check if var_invalrng.values was set
+        $var_invalrng_was_set = isset($variable['var_invalrng']) && 
+                                 isset($variable['var_invalrng']['values']);
+        
+        // Initialize var_invalrng structure if not exists
+        if (!isset($variable['var_invalrng'])) {
+            $variable['var_invalrng'] = array('values' => array());
+        }
+        if (!isset($variable['var_invalrng']['values'])) {
+            $variable['var_invalrng']['values'] = array();
+        }
+
+        // Step 1: Extract is_missing from categories and populate var_invalrng.values
+        if (!$var_invalrng_was_set && isset($variable['var_catgry']) && is_array($variable['var_catgry'])) {
+            $missing_from_categories = array();
+            foreach($variable['var_catgry'] as $cat) {
+                if (isset($cat['is_missing']) && 
+                    ($cat['is_missing'] == '1' || $cat['is_missing'] == 'Y' || $cat['is_missing'] == 1)) {
+                    if (isset($cat['value']) && $cat['value'] !== null && $cat['value'] !== '') {
+                        $missing_from_categories[] = (string)$cat['value'];
+                    }
+                }
+            }
+            
+            if (!empty($missing_from_categories)) {
+                $variable['var_invalrng']['values'] = array_values(array_unique($missing_from_categories));
+            }
+        }
+
+        // Step 2: Remove is_missing from all categories
+        if (isset($variable['var_catgry']) && is_array($variable['var_catgry'])) {
+            foreach($variable['var_catgry'] as &$cat) {
+                if (isset($cat['is_missing'])) {
+                    unset($cat['is_missing']);
+                }
+            }
+            unset($cat);
+        }
+
+        return $variable;
     }
 
 

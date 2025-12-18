@@ -185,6 +185,31 @@ class DdiVariable
         }
         $output['var_catgry']=$categories;
 
+        // Populate var_invalrng.values from categories with is_missing=1 or missing='Y'
+        // Extract is_missing information before removing it
+        $missing_values = array();
+        foreach($categories as $cat) {
+            if (isset($cat['is_missing']) && 
+                ($cat['is_missing'] == '1' || $cat['is_missing'] == 'Y' || $cat['is_missing'] == 1)) {
+                if (isset($cat['value']) && $cat['value'] !== null && $cat['value'] !== '') {
+                    $missing_values[] = (string)$cat['value'];
+                }
+            }
+        }
+        if (!empty($missing_values)) {
+            $output['var_invalrng'] = array('values' => array_values(array_unique($missing_values)));
+        } else {
+            $output['var_invalrng'] = array('values' => array());
+        }
+
+        // Remove is_missing from categories (single source of truth is var_invalrng.values)
+        foreach($output['var_catgry'] as &$cat) {
+            if (isset($cat['is_missing'])) {
+                unset($cat['is_missing']);
+            }
+        }
+        unset($cat);
+
         $output["var_codinstr"] = $this->get_element_value('codInstr');
         
         $concepts=[];

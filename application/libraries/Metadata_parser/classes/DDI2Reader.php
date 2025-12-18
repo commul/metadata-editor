@@ -623,7 +623,11 @@ class DDI2Reader
                 $key_values = $this->get_child_elements_array($xml_obj, $parent_path, $key_values);
                 continue;
             } else if ($xml_reader->nodeType == XMLReader::ELEMENT && $xml_reader->localName === 'dataDscr') {
-                break;
+                // fix for fileDscr coming after dataDscr
+                if ($section !== 'fileDscr') {
+                    break;
+                }                
+                continue;
             }
         }
 
