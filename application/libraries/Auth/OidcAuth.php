@@ -213,7 +213,7 @@ class OidcAuth extends OidcAuthBase implements AuthInterface {
     /**
      * Handle OIDC callback (server-side for confidential clients)
      */
-    function oidc_callback()
+    function callback()
     {
         if (!$this->oidc_enabled) {
             show_error('OIDC authentication is not enabled');

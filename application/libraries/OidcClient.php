@@ -186,6 +186,13 @@ class OidcClient
             $params['response_mode'] = $this->config['response_mode'];
         }
 
+        // Add prompt parameter to force account selection every time
+        // Default to 'select_account' if not specified in config
+        $prompt = isset($this->config['prompt']) ? $this->config['prompt'] : 'select_account';
+        if (!empty($prompt)) {
+            $params['prompt'] = $prompt;
+        }
+
         // Merge any additional parameters
         $params = array_merge($params, $additional_params);
 

@@ -95,6 +95,16 @@ $config['oidc_auth'] = array(
     'response_mode' => 'query', // 'query', 'form_post', or 'fragment'
     'scopes' => 'openid profile email',
     
+    // Prompt parameter - controls OIDC provider behavior
+    // Options:
+    //   - 'select_account': Force account selection screen every time (default)
+    //   - 'login': Force re-authentication (login screen)
+    //   - 'consent': Force consent screen
+    //   - 'none': No prompt (use existing session if available)
+    //   - 'select_account login': Combine multiple prompts
+    // Set to empty string or false to disable prompt parameter
+    'prompt' => 'select_account',  // Forces account selection every login
+    
     // User claim mappings (OIDC claims → local user fields)
     'claim_mappings' => array(
         'email' => 'email',
