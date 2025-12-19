@@ -489,15 +489,16 @@
             return [];
           }
 
-          let features = this.$store.state.geospatial_features;          
-          let feature_list = [
+          let features = this.$store.state.geospatial_features;
+          let feature_list=[];
+          /*let feature_list = [
             {
               title: this.$t('Description'),
               type:'geospatial-feature-description',
               key:'feature-catalogue/description',
               file:'database'
             }
-          ];
+          ];*/
 
           // Create features array for the features parent node
           let features_array = [];
