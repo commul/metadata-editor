@@ -164,6 +164,88 @@ class Editor_resource_model extends ci_model {
 		return $this->upload->data();		
 	}
 
+	/**
+	 * Move resumable upload file from temp location to final project folder
+	 * 
+	 * @param int $sid Project ID
+	 * @param string $file_type File type (data | documentation)
+	 * @param string $upload_id Upload ID from resumable upload
+	 * @return array File information (file_name, full_path)
+	 */
+	function move_resumable_upload($sid, $file_type='documentation', $upload_id)
+	{
+		// Load resumable upload library
+		$this->load->library('Resumable_upload', null, 'uploader');
+		
+		// Get completed upload information
+		$upload_info = $this->uploader->get_completed_upload($upload_id);
+		
+		if (!$upload_info) {
+			throw new Exception('UPLOAD_NOT_FOUND_OR_NOT_COMPLETED: Upload ID ' . $upload_id . ' not found or not completed');
+		}
+		
+		$temp_file_path = $upload_info['file_path'];
+		$sanitized_filename = $upload_info['filename'];  // Use sanitized filename from upload library
+		$original_filename = $upload_info['original_filename'];
+		
+		// Ensure project folder exists
+		$survey_folder = $this->Editor_model->get_project_folder($sid);
+		
+		if (!$survey_folder) {
+			$this->Editor_model->create_project_folder($sid);
+			$survey_folder = $this->Editor_model->get_project_folder($sid); 
+		}
+		
+		if (!file_exists($survey_folder)) {
+			throw new Exception('EDITOR_FOLDER_NOT_FOUND: ' . $survey_folder);
+		}
+		
+		$survey_folder_type = $survey_folder . '/' . $file_type;
+		@mkdir($survey_folder_type, 0777, $recursive=true);
+		
+		if (!file_exists($survey_folder_type)) {
+			throw new Exception('EDITOR_SUB_FOLDER_NOT_FOUND: ' . $survey_folder_type);
+		}
+		
+		// Check if folder is writable
+		if (!is_writable($survey_folder_type)) {
+			throw new Exception('EDITOR_FOLDER_NOT_WRITABLE: ' . $survey_folder_type);
+		}
+		
+		// Validate file type using original filename (for user feedback)
+		$allowed_types = $this->config->item("allowed_resource_types");
+		if (!empty($allowed_types)) {
+			$extension = strtolower(pathinfo($original_filename, PATHINFO_EXTENSION));
+			$allowed = array_map('trim', explode(',', strtolower($allowed_types)));
+			if (!in_array($extension, $allowed)) {
+				throw new Exception('FILE_TYPE_NOT_ALLOWED: File type ' . $extension . ' is not allowed');
+			}
+		}
+		
+		// Use the sanitized filename from the upload library (already processed)
+		$final_filename = $sanitized_filename;
+		
+		$final_file_path = $survey_folder_type . '/' . $final_filename;
+		
+		// Move file from temp location to final location
+		if (!@copy($temp_file_path, $final_file_path)) {
+			throw new Exception('FAILED_TO_MOVE_FILE: Could not move file from ' . $temp_file_path . ' to ' . $final_file_path);
+		}
+		
+		// Delete the temp upload (cleanup)
+		$this->uploader->delete_upload($upload_id);
+		
+		// Return file information matching upload_file format
+		return array(
+			'file_name' => $final_filename,
+			'full_path' => $final_file_path,
+			'file_path' => $survey_folder_type,
+			'file_size' => filesize($final_file_path),
+			'file_ext' => pathinfo($final_filename, PATHINFO_EXTENSION),
+			'orig_name' => $original_filename
+		);
+	}
+
 
     public function upload_temporary_file($allowed_file_type,$file_field_name='file',$temp_upload_folder=null)
     {
@@ -441,7 +523,7 @@ class Editor_resource_model extends ci_model {
 
 
 	function normalize_filename($filename)
-	{
+	{		
 		//check filenam is URL?
 		if (!is_url($filename))
 		{

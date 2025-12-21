@@ -474,6 +474,24 @@ $lang['are_you_sure_permanently_remove']='Doimiy ravishda {count} maydon(lar)ni 
 $lang['remove']='O\'chirish';
 $lang['view_full_validation_report']='To\'liq tekshirish hisobotini ko\'rish';
 
+$lang['failed_to_load_template']='Shablonni yuklashda xatolik';
+$lang['untitled']='Nomsiz';
+$lang['file_must_be_uploaded_before_saving']='Resursni saqlashdan oldin fayl yuklanishi kerak.';
+$lang['failed_to_upload_file']='Faylni yuklashda xatolik';
+$lang['unknown_error']='Noma\'lum xatolik';
+$lang['resource_attachment']='Resurs ilovasi';
+$lang['link']='Havola';
+$lang['no_file_attached']='Hech qanday fayl biriktirilmagan';
+$lang['upload_file']='Faylni yuklash';
+
+// External Resources Edit Component
+$lang['edit_resource']='Resursni tahrirlash';
+$lang['file_exists']='Fayl mavjud';
+$lang['file_not_found_on_server']='Fayl serverda topilmadi';
+$lang['confirm_delete_file_resource']='Haqiqatan ham bu faylni o\'chirmoqchimisiz?';
+
+// Dashboard
+
 
 /* End of file general_lang.php */
 /* Location: ./application/language/uzbek/general_lang.php */

@@ -474,6 +474,22 @@ $lang['are_you_sure_permanently_remove']='Are you sure you want to permanently r
 $lang['remove']='Remove';
 $lang['view_full_validation_report']='View full validation report';
 
+$lang['failed_to_load_template']='Failed to load template';
+$lang['untitled']='Untitled';
+$lang['file_must_be_uploaded_before_saving']='File must be uploaded before saving the resource.';
+$lang['failed_to_upload_file']='Failed to upload file';
+$lang['unknown_error']='Unknown error';
+$lang['resource_attachment']='Resource attachment';
+$lang['link']='Link';
+$lang['no_file_attached']='No file attached';
+$lang['upload_file']='Upload file';
+
+// External Resources Edit Component
+$lang['edit_resource']='Edit resource';
+$lang['file_exists']='File exists';
+$lang['file_not_found_on_server']='File not found on server';
+$lang['confirm_delete_file_resource']='Are you sure you want to delete this file?';
+
 // Dashboard
 $lang['Dashboard']='Dashboard';
 $lang['Last updated']='Last updated';

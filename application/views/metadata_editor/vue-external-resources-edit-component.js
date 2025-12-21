@@ -3,10 +3,12 @@ const VueExternalResourcesEdit= Vue.component('external-resources-edit', {
     props: ['index'],
     data() {
         return {
-            file:'',
+            file:null,
+            uploadedFileName:'',
             errors:[],
             is_dirty:false,
             is_saving:false,
+            is_uploading:false,
             attachment_type:'',
             attachment_url:'',
             resource_template:'',
@@ -81,7 +83,19 @@ const VueExternalResourcesEdit= Vue.component('external-resources-edit', {
         },
         showUnsavedMessage: function(){
             if (this.is_dirty){
-                if (!confirm(this.$t("confirm_unsaved_changes"))){
+                // Also warn if file is selected but not uploaded (only for file attachment type)
+                if (this.attachment_type=='file' && this.file && this.file instanceof File && !this.uploadedFileName){
+                    if (!confirm(this.$t("confirm_unsaved_changes_file_not_uploaded") || "You have unsaved changes and a file selected but not uploaded. Are you sure you want to leave?")){
+                        return false;
+                    }
+                } else {
+                    if (!confirm(this.$t("confirm_unsaved_changes"))){
+                        return false;
+                    }
+                }
+            } else if (this.attachment_type=='file' && this.file && this.file instanceof File && !this.uploadedFileName){
+                // File selected but not uploaded, and no other changes
+                if (!confirm(this.$t("confirm_file_not_uploaded") || "You have selected a file but not uploaded it. Are you sure you want to leave?")){
                     return false;
                 }
             }
@@ -105,17 +119,30 @@ const VueExternalResourcesEdit= Vue.component('external-resources-edit', {
             })
             .catch(function(response){
                 console.log("loadResourceTemplate",response);
-                alert("Failed to load template");
+                alert(vm.$t("failed_to_load_template"));
             });
         },
         saveResource: function()
         {
+            this.errors='';
             let formData = new FormData();
 
             if (this.attachment_type=='url'){
                 this.Resource.filename=this.attachment_url;
             }else if (this.attachment_type=='file'){
-                this.Resource.filename=this.file.name;
+                // Validate that file was actually uploaded before saving
+                // Check that file is actually a File object, not just a truthy value
+                if (this.file && this.file instanceof File && !this.uploadedFileName){
+                    this.errors = this.$t("file_must_be_uploaded_before_saving");
+                    this.is_saving = false;
+                    alert(this.$t("Please upload the file first") || "Please upload the file first. Click the 'Upload' button in the file upload component.");
+                    return;
+                }
+                // Use uploaded filename (or existing filename if no new file uploaded)
+                this.Resource.filename = this.uploadedFileName || (this.Resource.filename || '');
+            } else {
+                // No attachment type selected or URL attachment - allow saving without file
+                this.Resource.filename = this.attachment_type == 'url' ? this.attachment_url : (this.Resource.filename || '');
             }
 
             formData=this.Resource;
@@ -138,11 +165,13 @@ const VueExternalResourcesEdit= Vue.component('external-resources-edit', {
                 vm.$store.dispatch('loadExternalResources',{dataset_id:vm.ProjectID});
                 vm.is_dirty=false;
                 vm.is_saving=false;
+                vm.is_uploading=false;
                 router.push('/external-resources/');
             })
             .catch(function(response){
                 vm.errors=response;
                 vm.is_saving=false;
+                vm.is_uploading=false;
             });    
         },
         cancelSave: function(){
@@ -152,42 +181,72 @@ const VueExternalResourcesEdit= Vue.component('external-resources-edit', {
         uploadFile: function ()
         {
             this.is_saving=true;
-            this.errors=''; // Clear previous errors
+            this.errors='';
             
-            if (this.attachment_type!='file' || !this.file){
-                this.saveResource();
+            // If file attachment type and file is selected but not uploaded yet, prevent saving
+            // Check that file is actually a File object, not just a truthy value
+            if (this.attachment_type=='file' && this.file && this.file instanceof File && !this.uploadedFileName){
+                this.is_saving=false;
+                alert(this.$t("Please upload the file first") || "Please upload the file first. Click the 'Upload' button in the file upload component.");
                 return;
             }
-
-            let formData = new FormData();
-            formData.append('file', this.file);
-
-            this.errors!=''
-
-            vm=this;
-            let url=CI.base_url + '/api/files/'+ this.ProjectID + '/documentation';
-
-            axios.post( url,
-                formData,
-                {
-                    headers: {
-                        'Content-Type': 'multipart/form-data'
-                    }
-                }
-            ).then(function(response){
-                vm.Resource.filename=vm.file.name;
-                vm.saveResource();                
-            })
-            .catch(function(response){
-                vm.errors=response;
-                vm.is_saving=false;
-                alert("Failed to upload file");
-            });            
-        }, 
-        handleFileUpload( event ){
-            this.file = event;
-            this.errors='';
-            this.resourceFileExists();
+            
+            // Save resource (works for URL attachments, no attachment, or already uploaded files)
+            this.saveResource();
+        },
+        handleFileUploadComplete: function(event){
+            // Called when resumable upload completes
+            this.uploadedFileName = event.filename;
+            this.Resource.filename = event.filename;
+            this.file = null; // Clear file reference since it's now uploaded
+            this.is_uploading = false;
+            this.is_dirty = true;
+            // Recheck file existence after upload
+            this.checkExistingResourceFile();
+            
+            // Don't automatically save - let user click Save button manually
+        },
+        handleFileUploadError: function(event){
+            // Called when upload fails
+            this.is_uploading = false;
+            this.errors = event;
+            this.is_saving = false;
+            alert(this.$t("failed_to_upload_file") + ": " + (event.message || this.$t("unknown_error")));
+        },
+        handleFileUploadProgress: function(event){
+            // Called during upload progress
+            this.is_uploading = true;
+            // Optionally show progress to user
+        },
+        handleFileSelect: function(event){
+            // Called when file is selected (before upload)
+            // event contains: { file, filename, size }
+            const selectedFile = event.file || event;
+            
+            // Only set file if it's actually a File object
+            if (selectedFile && selectedFile instanceof File) {
+                this.file = selectedFile;
+                this.uploadedFileName = '';
+                this.errors = '';
+                // Automatically set attachment_type to 'file' when file is selected
+                this.attachment_type = 'file';
+                this.resourceFileExists();
+            } else {
+                // Clear file if invalid or null
+                this.handleFileCleared();
+            }
+        },
+        handleFileCleared: function(){
+            // Called when file is cleared/cancelled in the upload component
+            this.file = null;
+            this.uploadedFileName = '';
+            this.errors = '';
+            // Reset attachment_type if it was set to 'file'
+            if (this.attachment_type == 'file') {
+                this.attachment_type = '';
+            }
+            // Don't clear Resource.filename in edit mode - keep existing filename
+            this.upload_file_exists = false;
         },
         isValidUrl: function(string) {
             let url;
@@ -202,13 +261,15 @@ const VueExternalResourcesEdit= Vue.component('external-resources-edit', {
         },
         resourceFileExists: function()
         {
-            if (!this.file){
+            const fileName = this.file ? (this.file instanceof File ? this.file.name : this.file) : (this.uploadedFileName || '');
+            
+            if (!fileName){
                 this.upload_file_exists = false;
                 return false;
             }
 
             formData= new FormData();
-            formData.append('file_name', this.file.name);
+            formData.append('file_name', fileName);
             formData.append('doc_type', 'documentation');
 
             vm=this;
@@ -231,7 +292,7 @@ const VueExternalResourcesEdit= Vue.component('external-resources-edit', {
         },
         resourceDeleteFile: function()
         {
-            if (!confirm("Are you sure you want to delete this file?")){
+            if (!confirm(this.$t("confirm_delete_file_resource"))){
                 return false;
             }
 
@@ -366,16 +427,16 @@ const VueExternalResourcesEdit= Vue.component('external-resources-edit', {
 
             <v-card class="mt-4 mb-2">                    
                     <v-card-title class="d-flex justify-space-between">
-                        <div style="font-weight:normal">{{$t("Edit resource")}}</div>
+                        <div style="font-weight:normal">{{$t("edit_resource")}}</div>
 
                         <div>
                             <v-btn 
                                 color="primary" 
                                 small 
                                 @click="uploadFile" 
-                                :disabled="!isProjectEditable || is_saving"
-                                :loading="is_saving">
-                                {{$t("Save")}} <span v-if="is_dirty">*</span>
+                                :disabled="!isProjectEditable || is_saving || is_uploading || (attachment_type=='file' && file && file instanceof File && !uploadedFileName)"
+                                :loading="is_saving || is_uploading">
+                                {{$t("Save")}} <span v-if="is_dirty || (attachment_type=='file' && file && file instanceof File && !uploadedFileName)">*</span>
                             </v-btn>
                             <v-btn @click="cancelSave" small :disabled="is_saving">{{$t("cancel")}}</v-btn>
                         </div>
@@ -431,21 +492,21 @@ const VueExternalResourcesEdit= Vue.component('external-resources-edit', {
 
             <v-card class="mt-2">
                 <v-card-title class="d-flex justify-space-between">
-                    <div style="font-weight:normal">Resource attachment</div>
+                    <div style="font-weight:normal">{{$t("resource_attachment")}}</div>
                 </v-card-title>
 
             <v-card-text>
             <div>                
                 <div class="bg-light border p-2 text-small" style="font-size:12px;">
-                    <span v-if="ResourceAttachmentType=='file'">File:</span>
-                    <span v-if="ResourceAttachmentType=='url'">Link:</span>
+                    <span v-if="ResourceAttachmentType=='file'">{{$t("file")}}:</span>
+                    <span v-if="ResourceAttachmentType=='url'">{{$t("link")}}:</span>
                     
                     <!-- File status indicator icon before filename -->
                     <v-icon 
                         v-if="ResourceAttachmentType=='file' && Resource.filename && file_exists===true" 
                         small 
                         color="success" 
-                        title="File exists"
+                        :title="$t('file_exists')"
                         style="margin-right:4px;">
                         mdi-check-circle
                     </v-icon>
@@ -453,7 +514,7 @@ const VueExternalResourcesEdit= Vue.component('external-resources-edit', {
                         v-if="ResourceAttachmentType=='file' && Resource.filename && file_exists===false" 
                         small 
                         color="error" 
-                        title="File not found on server"
+                        :title="$t('file_not_found_on_server')"
                         style="margin-right:4px;">
                         mdi-alert-circle
                     </v-icon>
@@ -466,7 +527,7 @@ const VueExternalResourcesEdit= Vue.component('external-resources-edit', {
                     <span v-if="Resource.filename">
                         <button type="button" class="btn btn-link btn-sm" @click="resourceDeleteFile">{{$t("remove")}}</button>
                     </span>
-                    <span v-else class="text-muted">No file attached</span>
+                    <span v-else class="text-muted">{{$t("no_file_attached")}}</span>
 
                     <!-- File info when exists -->
                     <div v-if="ResourceAttachmentType=='file' && Resource.filename && file_exists===true && file_info" 
@@ -477,32 +538,35 @@ const VueExternalResourcesEdit= Vue.component('external-resources-edit', {
                     </div>
 
                     <!-- Warning for duplicate upload -->
-                    <div v-if="upload_file_exists && file" class="alert alert-warning mt-2 mb-0" role="alert">
-                        <strong>{{file.name}}</strong> {{$t("file_already_exists_warning")}}
+                    <div v-if="upload_file_exists && (file || uploadedFileName)" class="alert alert-warning mt-2 mb-0" role="alert">
+                        <strong>{{file ? (file instanceof File ? file.name : file) : uploadedFileName}}</strong> {{$t("file_already_exists_warning")}}
+                    </div>
+                    
+                    <div v-if="attachment_type=='file' && file && file instanceof File && !uploadedFileName" class="border bg-info text-dark p-2 m-2">
+                        <strong>{{file.name}}</strong> {{$t("file_selected_but_not_uploaded") || "File selected but not uploaded. Click 'Upload' button to upload the file."}}
                     </div>
                 </div>
 
                 <div class="form-check mt-2" >
                     <input class="form-check-input" type="radio" name="gridRadios" id="gridRadios1" value="file" v-model="attachment_type" >
                     <label class="form-check-label" for="gridRadios1">
-                    Upload file
+                    {{$t("upload_file")}}
                     </label>
                 </div>
 
                 <div class="file-group form-field m-1 p-3 border-bottom">
                     <div class="bg-white">
                     
-                        <v-file-input                            
-                            label=""
-                            outlined
-                            truncate-length="50"
-                            dense
-                            prepend-icon=""
-                            prepend-inner-icon="mdi-paperclip"
-                            @change="handleFileUpload( $event )"
-                            @click="attachment_type='file'"
-                            ref="fileUpload"
-                         ></v-file-input>
+                        <resumable-file-upload
+                            :project-id="ProjectID"
+                            file-type="documentation"
+                            :disabled="!isProjectEditable || is_saving"
+                            @file-selected="handleFileSelect"
+                            @file-cleared="handleFileCleared"
+                            @upload-complete="handleFileUploadComplete"
+                            @upload-error="handleFileUploadError"
+                            @upload-progress="handleFileUploadProgress"
+                        ></resumable-file-upload>
                         
                     </div>     
                 </div>
@@ -510,7 +574,7 @@ const VueExternalResourcesEdit= Vue.component('external-resources-edit', {
                 <div class="form-check">
                     <input class="form-check-input" type="radio" name="gridRadios" id="gridRadios2" value="url" v-model="attachment_type">
                     <label class="form-check-label" for="gridRadios2">
-                    URL
+                    {{$t("url")}}
                     </label>
                 </div>
 

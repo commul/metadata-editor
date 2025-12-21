@@ -59,6 +59,10 @@ class Files extends MY_REST_Controller
 	 * upload file
 	 * @file_type data | documentation | thumbnail
 	 * 
+	 * Accepts either:
+	 * - Traditional file upload via multipart/form-data (file field)
+	 * - Resumable upload via upload_id parameter (moves file from temp to final location)
+	 * 
 	 **/ 
 	function index_post($sid=null,$file_type='documentation')
 	{		
@@ -74,33 +78,50 @@ class Files extends MY_REST_Controller
 
 			$this->editor_acl->user_has_project_access($sid,$permission='edit',$user);
 
-			if ($file_type=='thumbnail'){
-				$output=$this->Editor_resource_model->upload_thumbnail($sid,$file_field_name='file');
-				$this->Editor_model->set_project_options($sid,$options=array(
-					'thumbnail'=>$output['thumbnail_filename'],
-					'changed_by'=>$user_id,
-					'changed'=>date("U")
+			// Check if upload_id is provided (resumable upload)
+			$upload_id = $this->input->post('upload_id');
+			
+			if (!empty($upload_id)) {
+				// Handle resumable upload - move file from temp to final location
+				$result = $this->Editor_resource_model->move_resumable_upload($sid, $file_type, $upload_id);
+				$uploaded_file_name = $result['file_name'];
+				$uploaded_path = $result['full_path'];
+				
+				$output = array(
+					'status' => 'success',
+					'uploaded_file_name' => $uploaded_file_name,
+					'uploaded_path' => $uploaded_path,
+					'base64' => base64_encode($uploaded_file_name)				
+				);
+			} elseif ($file_type == 'thumbnail') {
+				// Traditional thumbnail upload
+				$output = $this->Editor_resource_model->upload_thumbnail($sid, $file_field_name='file');
+				$this->Editor_model->set_project_options($sid, $options=array(
+					'thumbnail' => $output['thumbnail_filename'],
+					'changed_by' => $user_id,
+					'changed' => date("U")
 					)
 				);
 				$this->audit_log->log_event(
-					$obj_type='project',
-					$obj_id=$sid,
-					$action='thumbnail', 
-					$metadata=array(
-						'thumbnail'=>basename($output['thumbnail_filename'])
+					$obj_type = 'project',
+					$obj_id = $sid,
+					$action = 'thumbnail', 
+					$metadata = array(
+						'thumbnail' => basename($output['thumbnail_filename'])
 					),
 					$user_id
 				);
-			}else{
-				$result=$this->Editor_resource_model->upload_file($sid,$file_type,$file_field_name='file', $remove_spaces=false);
-				$uploaded_file_name=$result['file_name'];
-				$uploaded_path=$result['full_path'];
+			} else {
+				// Traditional file upload
+				$result = $this->Editor_resource_model->upload_file($sid, $file_type, $file_field_name='file', $remove_spaces=false);
+				$uploaded_file_name = $result['file_name'];
+				$uploaded_path = $result['full_path'];
 				
-				$output=array(
-					'status'=>'success',
-					'uploaded_file_name'=>$uploaded_file_name,
-					'uploaded_path'=>$uploaded_path,
-					'base64'=>base64_encode($uploaded_file_name)				
+				$output = array(
+					'status' => 'success',
+					'uploaded_file_name' => $uploaded_file_name,
+					'uploaded_path' => $uploaded_path,
+					'base64' => base64_encode($uploaded_file_name)				
 				);
 			}
 						

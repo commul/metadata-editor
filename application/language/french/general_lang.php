@@ -474,6 +474,24 @@ $lang['are_you_sure_permanently_remove']='Êtes-vous sûr de vouloir supprimer d
 $lang['remove']='Supprimer';
 $lang['view_full_validation_report']='Voir le rapport de validation complet';
 
+$lang['failed_to_load_template']='Échec du chargement du modèle';
+$lang['untitled']='Sans titre';
+$lang['file_must_be_uploaded_before_saving']='Le fichier doit être téléchargé avant d\'enregistrer la ressource.';
+$lang['failed_to_upload_file']='Échec du téléchargement du fichier';
+$lang['unknown_error']='Erreur inconnue';
+$lang['resource_attachment']='Pièce jointe de la ressource';
+$lang['link']='Lien';
+$lang['no_file_attached']='Aucun fichier joint';
+$lang['upload_file']='Télécharger le fichier';
+
+// External Resources Edit Component
+$lang['edit_resource']='Modifier la ressource';
+$lang['file_exists']='Le fichier existe';
+$lang['file_not_found_on_server']='Fichier introuvable sur le serveur';
+$lang['confirm_delete_file_resource']='Êtes-vous sûr de vouloir supprimer ce fichier?';
+
+// Dashboard
+
 
 /* End of file general_lang.php */
 /* Location: ./application/language/french/general_lang.php */

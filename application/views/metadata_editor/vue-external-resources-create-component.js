@@ -3,11 +3,13 @@ const VueExternalResourcesCreate= Vue.component('external-resources-create', {
     props: ['index'],
     data() {
         return {
-            file:'',
+            file:null,
+            uploadedFileName:'',
             errors:[],
             errors_file_upload:[],
             is_dirty:false,
             is_saving:false,
+            is_uploading:false,
             attachment_type:'',
             resource:{},
             attachment_url:'',
@@ -73,7 +75,19 @@ const VueExternalResourcesCreate= Vue.component('external-resources-create', {
         },
         showUnsavedMessage: function(){
             if (this.is_dirty){
-                if (!confirm(this.$t("confirm_unsaved_changes"))){
+                // Warn if file is selected but not uploaded
+                if (this.attachment_type=='file' && this.file && this.file instanceof File && !this.uploadedFileName){
+                    if (!confirm(this.$t("confirm_unsaved_changes_file_not_uploaded") || "You have unsaved changes and a file selected but not uploaded. Are you sure you want to leave?")){
+                        return false;
+                    }
+                } else {
+                    if (!confirm(this.$t("confirm_unsaved_changes"))){
+                        return false;
+                    }
+                }
+            } else if (this.attachment_type=='file' && this.file && this.file instanceof File && !this.uploadedFileName){
+                // File selected but not uploaded, and no other changes
+                if (!confirm(this.$t("confirm_file_not_uploaded") || "You have selected a file but not uploaded it. Are you sure you want to leave?")){
                     return false;
                 }
             }
@@ -88,7 +102,7 @@ const VueExternalResourcesCreate= Vue.component('external-resources-create', {
                 vm.resource_template=response.data.result;
             })
             .catch(function(response){
-                alert("Failed to load template");
+                alert(vm.$t("failed_to_load_template"));
             });
         },
         addResource:function(){
@@ -97,7 +111,7 @@ const VueExternalResourcesCreate= Vue.component('external-resources-create', {
             let url=CI.base_url + '/api/resources/'+ this.ProjectID;
 
             formData={
-                "title": "untitled",
+                "title": vm.$t("untitled"),
                 "dctype" :"doc/oth"
             }
 
@@ -114,7 +128,7 @@ const VueExternalResourcesCreate= Vue.component('external-resources-create', {
             })
             .catch(function(response){
                 vm.errors=response;
-                alert("Failed: " + vm.erorrMessageToText(response));
+                alert(vm.$t("failed") + ": " + vm.erorrMessageToText(response));
             });
         },
         saveResource: function()
@@ -125,7 +139,16 @@ const VueExternalResourcesCreate= Vue.component('external-resources-create', {
             if (this.attachment_type=='url'){
                 this.Resource.filename=this.attachment_url;
             }else if (this.attachment_type=='file'){
-                this.Resource.filename=this.file.name;
+                // Validate that file was actually uploaded before saving
+                if (this.file && this.file instanceof File && !this.uploadedFileName){
+                    this.errors = this.$t("file_must_be_uploaded_before_saving");
+                    this.is_saving = false;
+                    alert(this.$t("Please upload the file first") || "Please upload the file first. Click the 'Upload' button in the file upload component.");
+                    return;
+                }
+                this.Resource.filename = this.uploadedFileName || '';
+            } else {
+                this.Resource.filename = this.attachment_type == 'url' ? this.attachment_url : '';
             }
 
             formData=this.Resource;
@@ -144,11 +167,13 @@ const VueExternalResourcesCreate= Vue.component('external-resources-create', {
                 vm.$store.dispatch('loadExternalResources',{dataset_id:vm.ProjectID});
                 vm.is_dirty=false;
                 vm.is_saving=false;
+                vm.is_uploading=false;
                 router.push('/external-resources/');
             })
             .catch(function(response){
                 vm.errors=response;
                 vm.is_saving=false;
+                vm.is_uploading=false;
             });    
         },
         cancelSave: function(){
@@ -160,40 +185,60 @@ const VueExternalResourcesCreate= Vue.component('external-resources-create', {
             this.is_saving=true;
             this.errors='';
             
-            if (this.attachment_type!='file' || !this.file){
-                this.saveResource();
+            // If file attachment type and file is selected but not uploaded yet, prevent saving
+            if (this.attachment_type=='file' && this.file && this.file instanceof File && !this.uploadedFileName){
+                this.is_saving=false;
+                alert(this.$t("Please upload the file first") || "Please upload the file first. Click the 'Upload' button in the file upload component.");
                 return;
             }
-
-            let formData = new FormData();
-            formData.append('file', this.file);
-
-            this.errors!=''
-
-            vm=this;
-            let url=CI.base_url + '/api/files/'+ this.ProjectID + '/documentation';
-
-            axios.post( url,
-                formData,
-                {
-                    headers: {
-                        'Content-Type': 'multipart/form-data'
-                    }
-                }
-            ).then(function(response){
-                vm.Resource.filename=vm.file.name;
-                vm.saveResource();                
-            })
-            .catch(function(response){
-                vm.errors_file_upload=response;
-                vm.is_saving=false;
-                alert("Failed to upload file");
-            });            
-        }, 
-        handleFileUpload( event ){
-            this.file = event;
-            this.errors='';
+            
+            this.saveResource();
+        },
+        handleFileUploadComplete: function(event){
+            this.uploadedFileName = event.filename;
+            this.Resource.filename = event.filename;
+            this.file = null;
+            this.is_uploading = false;
+            this.is_dirty = true;
+            
             this.resourceFileExists();
+        },
+        handleFileUploadError: function(event){
+            this.is_uploading = false;
+            this.errors_file_upload = event;
+            this.is_saving = false;
+            alert(this.$t("failed_to_upload_file") + ": " + (event.message || this.$t("unknown_error")));
+        },
+        handleFileUploadProgress: function(event){
+            this.is_uploading = true;
+        },
+        handleFileSelect: function(event){
+            const selectedFile = event.file || event;
+            
+            // Only set file if it's actually a File object
+            if (selectedFile && selectedFile instanceof File) {
+                this.file = selectedFile;
+                this.uploadedFileName = '';
+                this.errors = '';
+                this.attachment_type = 'file';
+                this.resourceFileExists();
+            } else {
+                this.handleFileCleared();
+            }
+        },
+        handleFileCleared: function(){
+            this.file = null;
+            this.uploadedFileName = '';
+            this.errors = '';
+
+            if (this.attachment_type == 'file') {
+                this.attachment_type = '';
+            }
+
+            if (this.Resource && this.Resource.filename) {
+                this.Resource.filename = '';
+            }
+            this.upload_file_exists = false;
         },
         isValidUrl: function(string) {
             let url;
@@ -208,13 +253,15 @@ const VueExternalResourcesCreate= Vue.component('external-resources-create', {
         },
         resourceFileExists: function()
         {
-            if (!this.file){
+            const fileName = this.uploadedFileName || (this.file ? this.file.name : '');
+            
+            if (!fileName){
                 this.upload_file_exists = false;
                 return false;
             }
 
             formData= new FormData();
-            formData.append('file_name', this.file.name);
+            formData.append('file_name', fileName);
             formData.append('doc_type', 'documentation');
 
             vm=this;
@@ -366,9 +413,9 @@ const VueExternalResourcesCreate= Vue.component('external-resources-create', {
                                 color="primary" 
                                 small 
                                 @click="uploadFile" 
-                                :disabled="!isProjectEditable || is_saving"
-                                :loading="is_saving">
-                                {{$t("Save")}} <span v-if="is_dirty">*</span>
+                                :disabled="!isProjectEditable || is_saving || is_uploading || (attachment_type=='file' && file && file instanceof File && !uploadedFileName)"
+                                :loading="is_saving || is_uploading">
+                                {{$t("Save")}} <span v-if="is_dirty || (attachment_type=='file' && file && file instanceof File && !uploadedFileName)">*</span>
                             </v-btn>
                             <v-btn @click="cancelSave" small :disabled="is_saving">{{$t("cancel")}}</v-btn>
                         </div>
@@ -422,46 +469,48 @@ const VueExternalResourcesCreate= Vue.component('external-resources-create', {
                         
             <v-card class="mt-2">
                 <v-card-title class="d-flex justify-space-between">
-                    <div style="font-weight:normal">Resource attachment</div>
+                    <div style="font-weight:normal">{{$t("resource_attachment")}}</div>
                 </v-card-title>
 
             <v-card-text>
             <div>                
                 <div class="bg-light border p-2 text-small" style="font-size:12px;">
-                    <span v-if="ResourceAttachmentType=='file'">File:</span>
-                    <span v-if="ResourceAttachmentType=='url'">Link:</span>
+                    <span v-if="ResourceAttachmentType=='file'">{{$t("file")}}:</span>
+                    <span v-if="ResourceAttachmentType=='url'">{{$t("link")}}:</span>
                     {{Resource.filename}}
                     <span v-if="Resource.filename">
                         <button type="button" class="btn btn-link btn-sm" @click="resourceDeleteFile">{{$t("remove")}}</button>
                     </span>
-                    <span v-else>No file attached</span>
+                    <span v-else>{{$t("no_file_attached")}}</span>
 
-                    <div v-if="upload_file_exists && file" class="border bg-warning text-dark p-2 m-2">
-                        <strong>{{file.name}}</strong> {{$t("file_already_exists_warning")}}
+                    <div v-if="upload_file_exists && (file || uploadedFileName)" class="border bg-warning text-dark p-2 m-2">
+                        <strong>{{file ? file.name : uploadedFileName}}</strong> {{$t("file_already_exists_warning")}}
+                    </div>
+                    
+                    <div v-if="attachment_type=='file' && file && file instanceof File && !uploadedFileName" class="border bg-info text-dark p-2 m-2">
+                        <strong>{{file.name}}</strong> {{$t("file_selected_but_not_uploaded") || "File selected but not uploaded. Click 'Upload' button to upload the file."}}
                     </div>
                 </div>
 
                 <div class="form-check mt-2" >
                     <input class="form-check-input" type="radio" name="gridRadios" id="gridRadios1" value="file" v-model="attachment_type" >
                     <label class="form-check-label" for="gridRadios1">
-                    Upload file
+                    {{$t("upload_file")}}
                     </label>
                 </div>
 
                 <div class="file-group form-field m-1 p-3 border-bottom">
-                    <div class="bg-white">
-                    
-                        <v-file-input                            
-                            label=""
-                            outlined
-                            truncate-length="50"
-                            dense
-                            prepend-icon=""
-                            prepend-inner-icon="mdi-paperclip"
-                            @change="handleFileUpload( $event )"
-                            @click="attachment_type='file'"
-                            ref="fileUpload"
-                         ></v-file-input>
+                    <div class="bg-white">                    
+                        <resumable-file-upload
+                            :project-id="ProjectID"
+                            file-type="documentation"
+                            :disabled="!isProjectEditable || is_saving"
+                            @file-selected="handleFileSelect"
+                            @file-cleared="handleFileCleared"
+                            @upload-complete="handleFileUploadComplete"
+                            @upload-error="handleFileUploadError"
+                            @upload-progress="handleFileUploadProgress"
+                        ></resumable-file-upload>
                         
                     </div>     
                 </div>
@@ -469,7 +518,7 @@ const VueExternalResourcesCreate= Vue.component('external-resources-create', {
                 <div class="form-check">
                     <input class="form-check-input" type="radio" name="gridRadios" id="gridRadios2" value="url" v-model="attachment_type">
                     <label class="form-check-label" for="gridRadios2">
-                    URL
+                    {{$t("url")}}
                     </label>
                 </div>
 
