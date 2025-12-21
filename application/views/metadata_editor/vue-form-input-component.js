@@ -290,29 +290,28 @@ Vue.component("form-input", {
                         <small :id="'field-toggle-' + normalizeClassID(field.key)" class="collapse help-text form-text text-muted mb-2">{{field.help_text}}</small>
                         
                         <validation-provider 
-                            :rules="getValidationRules(field)" 
+                            :rules="field.rules || ''" 
                             :debounce=500
                             immediate
-                            v-slot="{ errors }"                            
+                            v-slot="{ errors }"
                             :name="field.title"
                             >
-                            <!-- Hidden input bound to local for validation (local is always a string) -->
                             <input type="hidden" v-model="local" />
-                            <v-combobox
-                                v-model="fieldEnumByCode"
-                                :items="field.enum"
-                                item-text="label"
-                                item-value="code"
-                                :return-object="false"
-                                label=""
-                                :multiple="field.type=='simple_array'"
-                                v-bind="formTextFieldStyle"
-                                background-color="#FFFFFF"                    
-                                :disabled="isFieldReadOnly"
-                            ></v-combobox>
                             <span v-if="errors[0]" class="field-error">{{errors[0]}}</span>
                         </validation-provider>
                         
+                        <v-combobox
+                            v-model="fieldEnumByCode"
+                            :items="field.enum"
+                            item-text="label"
+                            item-value="code"
+                            :return-object="false"
+                            label=""
+                            :multiple="field.type=='simple_array'"
+                            v-bind="formTextFieldStyle"
+                            background-color="#FFFFFF"                    
+                            :disabled="isFieldReadOnly"
+                        ></v-combobox>                        
                         <small class="text-muted">{{field.enum_store_column}} - {{local}}</small>                        
                     </div>
                 </div>
@@ -326,7 +325,7 @@ Vue.component("form-input", {
                         <small :id="'field-toggle-' + normalizeClassID(field.key)" class="collapse help-text form-text text-muted mb-2">{{field.help_text}}</small>                        
                         
                         <validation-provider 
-                            :rules="getValidationRules(field)" 
+                            :rules="field.rules || ''" 
                             :debounce=500
                             immediate
                             v-slot="{ errors }"                            
@@ -435,16 +434,8 @@ Vue.component("form-input", {
       if (simpleTypes.includes(field.type)) {
         validationType = field.type;
       }
-      // Add data type validation for dropdown fields
-      else if (displayType === 'dropdown' || displayType === 'dropdown-custom') {
-        // For multi-select dropdowns (simple_array), expect array type
-        if (field.type === 'simple_array') {
-          validationType = 'array';
-        } else {
-          // For single-select dropdowns, expect string type
-          validationType = displayType; // 'dropdown' or 'dropdown-custom'
-        }
-      }
+      // Skip data type validation for dropdown fields - they have enum validation
+      // and v-model may contain enum objects for display purposes
       
       if (validationType) {
         const typeRule = `data_type:${validationType}`;
