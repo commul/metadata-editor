@@ -39,7 +39,7 @@ Vue.component('geospatial-gallery', {
     template: `
             <div class="geospatial-gallery-component mt-5 p-5" style="height:100%;">
 
-            <h2>Image gallery</h2>
+            <h2>{{$t('image_gallery')}}</h2>
             
             <div v-if="ProjectType=='geospatial'" class="">
 

@@ -913,7 +913,7 @@
             });
 
             tree_data.push({
-              title: this.$t('Image Gallery'),
+              title: this.$t('image_gallery'),
               type: 'geospatial-gallery',
               file: 'database',
               key:'geospatial-gallery'

@@ -46,7 +46,7 @@ $lang['status']="Status";
 $lang['modified']="Modified";
 $lang['no_file']="No file";
 $lang['more_options']="More options";
-$lang['image_gallery']="Image Gallery";
+$lang['image_gallery']="Image gallery";
 
 $lang['formatted_metadata']="Formatted Metadata";
 $lang['feature_characteristics']="Feature Characteristics";
