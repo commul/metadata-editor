@@ -311,6 +311,15 @@ class ISO19110Writer
         $isAbstract = $fcFeatureType->addChild('gfc:isAbstract');
         $isAbstract->addChild('gco:Boolean', $featureType['isAbstract'], 'http://www.isotc211.org/2005/gco');
 
+        //add gfc:aliases [repeatable]
+        if (isset($featureType['aliases']) && is_array($featureType['aliases']))
+        {
+            foreach ($featureType['aliases'] as $aliasValue) {
+                $aliasNode = $fcFeatureType->addChild('gfc:alias');
+                $aliasNode->addChild('gco:CharacterString', $aliasValue, 'http://www.isotc211.org/2005/gco');
+            }
+        }
+
         //carrierOfCharacteristics [repeatable]
         foreach ((array)$featureType['carrierOfCharacteristics'] as $carrierOfCharacteristics) {
             $this->createFeatureAttribute($fcFeatureType, $carrierOfCharacteristics);

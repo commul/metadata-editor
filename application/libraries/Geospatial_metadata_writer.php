@@ -85,11 +85,18 @@ class Geospatial_metadata_writer
 		$featureTypes = array();
 		
 		foreach ($features as $feature) {
+
+			//aliases decoded from JSON
+			if (isset($feature['aliases']) && is_string($feature['aliases'])) {
+				$feature['aliases'] = json_decode($feature['aliases'], true);
+			}
+
 			$featureType = array(
 				'typeName' => $feature['name'],
 				'code' => isset($feature['code']) && !empty($feature['code']) ? $feature['code'] : $feature['name'],
-				'definition' => isset($feature['metadata']['definition']) ? $feature['metadata']['definition'] : (isset($feature['name']) ? $feature['name'] : ''),
-				'isAbstract' => isset($feature['metadata']['isAbstract']) ? $feature['metadata']['isAbstract'] : false
+				'definition' => isset($feature['definition']) ? $feature['definition'] : (isset($feature['name']) ? $feature['name'] : ''),
+				'isAbstract' => isset($feature['is_abstract']) ? $feature['is_abstract'] : false,
+				'aliases' => isset($feature['aliases']) ? $feature['aliases'] : array()
 			);
 			
 			$characteristics = $this->ci->Geospatial_feature_chars_model->select_by_feature_id($feature['id']);
