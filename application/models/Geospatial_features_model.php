@@ -14,6 +14,9 @@ class Geospatial_features_model extends CI_Model {
         'sid',
         'code',
         'name',
+        'definition',
+        'is_abstract',
+        'aliases',
         'metadata',
         'file_name',
         'file_type',
@@ -34,7 +37,9 @@ class Geospatial_features_model extends CI_Model {
 
     private $required = array(
         'sid',
-        'name'
+        'name',
+        'definition',
+        'is_abstract'
     );
 
     function __construct()
@@ -258,12 +263,15 @@ class Geospatial_features_model extends CI_Model {
             log_message('info', "Feature name auto-renamed during insert: '{$original_name}' -> '{$data['name']}'");
         }
 
-        // Handle JSON encoding for metadata and bounds fields
+        // Handle JSON encoding for metadata, bounds, and aliases fields
         if (isset($data['metadata']) && is_array($data['metadata'])) {
             $data['metadata'] = json_encode($data['metadata']);
         }
         if (isset($data['bounds']) && is_array($data['bounds'])) {
             $data['bounds'] = json_encode($data['bounds']);
+        }
+        if (isset($data['aliases']) && is_array($data['aliases'])) {
+            $data['aliases'] = json_encode($data['aliases']);
         }
 
         // Set timestamps
@@ -322,7 +330,7 @@ class Geospatial_features_model extends CI_Model {
         }
 
         // Filter allowed fields for updates (only allow certain fields to be updated)
-        $allowed_update_fields = ['name', 'code', 'metadata', 'data_file'];
+        $allowed_update_fields = ['name', 'code', 'definition', 'is_abstract', 'aliases', 'metadata', 'data_file'];
         $filtered_data = array();
         
         foreach ($allowed_update_fields as $field) {
@@ -334,12 +342,15 @@ class Geospatial_features_model extends CI_Model {
         // Use filtered data for the rest of the method
         $data = $filtered_data;
 
-        // Handle JSON encoding for metadata and bounds fields
+        // Handle JSON encoding for metadata, bounds, and aliases fields
         if (isset($data['metadata']) && is_array($data['metadata'])) {
             $data['metadata'] = json_encode($data['metadata']);
         }
         if (isset($data['bounds']) && is_array($data['bounds'])) {
             $data['bounds'] = json_encode($data['bounds']);
+        }
+        if (isset($data['aliases']) && is_array($data['aliases'])) {
+            $data['aliases'] = json_encode($data['aliases']);
         }
 
         // Set timestamp
@@ -1104,5 +1115,23 @@ class Geospatial_features_model extends CI_Model {
             'file_size_mb' => round($file_size_mb, 2),
             'skip_row_counting' => $skip_row_counting
         ];
+    }
+
+    /**
+     * Decode JSON fields in a feature record
+     * 
+     * @param array &$row Feature record (passed by reference)
+     */
+    private function decode_json_fields(&$row)
+    {
+        if (isset($row['metadata']) && !empty($row['metadata'])) {
+            $row['metadata'] = json_decode($row['metadata'], true);
+        }
+        if (isset($row['bounds']) && !empty($row['bounds'])) {
+            $row['bounds'] = json_decode($row['bounds'], true);
+        }
+        if (isset($row['aliases']) && !empty($row['aliases'])) {
+            $row['aliases'] = json_decode($row['aliases'], true);
+        }
     }
 }

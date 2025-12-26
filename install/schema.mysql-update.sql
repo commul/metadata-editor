@@ -443,3 +443,10 @@ CREATE TABLE IF NOT EXISTS `analytics_daily` (
   KEY `idx_obj_type_value` (`obj_type`, `obj_value`),
   KEY `idx_date_obj` (`stat_date`, `obj_type`, `obj_value`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+
+-- 2025/12/24
+ALTER TABLE `geospatial_features`
+ADD COLUMN `definition` text AFTER `name`,
+ADD COLUMN `is_abstract` tinyint(1) DEFAULT '0' AFTER `definition`,
+ADD COLUMN `aliases` json DEFAULT NULL AFTER `is_abstract`;

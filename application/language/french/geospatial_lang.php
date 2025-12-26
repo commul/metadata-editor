@@ -166,6 +166,20 @@ $lang['east_longitude']="Longitude Est";
 $lang['west_longitude']="Longitude Ouest";
 $lang['feature_catalogue']="Catalogue de Caractéristiques";
 
+$lang['type_name']="Nom du Type";
+$lang['type_name_hint']="Chaîne de texte qui identifie de manière unique ce type de caractéristique dans le catalogue de caractéristiques";
+$lang['feature_code_hint']="Code qui identifie de manière unique ce type de caractéristique dans le catalogue de caractéristiques";
+$lang['definition']="Définition";
+$lang['definition_hint']="Définition du type de caractéristique dans un langage naturel";
+$lang['is_abstract']="Est Abstrait";
+$lang['is_abstract_hint']="Indique si le type de caractéristique est abstrait ou non";
+$lang['aliases']="Alias";
+$lang['aliases_hint']="Nom(s) équivalent(s) de ce type de caractéristique";
+$lang['editable_fields']="Champs Modifiables";
+$lang['readonly_fields']="Champs Lecture Seule";
+$lang['file_information']="Informations sur les Fichiers";
+$lang['layer_metadata']="Métadonnées de Couche";
+
 
 /* End of file geospatial_lang.php */
 /* Location: ./application/language/french/geospatial_lang.php */

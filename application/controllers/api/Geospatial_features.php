@@ -150,6 +150,9 @@ class Geospatial_features extends MY_REST_Controller
 
             $this->editor_acl->user_has_project_access($options['sid'], 'edit', $this->api_user);
             
+            // Validate and prepare new editable fields
+            $this->validate_feature_fields($options);
+            
             $options['created_by'] = $this->user_id;
             $options['changed_by'] = $this->user_id;
             
@@ -204,7 +207,11 @@ class Geospatial_features extends MY_REST_Controller
 
             $this->editor_acl->user_has_project_access($result['sid'], 'edit', $this->api_user);
             
-            $options = $this->raw_json_input();			
+            $options = $this->raw_json_input();
+            
+            // Validate and prepare new editable fields
+            $this->validate_feature_fields($options);
+            
             $options['changed_by'] = $this->user_id;
             
             $this->Geospatial_features_model->update($id, $options);
@@ -1681,6 +1688,82 @@ class Geospatial_features extends MY_REST_Controller
 				'message' => $e->getMessage()
 			);
 			$this->set_response($error_output, REST_Controller::HTTP_BAD_REQUEST);
+		}
+	}
+
+	/**
+	 * Validate and prepare feature fields for insert/update operations
+	 * 
+	 * @param array &$options Feature data (passed by reference)
+	 */
+	private function validate_feature_fields(&$options)
+	{
+		// Validate name field (required)
+		if (isset($options['name'])) {
+			$options['name'] = trim($options['name']);
+			if (empty($options['name'])) {
+				throw new Exception("Feature name (Type Name) is required and cannot be empty");
+			}
+			if (strlen($options['name']) > 255) {
+				throw new Exception("Feature name is too long (maximum 255 characters)");
+			}
+		}
+		
+		// Validate and sanitize definition field (required)
+		if (isset($options['definition'])) {
+			$options['definition'] = trim($options['definition']);
+			if (empty($options['definition'])) {
+				throw new Exception("Definition is required and cannot be empty");
+			}
+			if (strlen($options['definition']) > 65535) { // TEXT field limit
+				throw new Exception("Definition field is too long (maximum 65,535 characters)");
+			}
+		}
+		
+		// Validate and convert is_abstract field (required)
+		if (isset($options['is_abstract'])) {
+			if (is_bool($options['is_abstract'])) {
+				$options['is_abstract'] = $options['is_abstract'] ? 1 : 0;
+			} else {
+				$options['is_abstract'] = (int)$options['is_abstract'];
+			}
+		} else {
+			throw new Exception("Is Abstract field is required");
+		}
+		
+		// Validate and prepare aliases field
+		if (isset($options['aliases'])) {
+			if (is_array($options['aliases'])) {
+				// Validate each alias
+				foreach ($options['aliases'] as $alias) {
+					if (!is_string($alias) || empty(trim($alias))) {
+						throw new Exception("All aliases must be non-empty strings");
+					}
+				}
+				// Convert to JSON for database storage
+				$options['aliases'] = json_encode($options['aliases']);
+			} elseif (is_string($options['aliases'])) {
+				// If it's already a JSON string, validate it
+				$decoded = json_decode($options['aliases'], true);
+				if (json_last_error() !== JSON_ERROR_NONE) {
+					throw new Exception("Invalid JSON format for aliases field");
+				}
+				if (!is_array($decoded)) {
+					throw new Exception("Aliases must be an array");
+				}
+			} elseif (is_null($options['aliases']) || empty($options['aliases'])) {
+				$options['aliases'] = json_encode([]);
+			} else {
+				throw new Exception("Aliases field must be an array of strings");
+			}
+		}
+		
+		// Validate code field
+		if (isset($options['code'])) {
+			$options['code'] = trim($options['code']);
+			if (strlen($options['code']) > 100) {
+				throw new Exception("Feature code is too long (maximum 100 characters)");
+			}
 		}
 	}
 

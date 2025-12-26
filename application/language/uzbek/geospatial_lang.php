@@ -166,6 +166,20 @@ $lang['east_longitude']="Sharqiy Uzunlik";
 $lang['west_longitude']="G'arbiy Uzunlik";
 $lang['feature_catalogue']="Xususiyatlar Katalogi";
 
+$lang['type_name']="Tur Nomi";
+$lang['type_name_hint']="Bu xususiyat turini xususiyatlar katalogida noyob tarzda tariflovchi matn qatori";
+$lang['feature_code_hint']="Bu xususiyat turini xususiyatlar katalogida noyob tarzda tariflovchi kod";
+$lang['definition']="Tarifi";
+$lang['definition_hint']="Xususiyat turining tabiiy tilida ta'rifi";
+$lang['is_abstract']="Mavhum";
+$lang['is_abstract_hint']="Xususiyat turi mavhum yoki yo'qligini ko'rsatadi";
+$lang['aliases']="Taxallus";
+$lang['aliases_hint']="Bu xususiyat turining ekvivalent nomi(lari)";
+$lang['editable_fields']="Tahrirlash Mumkin Bo'lgan Maydonlar";
+$lang['readonly_fields']="Faqat O'qish Maydonlari";
+$lang['file_information']="Fayl Ma'lumotlari";
+$lang['layer_metadata']="Qatlam Metama'lumotlari";
+
 
 /* End of file geospatial_lang.php */
 /* Location: ./application/language/uzbek/geospatial_lang.php */

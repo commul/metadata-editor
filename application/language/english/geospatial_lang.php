@@ -166,6 +166,20 @@ $lang['east_longitude']="East Longitude";
 $lang['west_longitude']="West Longitude";
 $lang['feature_catalogue']="Feature catalogue";
 
+$lang['type_name']="Type Name";
+$lang['type_name_hint']="Text string that uniquely identifies this feature type within the feature catalogue";
+$lang['feature_code_hint']="Code that uniquely identifies this feature type within the feature catalogue";
+$lang['definition']="Definition";
+$lang['definition_hint']="Definition of the feature type in a natural language";
+$lang['is_abstract']="Is Abstract";
+$lang['is_abstract_hint']="Indicates if the feature type is abstract or not";
+$lang['aliases']="Aliases";
+$lang['aliases_hint']="Equivalent name(s) of this feature type";
+$lang['editable_fields']="Editable Fields";
+$lang['readonly_fields']="Read-only Fields";
+$lang['file_information']="File Information";
+$lang['layer_metadata']="Layer Metadata";
+
 
 /* End of file geospatial_lang.php */
 /* Location: ./application/language/english/geospatial_lang.php */

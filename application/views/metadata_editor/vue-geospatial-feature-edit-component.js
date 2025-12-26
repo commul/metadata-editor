@@ -6,6 +6,7 @@ Vue.component('geospatial-feature-edit', {
             loading: false,
             feature: null,
             form_data: {},
+            original_data: {},
             errors: '',
             success_message: '',
             map: null,
@@ -61,6 +62,27 @@ Vue.component('geospatial-feature-edit', {
         },
         hasMapData() {
             return this.boundingBox !== null;
+        },
+        hasUnsavedChanges() {
+            if (!this.original_data || !this.form_data) return false;
+            
+            // Compare the editable fields only
+            const editableFields = ['name', 'code', 'definition', 'is_abstract', 'aliases'];
+            
+            return editableFields.some(field => {
+                const original = this.original_data[field];
+                const current = this.form_data[field];
+                
+                // Handle arrays (aliases) separately
+                if (field === 'aliases') {
+                    const origArray = Array.isArray(original) ? original : [];
+                    const currArray = Array.isArray(current) ? current : [];
+                    return JSON.stringify(origArray.sort()) !== JSON.stringify(currArray.sort());
+                }
+                
+                // Handle other fields
+                return original !== current;
+            });
         }
     },
     methods: {
@@ -73,6 +95,12 @@ Vue.component('geospatial-feature-edit', {
                 this.feature = this.value;
                 this.form_data = { ...this.value };
                 this.loading = false;
+                
+                // Initialize new fields if not present
+                this.initializeNewFields();
+                
+                // Store original data for comparison
+                this.storeOriginalData();
                 
                 // Parse metadata if it's a string
                 if (typeof this.form_data.metadata === 'string') {
@@ -107,6 +135,13 @@ Vue.component('geospatial-feature-edit', {
                 
                 if (this.feature) {
                     this.form_data = { ...this.feature };
+                    
+                    // Initialize new fields if not present
+                    this.initializeNewFields();
+                    
+                    // Store original data for comparison
+                    this.storeOriginalData();
+                    
                     // Parse metadata if it's a string
                     if (typeof this.form_data.metadata === 'string') {
                         try {
@@ -148,6 +183,12 @@ Vue.component('geospatial-feature-edit', {
                 if (response.data && response.data.status === 'success' && response.data.feature) {
                     this.feature = response.data.feature;
                     this.form_data = { ...this.feature };
+                    
+                    // Initialize new fields if not present
+                    this.initializeNewFields();
+                    
+                    // Store original data for comparison
+                    this.storeOriginalData();
                     
                     // Parse metadata if it's a string
                     if (typeof this.form_data.metadata === 'string') {
@@ -356,6 +397,25 @@ Vue.component('geospatial-feature-edit', {
             this.errors = '';
             this.success_message = '';
             
+            // Validate required fields
+            if (!this.form_data.name || this.form_data.name.trim() === '') {
+                this.errors = 'Type Name is required';
+                this.loading = false;
+                return;
+            }
+            
+            if (!this.form_data.definition || this.form_data.definition.trim() === '') {
+                this.errors = 'Definition is required';
+                this.loading = false;
+                return;
+            }
+            
+            if (this.form_data.is_abstract === undefined || this.form_data.is_abstract === null) {
+                this.errors = 'Is Abstract field is required';
+                this.loading = false;
+                return;
+            }
+            
             // Prepare data for saving
             const saveData = { ...this.form_data };
             
@@ -364,23 +424,49 @@ Vue.component('geospatial-feature-edit', {
                 saveData.metadata = JSON.stringify(saveData.metadata, null, 2);
             }
             
-            // Call API to update feature
-            const url = CI.base_url + '/api/geospatial-features/' + this.form_data.id;
+            // Ensure aliases is properly formatted as JSON array
+            if (saveData.aliases && Array.isArray(saveData.aliases)) {
+                // Keep as array, the API will handle JSON encoding
+            } else if (saveData.aliases && typeof saveData.aliases === 'string') {
+                // Handle case where it might be a string
+                try {
+                    saveData.aliases = JSON.parse(saveData.aliases);
+                } catch (e) {
+                    saveData.aliases = [saveData.aliases];
+                }
+            } else {
+                saveData.aliases = [];
+            }
             
-            axios.put(url, saveData)
+            // Ensure is_abstract is boolean
+            saveData.is_abstract = saveData.is_abstract ? 1 : 0;
+            
+            // Call API to update feature
+            const url = CI.base_url + '/api/geospatial-features/update/' + this.form_data.id;
+
+            let vm = this;
+            
+            axios.post(url, saveData)
             .then(response => {
                 this.success_message = 'Feature updated successfully';
                 this.loading = false;
                 
+                // Update original data to reflect saved state
+                this.storeOriginalData();
+                
                 // Refresh the features list
                 if (this.$store && this.$store.dispatch) {
-                    this.$store.dispatch('loadGeospatialFeatures', { dataset_id: this.$route?.params?.index });
+                    this.$store.dispatch('loadGeospatialFeatures', { dataset_id: vm.getProjectId() });
                 }
             })
             .catch(error => {
                 this.errors = error.response?.data?.message || 'Failed to update feature';
                 this.loading = false;
             });
+        },
+
+        getProjectId: function() {
+            return this.$store.state.project_id;
         },
         
         exitEdit: function() {
@@ -426,6 +512,41 @@ Vue.component('geospatial-feature-edit', {
                 // If parsing fails, return the original string
                 return metadata;
             }
+        },
+        
+        initializeNewFields: function() {
+            // Initialize new editable fields with default values if not present
+            if (this.form_data.definition === undefined) {
+                this.form_data.definition = '';
+            }
+            if (this.form_data.is_abstract === undefined || this.form_data.is_abstract === null) {
+                this.form_data.is_abstract = false;
+            }
+            if (this.form_data.aliases === undefined || this.form_data.aliases === null) {
+                this.form_data.aliases = [];
+            } else if (typeof this.form_data.aliases === 'string') {
+                // Handle JSON string from database
+                try {
+                    this.form_data.aliases = JSON.parse(this.form_data.aliases);
+                } catch (e) {
+                    this.form_data.aliases = [];
+                }
+            }
+            // Ensure aliases is always an array
+            if (!Array.isArray(this.form_data.aliases)) {
+                this.form_data.aliases = [];
+            }
+        },
+        
+        storeOriginalData: function() {
+            // Store a deep copy of the current form data as original data
+            this.original_data = {
+                name: this.form_data.name,
+                code: this.form_data.code,
+                definition: this.form_data.definition,
+                is_abstract: this.form_data.is_abstract,
+                aliases: Array.isArray(this.form_data.aliases) ? [...this.form_data.aliases] : []
+            };
         }
     },
     template: `
@@ -444,6 +565,24 @@ Vue.component('geospatial-feature-edit', {
                     white-space: pre-wrap;
                     word-wrap: break-word;
                 }
+                
+                .editable-section {
+                    border-left: 4px solid #1976d2;
+                    padding-left: 16px;
+                }
+                
+                .readonly-section {
+                    border-left: 4px solid #9e9e9e;
+                    padding-left: 16px;
+                }
+                
+                .editable-section .v-card {
+                    border-left: 3px solid #1976d2 !important;
+                }
+                
+                .readonly-section .v-card {
+                    border-left: 3px solid #9e9e9e !important;
+                }
             </style>
             <div class="m-3">
                 <v-row>
@@ -455,7 +594,7 @@ Vue.component('geospatial-feature-edit', {
                                     {{$t("edit_geospatial_feature")}}: {{form_data.name || $t('loading')}}
                                 </div>
                                 <div>
-                                    <v-btn color="primary" @click="saveFeature" :loading="loading" :disabled="!form_data.id">
+                                    <v-btn color="primary" @click="saveFeature" :loading="loading" :disabled="!form_data.id || !hasUnsavedChanges">
                                         <v-icon left>mdi-content-save</v-icon>
                                         {{$t("Save")}}
                                     </v-btn>
@@ -478,88 +617,167 @@ Vue.component('geospatial-feature-edit', {
                                 <v-progress-linear v-if="loading" indeterminate></v-progress-linear>
                                 
                                 <div v-if="!loading && feature">
-                                    <v-row>
-                                        <v-col cols="12" md="6">
-                                            <v-text-field
-                                                v-model="form_data.name"
-                                                :label="$t('feature_name')"
-                                                required
-                                                outlined
-                                                dense
-                                            ></v-text-field>
-                                        </v-col>
-                                        <v-col cols="12" md="6">
-                                            <v-text-field
-                                                v-model="form_data.code"
-                                                :label="$t('feature_code')"
-                                                outlined
-                                                dense
-                                            ></v-text-field>
+                                    <!-- Feature Catalogue Section - Editable Fields -->
+                                    <v-row class="mb-4">
+                                        <v-col cols="12">
+                                            <div class="editable-section">
+                                                <v-card outlined  class="mb-4 elevation-1">
+                                                    <v-card-title class="text-h6 ">
+                                                        <v-icon class="mr-2" color="white">mdi-pencil</v-icon>
+                                                        {{$t('feature_catalogue')}}
+                                                    </v-card-title>
+                                                    <v-card-text class="pt-4">
+                                                        <v-row>
+                                                            <v-col cols="12" md="6">
+                                                                <v-text-field
+                                                                    v-model="form_data.name"
+                                                                    :label="$t('type_name') + ' *'"
+                                                                    :hint="$t('type_name_hint')"
+                                                                    persistent-hint
+                                                                    required
+                                                                    :rules="[v => !!v || 'Type Name is required']"
+                                                                    outlined
+                                                                    dense
+                                                                    color="primary"
+                                                                    :prepend-icon="'mdi-pencil'"
+                                                                ></v-text-field>
+                                                            </v-col>
+                                                            <v-col cols="12" md="6">
+                                                                <v-text-field
+                                                                    v-model="form_data.code"
+                                                                    :label="$t('feature_code')"
+                                                                    :hint="$t('feature_code_hint')"
+                                                                    persistent-hint
+                                                                    outlined
+                                                                    dense
+                                                                    color="primary"
+                                                                    :prepend-icon="'mdi-pencil'"
+                                                                ></v-text-field>
+                                                            </v-col>
+                                                        </v-row>
+                                                        
+                                                        <v-row>
+                                                            <v-col cols="12">
+                                                                <v-textarea
+                                                                    v-model="form_data.definition"
+                                                                    :label="$t('definition') + ' *'"
+                                                                    :hint="$t('definition_hint')"
+                                                                    persistent-hint
+                                                                    required
+                                                                    :rules="[v => !!v || 'Definition is required']"
+                                                                    outlined
+                                                                    dense
+                                                                    rows="3"
+                                                                    color="primary"
+                                                                    :prepend-icon="'mdi-pencil'"
+                                                                ></v-textarea>
+                                                            </v-col>
+                                                        </v-row>
+                                                        
+                                                        <v-row>
+                                                            <v-col cols="12" md="6">
+                                                                <v-switch
+                                                                    v-model="form_data.is_abstract"
+                                                                    :label="$t('is_abstract') + ' *'"
+                                                                    :hint="$t('is_abstract_hint')"
+                                                                    persistent-hint
+                                                                    color="primary"
+                                                                    :prepend-icon="'mdi-pencil'"
+                                                                ></v-switch>
+                                                            </v-col>
+                                                            <v-col cols="12" md="6">
+                                                                <v-combobox
+                                                                    v-model="form_data.aliases"
+                                                                    :label="$t('aliases')"
+                                                                    :hint="$t('aliases_hint')"
+                                                                    persistent-hint
+                                                                    chips
+                                                                    multiple
+                                                                    deletable-chips
+                                                                    outlined
+                                                                    dense
+                                                                    color="primary"
+                                                                    :prepend-icon="'mdi-pencil'"
+                                                                ></v-combobox>
+                                                            </v-col>
+                                                        </v-row>
+                                                    </v-card-text>
+                                                </v-card>
+                                            </div>
                                         </v-col>
                                     </v-row>
-                                    
-                                    <v-row>
-                                        <v-col cols="12" md="6">
-                                            <v-text-field
-                                                v-model="form_data.file_name"
-                                                :label="$t('file_name')"
-                                                readonly
-                                                outlined
-                                                dense
-                                            ></v-text-field>
-                                        </v-col>
-                                        <v-col cols="12" md="6">
-                                            <v-text-field
-                                                v-model="form_data.file_type"
-                                                :label="$t('file_type')"
-                                                readonly
-                                                outlined
-                                                dense
-                                            ></v-text-field>
+
+                                    <!-- File Information Section - Read-only Fields -->
+                                    <v-row class="mb-4">
+                                        <v-col cols="12">
+                                            <div class="readonly-section">
+                                                <v-card outlined  class="mb-4">
+                                                    <v-card-title class="text-h6">
+                                                        <v-icon class="mr-2">mdi-lock</v-icon>
+                                                        {{$t('file_information')}}
+                                                    </v-card-title>
+                                                    <v-card-text class="pt-4">
+                                                        <v-row>
+                                                            <v-col cols="12" md="6">
+                                                                <div class="mb-4">
+                                                                    <div class="text-subtitle-2 mb-1 grey--text text--darken-1">
+                                                                        {{$t('file_name')}}
+                                                                    </div>
+                                                                    <div class="text-body-1">{{form_data.file_name || 'N/A'}}</div>
+                                                                </div>
+                                                            </v-col>
+                                                            <v-col cols="12" md="6">
+                                                                <div class="mb-4">
+                                                                    <div class="text-subtitle-2 mb-1 grey--text text--darken-1">
+                                                                        {{$t('file_type')}}
+                                                                    </div>
+                                                                    <div class="text-body-1">{{form_data.file_type || 'N/A'}}</div>
+                                                                </div>
+                                                            </v-col>
+                                                        </v-row>
+                                                        
+                                                        <v-row>
+                                                            <v-col cols="12" md="6">
+                                                                <div class="mb-4">
+                                                                    <div class="text-subtitle-2 mb-1 grey--text text--darken-1">
+                                                                        {{$t('layer_name')}}
+                                                                    </div>
+                                                                    <div class="text-body-1">{{form_data.layer_name || 'N/A'}}</div>
+                                                                </div>
+                                                            </v-col>
+                                                            <v-col cols="12" md="6">
+                                                                <div class="mb-4">
+                                                                    <div class="text-subtitle-2 mb-1 grey--text text--darken-1">
+                                                                        {{$t('count')}}
+                                                                    </div>
+                                                                    <div class="text-body-1">{{form_data.feature_count || 'N/A'}}</div>
+                                                                </div>
+                                                            </v-col>
+                                                        </v-row>
+                                                        
+                                                        <v-row>
+                                                            <v-col cols="12" md="6">
+                                                                <div class="mb-4">
+                                                                    <div class="text-subtitle-2 mb-1 grey--text text--darken-1">
+                                                                        {{$t('geometry_type')}}
+                                                                    </div>
+                                                                    <div class="text-body-1">{{form_data.geometry_type || 'N/A'}}</div>
+                                                                </div>
+                                                            </v-col>
+                                                            <v-col cols="12" md="6">
+                                                                <div class="mb-4">
+                                                                    <div class="text-subtitle-2 mb-1 grey--text text--darken-1">
+                                                                        {{$t('file_size')}}
+                                                                    </div>
+                                                                    <div class="text-body-1">{{formatFileSize(form_data.file_size) || 'N/A'}}</div>
+                                                                </div>
+                                                            </v-col>
+                                                        </v-row>
+                                                    </v-card-text>
+                                                </v-card>
+                                            </div>
                                         </v-col>
                                     </v-row>
-                                    
-                                    <v-row>
-                                        <v-col cols="12" md="6">
-                                            <v-text-field
-                                                v-model="form_data.layer_name"
-                                                :label="$t('layer_name')"
-                                                readonly
-                                                outlined
-                                                dense
-                                            ></v-text-field>
-                                        </v-col>
-                                        <v-col cols="12" md="6">
-                                            <v-text-field
-                                                v-model="form_data.feature_count"
-                                                :label="$t('count')"
-                                                readonly
-                                                outlined
-                                                dense
-                                            ></v-text-field>
-                                        </v-col>
-                                    </v-row>
-                                    
-                                    <v-row>
-                                        <v-col cols="12" md="6">
-                                            <v-text-field
-                                                v-model="form_data.geometry_type"
-                                                :label="$t('geometry_type')"
-                                                readonly
-                                                outlined
-                                                dense
-                                            ></v-text-field>
-                                        </v-col>
-                                        <v-col cols="12" md="6">
-                                            <v-text-field
-                                                :value="formatFileSize(form_data.file_size)"
-                                                :label="$t('file_size')"
-                                                readonly
-                                                outlined
-                                                dense
-                                            ></v-text-field>
-                                        </v-col>
-                                    </v-row>                                                                        
                                     
                                     <!-- Map Visualization -->
                                     <v-row v-if="hasMapData">
@@ -614,138 +832,124 @@ Vue.component('geospatial-feature-edit', {
                                                     <v-icon class="mr-2">mdi-information</v-icon>
                                                     {{$t('coordinate_reference_system_crs')}}
                                                 </v-card-title>
-                                                <v-card-text>
+                                                <v-card-text class="pt-4">
                                                     <v-row>
                                                         <v-col cols="12" md="6">
-                                                            <v-text-field
-                                                                :value="crsInfo.name"
-                                                                :label="$t('crs_name')"
-                                                                readonly
-                                                                outlined
-                                                                dense
-                                                            ></v-text-field>
+                                                            <div class="mb-4">
+                                                                <div class="text-subtitle-2 mb-1 grey--text text--darken-1">
+                                                                    {{$t('crs_name')}}
+                                                                </div>
+                                                                <div class="text-body-1">{{crsInfo.name || 'N/A'}}</div>
+                                                            </div>
                                                         </v-col>
                                                         <v-col cols="12" md="6">
-                                                            <v-text-field
-                                                                :value="crsInfo.type"
-                                                                :label="$t('crs_type')"
-                                                                readonly
-                                                                outlined
-                                                                dense
-                                                            ></v-text-field>
+                                                            <div class="mb-4">
+                                                                <div class="text-subtitle-2 mb-1 grey--text text--darken-1">
+                                                                    {{$t('crs_type')}}
+                                                                </div>
+                                                                <div class="text-body-1">{{crsInfo.type || 'N/A'}}</div>
+                                                            </div>
                                                         </v-col>
                                                     </v-row>
                                                     
                                                     <v-row v-if="crsInfo.id">
                                                         <v-col cols="12" md="6">
-                                                            <v-text-field
-                                                                :value="crsInfo.id.code"
-                                                                :label="$t('epsg_code')"
-                                                                readonly
-                                                                outlined
-                                                                dense
-                                                            ></v-text-field>
+                                                            <div class="mb-4">
+                                                                <div class="text-subtitle-2 mb-1 grey--text text--darken-1">
+                                                                    {{$t('epsg_code')}}
+                                                                </div>
+                                                                <div class="text-body-1">{{crsInfo.id.code || 'N/A'}}</div>
+                                                            </div>
                                                         </v-col>
                                                         <v-col cols="12" md="6">
-                                                            <v-text-field
-                                                                :value="crsInfo.id.authority"
-                                                                label="Authority"
-                                                                readonly
-                                                                outlined
-                                                                dense
-                                                            ></v-text-field>
+                                                            <div class="mb-4">
+                                                                <div class="text-subtitle-2 mb-1 grey--text text--darken-1">
+                                                                    Authority
+                                                                </div>
+                                                                <div class="text-body-1">{{crsInfo.id.authority || 'N/A'}}</div>
+                                                            </div>
                                                         </v-col>
                                                     </v-row>
                                                     
                                                     <!-- WKT-specific fields: Datum -->
                                                     <v-row v-if="crsInfo.datum">
                                                         <v-col cols="12">
-                                                            <v-text-field
-                                                                :value="crsInfo.datum"
-                                                                label="Datum"
-                                                                readonly
-                                                                outlined
-                                                                dense
-                                                            ></v-text-field>
+                                                            <div class="mb-4">
+                                                                <div class="text-subtitle-2 mb-1 grey--text text--darken-1">
+                                                                    Datum
+                                                                </div>
+                                                                <div class="text-body-1">{{crsInfo.datum || 'N/A'}}</div>
+                                                            </div>
                                                         </v-col>
                                                     </v-row>
                                                     
                                                     <!-- WKT-specific fields: Ellipsoid -->
                                                     <v-row v-if="crsInfo.ellipsoid">
                                                         <v-col cols="12" md="4">
-                                                            <v-text-field
-                                                                :value="crsInfo.ellipsoid.name"
-                                                                label="Ellipsoid"
-                                                                readonly
-                                                                outlined
-                                                                dense
-                                                            ></v-text-field>
+                                                            <div class="mb-4">
+                                                                <div class="text-subtitle-2 mb-1 grey--text text--darken-1">
+                                                                    Ellipsoid
+                                                                </div>
+                                                                <div class="text-body-1">{{crsInfo.ellipsoid.name || 'N/A'}}</div>
+                                                            </div>
                                                         </v-col>
                                                         <v-col cols="12" md="4">
-                                                            <v-text-field
-                                                                :value="crsInfo.ellipsoid.semi_major_axis"
-                                                                label="Semi-Major Axis (m)"
-                                                                readonly
-                                                                outlined
-                                                                dense
-                                                            ></v-text-field>
+                                                            <div class="mb-4">
+                                                                <div class="text-subtitle-2 mb-1 grey--text text--darken-1">
+                                                                    Semi-Major Axis (m)
+                                                                </div>
+                                                                <div class="text-body-1">{{crsInfo.ellipsoid.semi_major_axis || 'N/A'}}</div>
+                                                            </div>
                                                         </v-col>
                                                         <v-col cols="12" md="4">
-                                                            <v-text-field
-                                                                :value="crsInfo.ellipsoid.inverse_flattening"
-                                                                :label="$t('inverse_flattening')"
-                                                                readonly
-                                                                outlined
-                                                                dense
-                                                            ></v-text-field>
+                                                            <div class="mb-4">
+                                                                <div class="text-subtitle-2 mb-1 grey--text text--darken-1">
+                                                                    {{$t('inverse_flattening')}}
+                                                                </div>
+                                                                <div class="text-body-1">{{crsInfo.ellipsoid.inverse_flattening || 'N/A'}}</div>
+                                                            </div>
                                                         </v-col>
                                                     </v-row>
                                                     
                                                     <!-- WKT-specific fields: Units -->
                                                     <v-row v-if="crsInfo.units">
                                                         <v-col cols="12" md="6">
-                                                            <v-text-field
-                                                                :value="crsInfo.units.name"
-                                                                label="Units"
-                                                                readonly
-                                                                outlined
-                                                                dense
-                                                            ></v-text-field>
+                                                            <div class="mb-4">
+                                                                <div class="text-subtitle-2 mb-1 grey--text text--darken-1">
+                                                                    Units
+                                                                </div>
+                                                                <div class="text-body-1">{{crsInfo.units.name || 'N/A'}}</div>
+                                                            </div>
                                                         </v-col>
                                                         <v-col cols="12" md="6">
-                                                            <v-text-field
-                                                                :value="crsInfo.units.conversion_factor"
-                                                                :label="$t('conversion_factor')"
-                                                                readonly
-                                                                outlined
-                                                                dense
-                                                            ></v-text-field>
+                                                            <div class="mb-4">
+                                                                <div class="text-subtitle-2 mb-1 grey--text text--darken-1">
+                                                                    {{$t('conversion_factor')}}
+                                                                </div>
+                                                                <div class="text-body-1">{{crsInfo.units.conversion_factor || 'N/A'}}</div>
+                                                            </div>
                                                         </v-col>
                                                     </v-row>
                                                     
                                                     <v-row v-if="crsInfo.area">
                                                         <v-col cols="12">
-                                                            <v-textarea
-                                                                :value="crsInfo.area"
-                                                                :label="$t('coverage_area')"
-                                                                readonly
-                                                                outlined
-                                                                dense
-                                                                rows="2"
-                                                            ></v-textarea>
+                                                            <div class="mb-4">
+                                                                <div class="text-subtitle-2 mb-1 grey--text text--darken-1">
+                                                                    {{$t('coverage_area')}}
+                                                                </div>
+                                                                <div class="text-body-1">{{crsInfo.area || 'N/A'}}</div>
+                                                            </div>
                                                         </v-col>
                                                     </v-row>
                                                     
                                                     <v-row v-if="crsInfo.scope">
                                                         <v-col cols="12">
-                                                            <v-textarea
-                                                                :value="crsInfo.scope"
-                                                                label="Scope"
-                                                                readonly
-                                                                outlined
-                                                                dense
-                                                                rows="2"
-                                                            ></v-textarea>
+                                                            <div class="mb-4">
+                                                                <div class="text-subtitle-2 mb-1 grey--text text--darken-1">
+                                                                    Scope
+                                                                </div>
+                                                                <div class="text-body-1">{{crsInfo.scope || 'N/A'}}</div>
+                                                            </div>
                                                         </v-col>
                                                     </v-row>
                                                 </v-card-text>
