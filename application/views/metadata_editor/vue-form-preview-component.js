@@ -134,7 +134,7 @@ Vue.component('v-form-preview', {
             <template v-for="item in items">
 
             <!-- form-section-container -->
-                <div v-if="item.type=='section_container' && hasDislayableContent(item.items)"  class="form-section-container" >
+                <div v-if="item.type=='section_container' && hasDisplayableContent(item.items)"  class="form-section-container" >
                     
                     <template>
                         <div  class="section-container-title">{{item.title}}</div>                        
@@ -152,7 +152,7 @@ Vue.component('v-form-preview', {
                 <!-- end-form-section-container -->
 
                 <!-- form-section -->
-                <div v-if="item.type=='section' && hasDislayableContent(item.items)"  class="form-section mb-3" >
+                <div v-if="item.type=='section' && hasDisplayableContent(item.items)"  class="form-section mb-3" >
                     <div>
                     <template>
                         <div class="card-x">
