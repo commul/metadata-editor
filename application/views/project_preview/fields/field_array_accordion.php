@@ -1,4 +1,7 @@
 <?php 
+if (!isset($data) || empty($data) || !is_array($data)){
+    return;
+}
 /**
  * 
  * nested repeatd field
@@ -17,7 +20,24 @@
 
 <div id="<?php echo str_replace(".","_",$template['key']);?>" class="mb-3 field-accordion">
   <h4 class="field-title"><?php echo t($template['title']);?></h4>
-  <?php foreach($data as $idx=>$row):?>
+  <?php 
+    // Filter out empty rows first
+    $non_empty_rows = array();
+    foreach($data as $idx=>$row):
+      if (!is_array($row)) continue;
+      $has_content = false;
+      foreach($row as $val) {
+        if (!empty($val)) {
+          $has_content = true;
+          break;
+        }
+      }
+      if ($has_content) {
+        $non_empty_rows[$idx] = $row;
+      }
+    endforeach;
+  ?>
+  <?php foreach($non_empty_rows as $idx=>$row):?>
   <div class="card">
     <div class="card-header-x card-heading bg-light border-bottom" id="heading-<?php echo str_replace(".","_",$template['key'].$idx);?>">
       <h5 class="mb-0">
@@ -39,13 +59,18 @@
       <div class="card-body">
           <?php foreach($columns as $column):?>        
             <div>
-                <?php if (in_array($column['type'],array('array','nested_array','simple_array'))):?>
+                <?php if (in_array($column['type'],array('array','nested_array','simple_array', 'section'))):?>
                     <?php 
                         $column['hide_column_headings']=false;
                         $column['hide_field_title']=false;
                         $display_field=isset($template['display_field']) ? $template['display_field'] : '';
+                        $item_data = isset($row[$column['key']]) ? $row[$column['key']] : null;
+
+                        if (empty($item_data)){
+                            continue;
+                        }
                     ?>
-                    <?php  echo $this->load->view('project_preview/fields/field_'.$column['type'],array('data'=>isset($row[$column['key']]) ? $row[$column['key']] : [] ,'template'=>$column),true);?>
+                    <?php  echo $this->load->view('project_preview/fields/field_'.$column['type'],array('data'=>$item_data ,'template'=>$column),true);?>
                 <?php else:?>
                     <?php if(isset($row[$column['key']])):?>
                     <div class="mb-3">

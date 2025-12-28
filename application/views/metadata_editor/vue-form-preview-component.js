@@ -20,6 +20,37 @@ Vue.component('v-form-preview', {
         
     },    
     methods:{
+        isFieldEmpty: function(itemKey) {
+            const value = this.formData[itemKey];
+            if (value === "" || value === null || value === undefined) {
+                return true;
+            }
+            if (Array.isArray(value) && value.length === 0) {
+                return true;
+            }
+            if (JSON.stringify(value) === '[{}]' || JSON.stringify(value) === '[[]]') {
+                return true;
+            }
+            if (typeof value === 'object' && !Array.isArray(value) && Object.keys(value).length === 0) {
+                return true;
+            }
+            return false;
+        },
+        hasDisplayableContent: function(items) {
+            if (!items || items.length === 0) return false;
+            
+            for (let item of items) {
+                if (!this.isFieldEmpty(item.key)) {
+                    return true;
+                }
+                if ((item.type === 'section' || item.type === 'section_container') && item.items) {
+                    if (this.hasDisplayableContent(item.items)) {
+                        return true;
+                    }
+                }
+            }
+            return false;
+        },
         isEmpty: function(data){
             let tmp=JSON.parse(JSON.stringify(data));
             this.removeEmpty(tmp);
@@ -103,7 +134,7 @@ Vue.component('v-form-preview', {
             <template v-for="item in items">
 
             <!-- form-section-container -->
-                <div v-if="item.type=='section_container'"  class="form-section-container" >
+                <div v-if="item.type=='section_container' && hasDislayableContent(item.items)"  class="form-section-container" >
                     
                     <template>
                         <div  class="section-container-title">{{item.title}}</div>                        
@@ -121,7 +152,7 @@ Vue.component('v-form-preview', {
                 <!-- end-form-section-container -->
 
                 <!-- form-section -->
-                <div v-if="item.type=='section'"  class="form-section mb-3" >
+                <div v-if="item.type=='section' && hasDislayableContent(item.items)"  class="form-section mb-3" >
                     <div>
                     <template>
                         <div class="card-x">
@@ -148,13 +179,18 @@ Vue.component('v-form-preview', {
                 <!-- end-form-section -->
 
                 <!--text-field-->
-                <div v-if="item.type=='text' || item.type=='string' || item.type=='textarea' || item.type=='dropdown'">
-                    <div v-if="formData[item.key]" class="form-group form-field" :class="['field-' + item.key, item.class] ">
+                <div v-if="(item.type=='text' || item.type=='string' || item.type=='textarea' || item.type=='dropdown') && !isFieldEmpty(item.key)">
+                    <div class="form-group form-field" :class="['field-' + item.key, item.class] ">
                         <label :for="'field-' + normalizeClassID(item.key)">
                             {{item.title}}
                         </label>
                         <div :class="(item.content_format) ? 'content-format-' + item.content_format : 'content-format-text'">
-                            <div class="text-block" style="white-space: pre-wrap;">{{formData[item.key]}}</div>
+                            <ul v-if="Array.isArray(formData[item.key])">
+                                <li v-for="(val, idx) in formData[item.key]" :key="idx">
+                                    {{val}}
+                                </li>
+                            </ul>
+                            <div v-else class="text-block" style="white-space: pre-wrap;">{{formData[item.key]}}</div>
                         </div>
                    
                     </div>
@@ -163,8 +199,8 @@ Vue.component('v-form-preview', {
                 <!--end-text-field-->
 
 
-            <div v-if="item.type=='array'">                
-                <div class="form-group form-field form-field-table" v-if="formData[item.key]">                    
+            <div v-if="item.type=='array' && !isFieldEmpty(item.key)">
+                <div class="form-group form-field form-field-table">
                     <grid-preview-component                    
                         :id="'field-' + normalizeClassID(item.key)" 
                         :value="formData[item.key]"
@@ -176,10 +212,9 @@ Vue.component('v-form-preview', {
                 </div>    
             </div>
 
-        <div v-if="item.type=='simple_array'">
+        <div v-if="item.type=='simple_array' && !isFieldEmpty(item.key)">
             <div class="form-group form-field form-field-table">
                 <label :for="'field-' + normalizeClassID(item.key)">{{item.title}}</label>
-
                 <ul>
                     <li v-for="(value, idx) in formData[item.key]" :key="idx">
                         {{value}}
@@ -188,7 +223,7 @@ Vue.component('v-form-preview', {
             </div>    
         </div>
 
-        <div v-if="item.type=='nested_array'">
+        <div v-if="item.type=='nested_array' && !isFieldEmpty(item.key)">
             <label :for="'field-' + normalizeClassID(item.key)">{{item.title}}</label>
             <nested-section-preview 
                 :value="formData[item.key]"                                         
@@ -198,7 +233,7 @@ Vue.component('v-form-preview', {
             </nested-section-preview>  
         </div>
 
-        <div v-if="item.type=='identification_section'">
+        <div v-if="item.type=='identification_section' && !isFieldEmpty(item.key)">
             <label :for="'field-' + normalizeClassID(field.key)">{{item.title}}</label>
             <identification-section 
                 :value="formData[item.key]"                                         

@@ -1,3 +1,9 @@
+<style>
+    h4{
+        font-size:16px;
+        font-weight:bold;
+    }
+</style>
 <?php 
     $this->pagepreview->render_html();
 ?>

@@ -68,7 +68,8 @@ Vue.component('nested-array', {
         },
         updateSection: function (index, key, value)
         {
-            this.local_data[index] = value;
+            // Merge the section value with the existing item
+            _.merge(this.local_data[index], value);
             this.$emit('input', JSON.parse(JSON.stringify(this.local_data)));
         },
 
@@ -120,6 +121,16 @@ Vue.component('nested-array', {
                                             :field="column"                            
                                             @input="update(index,column.key, $event)"
                                         ></form-input>
+                                    </template>
+                                    <template v-else-if="column.type=='section' && column.display_type=='bounding_box'">
+                                        <!-- bounding box section -->                                        
+                                        <editor-bounding-box-field
+                                            :key="column.key"
+                                            :value="localValue(index,column.key)"
+                                            @input="updateSection(index,column.key, $event)"
+                                            :field="column">
+                                        </editor-bounding-box-field>
+                                        <!-- end bounding box section -->
                                     </template>
                                     <template v-else-if="column.type=='section'">
                                         <!-- section -->                                        

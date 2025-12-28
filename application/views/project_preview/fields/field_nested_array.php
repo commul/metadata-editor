@@ -1,4 +1,7 @@
 <?php 
+if (!isset($data) || empty($data) || !is_array($data)){
+    return;
+}
 /**
  * 
  * nested repeatd field

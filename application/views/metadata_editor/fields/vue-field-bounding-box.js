@@ -30,21 +30,34 @@ Vue.component('editor-bounding-box-field', {
         },
         boundingBoxOptions() {
             // Get the field mapping options, with defaults
-            return this.field.bounding_box_options || {
+            const opts = this.field.bounding_box_options || {
                 'west': 'westBoundLongitude',
                 'east': 'eastBoundLongitude',
                 'south': 'southBoundLatitude',
                 'north': 'northBoundLatitude'
             };
+            
+            // Convert full paths (e.g., "geographicBoundingBox.westBoundLongitude") 
+            // to local paths (e.g., "westBoundLongitude")
+            const result = {};
+            for (const [key, path] of Object.entries(opts)) {
+                if (path.includes('.')) {
+                    // Extract the last part after the dot
+                    result[key] = path.split('.').pop();
+                } else {
+                    result[key] = path;
+                }
+            }
+            return result;
         },
         displayValue() {
             if (!this.value || typeof this.value !== 'object' || this.value === null) return '';
             
             const opts = this.boundingBoxOptions;
-            const west = this.value[opts.west] || '';
-            const east = this.value[opts.east] || '';
-            const south = this.value[opts.south] || '';
-            const north = this.value[opts.north] || '';
+            const west = _.get(this.value, opts.west) || '';
+            const east = _.get(this.value, opts.east) || '';
+            const south = _.get(this.value, opts.south) || '';
+            const north = _.get(this.value, opts.north) || '';
             
             if (!west && !east && !south && !north) return '';
             
@@ -57,7 +70,7 @@ Vue.component('editor-bounding-box-field', {
                 this.loadExistingBoundingBox();
                 // Wait for dialog to fully render before initializing map
                 this.$nextTick(() => {
-                    // Add a small delay to ensure dialog is fully visible
+                    // Add a small delay
                     setTimeout(() => {
                         this.initializeMap();
                     }, 300);
@@ -89,10 +102,10 @@ Vue.component('editor-bounding-box-field', {
             }
             
             const opts = this.boundingBoxOptions;
-            this.west = this.value[opts.west] || '';
-            this.east = this.value[opts.east] || '';
-            this.south = this.value[opts.south] || '';
-            this.north = this.value[opts.north] || '';
+            this.west = _.get(this.value, opts.west) || '';
+            this.east = _.get(this.value, opts.east) || '';
+            this.south = _.get(this.value, opts.south) || '';
+            this.north = _.get(this.value, opts.north) || '';
             
             // Update map if we have valid coordinates
             if (this.map && this.west && this.east && this.south && this.north) {
@@ -574,13 +587,21 @@ Vue.component('editor-bounding-box-field', {
             this.updateValue();
         },
         updateValue: function() {
-            const opts = this.boundingBoxOptions;
+            // Get the original full-path options from field config
+            const fullPathOpts = this.field.bounding_box_options || {
+                'west': 'westBoundLongitude',
+                'east': 'eastBoundLongitude',
+                'south': 'southBoundLatitude',
+                'north': 'northBoundLatitude'
+            };
+            
             const newValue = {};
             
-            if (this.west) newValue[opts.west] = this.west;
-            if (this.east) newValue[opts.east] = this.east;
-            if (this.south) newValue[opts.south] = this.south;
-            if (this.north) newValue[opts.north] = this.north;
+            // Use _.set() with the original (potentially nested) paths to maintain structure
+            if (this.west) _.set(newValue, fullPathOpts.west, parseFloat(this.west));
+            if (this.east) _.set(newValue, fullPathOpts.east, parseFloat(this.east));
+            if (this.south) _.set(newValue, fullPathOpts.south, parseFloat(this.south));
+            if (this.north) _.set(newValue, fullPathOpts.north, parseFloat(this.north));
             
             // Only emit if we have at least one coordinate
             if (Object.keys(newValue).length > 0) {

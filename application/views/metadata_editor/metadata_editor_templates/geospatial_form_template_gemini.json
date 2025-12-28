@@ -1953,16 +1953,49 @@
                                         {
                                             "key": "geographicBoundingBox",
                                             "title": "Geographic Bounding Box",
-                                            "type": "object",
-                                            "display_type": "bounding_box",
-                                            "prop_key": "description.identificationInfo.extent.geographicElement.geographicBoundingBox",
-                                            "help_text": "This is the extent of the resource in the geographic space, given as a bounding box. Defining the coordinates of a rectangle representing the resource area on a map allows the discovery by geographical area. Click to draw a bounding box on the map or enter coordinates manually.\n\nProvide the coordinates bounding the limits of the dataset, by means of four properties:\n- West bound longitude: Western-most coordinate of the limit of the dataset extent, expressed in longitude in decimal degrees.\n- East bound longitude: Eastern-most coordinate of the limit of the dataset extent, expressed in longitude in decimal degrees.\n- South bound latitude: Southern-most coordinate of the limit of the dataset extent, expressed in latitude in decimal degrees.\n- North bound latitude: Northern-most coordinate of the limit of the dataset extent, expressed in latitude in decimal degrees.\n\nThe bounding box shall be as small as possible.\nThe bounding box shall be expressed in decimal degree with a precision of at least 2 decimals.",
+                                            "type": "section",
+                                            "display_type": "bounding_box",                                            
                                             "bounding_box_options": {
-                                                "west": "westBoundLongitude",
-                                                "east": "eastBoundLongitude",
-                                                "south": "southBoundLatitude",
-                                                "north": "northBoundLatitude"
-                                            }
+                                                "west": "geographicBoundingBox.westBoundLongitude",
+                                                "east": "geographicBoundingBox.eastBoundLongitude",
+                                                "south": "geographicBoundingBox.southBoundLatitude",
+                                                "north": "geographicBoundingBox.northBoundLatitude"
+                                            },
+                                            "props": [
+                                                {
+                                                    "key": "westBoundLongitude",
+                                                    "type": "number",
+                                                    "title": "West bound longitude",
+                                                    "prop_key": "geographicBoundingBox.westBoundLongitude",
+                                                    "display_type": "text",
+                                                    "help_text": "Western-most coordinate of the limit of the dataset extent, expressed in longitude in decimal degrees."
+                                                },
+                                                {
+                                                    "key": "eastBoundLongitude",
+                                                    "type": "number",
+                                                    "title": "East bound longitude",
+                                                    "prop_key": "geographicBoundingBox.eastBoundLongitude",
+                                                    "display_type": "text",
+                                                    "help_text": "Eastern-most coordinate of the limit of the dataset extent, expressed in longitude in decimal degrees."
+                                                },
+                                                {
+                                                    "key": "southBoundLatitude",
+                                                    "type": "number",
+                                                    "title": "South bound latitude",
+                                                    "prop_key": "geographicBoundingBox.southBoundLatitude",
+                                                    "display_type": "text",
+                                                    "help_text": "Southern-most coordinate of the limit of the dataset extent, expressed in latitude in decimal degrees."
+                                                },
+                                                {
+                                                    "key": "northBoundLatitude",
+                                                    "type": "number",
+                                                    "title": "North bound latitude",
+                                                    "prop_key": "northBoundLatitude",
+                                                    "display_type": "text",
+                                                    "help_text": "Northern-most coordinate of the limit of the dataset extent, expressed in latitude in decimal degrees."
+                                                }
+                                            ],
+                                            "help_text": "This is the extent of the resource in the geographic space, given as a bounding box. Defining the coordinates of a rectangle representing the resource area on a map allows the discovery by geographical area. Click to draw a bounding box on the map or enter coordinates manually.\n\nProvide the coordinates bounding the limits of the dataset, by means of four properties:\n- West bound longitude: Western-most coordinate of the limit of the dataset extent, expressed in longitude in decimal degrees.\n- East bound longitude: Eastern-most coordinate of the limit of the dataset extent, expressed in longitude in decimal degrees.\n- South bound latitude: Southern-most coordinate of the limit of the dataset extent, expressed in latitude in decimal degrees.\n- North bound latitude: Northern-most coordinate of the limit of the dataset extent, expressed in latitude in decimal degrees.\n\nThe bounding box shall be as small as possible.\nThe bounding box shall be expressed in decimal degree with a precision of at least 2 decimals."
                                         },
                                         {
                                             "key": "geohash",

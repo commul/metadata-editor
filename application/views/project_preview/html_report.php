@@ -24,6 +24,10 @@ $is_pdf_generation = isset($pdf_mode) && $pdf_mode === true;
     .font-weight-bold{
         font-weight:bold;
     }
+    h4{
+        font-size:16px;
+        font-weight:bold;
+    }
     
 </style>
 </head>

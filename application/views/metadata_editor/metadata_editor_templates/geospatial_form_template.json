@@ -2502,16 +2502,49 @@
                                         {
                                             "key": "geographicBoundingBox",
                                             "title": "Geographic Bounding Box",
-                                            "type": "object",
-                                            "display_type": "bounding_box",
-                                            "prop_key": "description.identificationInfo.extent.geographicElement.geographicBoundingBox",
-                                            "help_text": "This is the extent of the resource in the geographic space, given as a bounding box. Defining the coordinates of a rectangle representing the resource area on a map allows the discovery by geographical area. Click to draw a bounding box on the map or enter coordinates manually.\n\nProvide the coordinates bounding the limits of the dataset, by means of four properties: \n- Western-most coordinate of the limit of the dataset extent, expressed in longitude in decimal degrees (positive east).\n- Eastern-most coordinate of the limit of the dataset extent, expressed in longitude in decimal degrees (positive east)\n- Northern-most coordinate of the limit of the dataset extent, expressed in latitude in decimal degrees (positive north)\n- Southern-most coordinate of the limit of the dataset extent, expressed in latitude in decimal degrees (positive north).\n\nThe bounding box shall be as small as possible.\nThe bounding box shall be expressed in decimal degree with a precision of at least 2 decimals.",
+                                            "type": "section",
+                                            "display_type": "bounding_box",                                            
                                             "bounding_box_options": {
-                                                "west": "westBoundLongitude",
-                                                "east": "eastBoundLongitude",
-                                                "south": "southBoundLatitude",
-                                                "north": "northBoundLatitude"
-                                            }
+                                                "west": "geographicBoundingBox.westBoundLongitude",
+                                                "east": "geographicBoundingBox.eastBoundLongitude",
+                                                "south": "geographicBoundingBox.southBoundLatitude",
+                                                "north": "geographicBoundingBox.northBoundLatitude"
+                                            },
+                                            "props": [
+                                                {
+                                                    "key": "geographicBoundingBox.westBoundLongitude",
+                                                    "type": "number",
+                                                    "title": "West bound longitude",
+                                                    "prop_key": "geographicBoundingBox.westBoundLongitude",
+                                                    "display_type": "text",
+                                                    "help_text": "Western-most coordinate of the limit of the dataset extent, expressed in longitude in decimal degrees."
+                                                },
+                                                {
+                                                    "key": "geographicBoundingBox.eastBoundLongitude",
+                                                    "type": "number",
+                                                    "title": "East bound longitude",
+                                                    "prop_key": "geographicBoundingBox.eastBoundLongitude",
+                                                    "display_type": "text",
+                                                    "help_text": "Eastern-most coordinate of the limit of the dataset extent, expressed in longitude in decimal degrees."
+                                                },
+                                                {
+                                                    "key": "geographicBoundingBox.southBoundLatitude",
+                                                    "type": "number",
+                                                    "title": "South bound latitude",
+                                                    "prop_key": "geographicBoundingBox.southBoundLatitude",
+                                                    "display_type": "text",
+                                                    "help_text": "Southern-most coordinate of the limit of the dataset extent, expressed in latitude in decimal degrees."
+                                                },
+                                                {
+                                                    "key": "geographicBoundingBox.northBoundLatitude",
+                                                    "type": "number",
+                                                    "title": "North bound latitude",
+                                                    "prop_key": "geographicBoundingBox.northBoundLatitude",
+                                                    "display_type": "text",
+                                                    "help_text": "Northern-most coordinate of the limit of the dataset extent, expressed in latitude in decimal degrees."
+                                                }
+                                            ],
+                                            "help_text": "This is the extent of the resource in the geographic space, given as a bounding box. Defining the coordinates of a rectangle representing the resource area on a map allows the discovery by geographical area. Click to draw a bounding box on the map or enter coordinates manually.\n\nProvide the coordinates bounding the limits of the dataset, by means of four properties:\n- West bound longitude: Western-most coordinate of the limit of the dataset extent, expressed in longitude in decimal degrees.\n- East bound longitude: Eastern-most coordinate of the limit of the dataset extent, expressed in longitude in decimal degrees.\n- South bound latitude: Southern-most coordinate of the limit of the dataset extent, expressed in latitude in decimal degrees.\n- North bound latitude: Northern-most coordinate of the limit of the dataset extent, expressed in latitude in decimal degrees.\n\nThe bounding box shall be as small as possible.\nThe bounding box shall be expressed in decimal degree with a precision of at least 2 decimals."
                                         },
                                         {
                                             "key": "geohash",
@@ -2523,7 +2556,7 @@
                                                     "type": "string",
                                                     "title": "Geohash",
                                                     "prop_key": "description.identificationInfo.extent.geographicElement.geohash.geohash",
-                                                    "help_text": "Geohash",
+                                                    "help_text": "The geohash is not explicitly defined in ISO 19139, but often used in profiles, extensions, or auxiliary metadata to support spatial search, indexing, or approximate location. For example, \"u4pruydqqvj\" represents a specific area near New York City. Geohashes can vary in length; more characters mean higher precision.",
                                                     "display_type": "textarea"
                                                 },
                                                 {
@@ -2531,17 +2564,19 @@
                                                     "type": "string",
                                                     "title": "Note",
                                                     "prop_key": "description.identificationInfo.extent.geographicElement.geohash.note",
-                                                    "help_text": "Notes",
+                                                    "help_text": "A descriptive or explanatory note about the Geohash value — e.g., resolution, use, limitations. For example, \"Geohash at 8-character precision (~19 meters accuracy).\"",
                                                     "display_type": "textarea"
                                                 }
-                                            ]
+                                            ],
+                                            "help_text": "A short alphanumeric string representing a spatial location or bounding box using the Geohash encoding. The purpose is to provide a compact, human-readable, and indexable way to encode geographic areas."
                                         },
                                         {
                                             "key": "geographicDescription",
                                             "title": "Geographic description",
                                             "type": "string",
                                             "prop_key": "description.identificationInfo.extent.geographicElement.geographicDescription",
-                                            "display_type": "textarea"
+                                            "display_type": "textarea",
+                                            "help_text": "A textual or coded description of the geographic area covered by the dataset or service. The purpose is to provide a named place or coded region (e.g., country, administrative unit) as a way to describe geographic extent, especially when precise coordinates or geometry are not available. This useful for indexing metadata by regions or matching data to known administrative areas."
                                         },
                                         {
                                             "key": "geographicBoundingPolygon-section",
@@ -2551,8 +2586,9 @@
                                                 {
                                                     "key": "geographicBoundingPolygon.id",
                                                     "type": "text",
-                                                    "title": "Polygon Identifier (ID)",
-                                                    "prop_key": "description.identificationInfo.extent.geographicElement.geographicBoundingPolygon.id"
+                                                    "title": "Polygon identifier (ID)",
+                                                    "prop_key": "description.identificationInfo.extent.geographicElement.geographicBoundingPolygon.id",
+                                                    "help_text": "A unique identifier assigned to the polygon for referencing or validation. The purpose is to allow referencing this specific geometry within the metadata or from external systems."
                                                 },
                                                 {
                                                     "key": "geographicBoundingPolygon.polygon",
@@ -2575,7 +2611,9 @@
                                                                     "code": "exterior",
                                                                     "label": "Exterior"
                                                                 }
-                                                            ]
+                                                            ],
+                                                            "enum_store_column": "code",
+                                                            "help_text": "Rings that define the boundary of the polygon. Each ring is defined with a list of coordinates.\n       - Exterior ring: The outer boundary of the polygon.\n       - Interior ring: One or more holes within the polygon (optional)."
                                                         },
                                                         {
                                                             "key": "type",
@@ -2597,18 +2635,21 @@
                                                                     "label": "Polygon"
                                                                 }
                                                             ],
-                                                            "help_text": "Type of geometry"
+                                                            "enum_store_column": "code",
+                                                            "help_text": "The type of geometry used to represent the area. Common types are Polygon (a single closed area), MultiPolygon (a set of multiple polygons), and Envelope (a bounding rectangle)."
                                                         },
                                                         {
                                                             "key": "coordinates",
                                                             "type": "textarea",
                                                             "title": "Coordinates",
                                                             "prop_key": "description.identificationInfo.extent.geographicElement.geographicBoundingPolygon.polygon.coordinates",
-                                                            "help_text": "Coordinates of the polygon. The first and last coordinate pairs must be the same to close the polygon."
+                                                            "help_text": "Coordinates of the polygon. These are the longitude-latitude pairs that define the polygon boundary. Each pair is ordered as <longitude> <latitude>, separated by spaces. The first and last coordinates must be the same to close the polygon."
                                                         }
-                                                    ]
+                                                    ],
+                                                    "help_text": "A geometric object that defines the shape and extent of the area covered. This is defined in GML (Geography Markup Language), typically using EPSG:4326 (WGS 84) as the coordinate system."
                                                 }
-                                            ]
+                                            ],
+                                            "help_text": "A polygonal shape describing the precise spatial coverage of the dataset or service. The purpose is to provide more accurate spatial boundaries than a bounding box, especially for irregular or non-rectangular areas."
                                         }
                                     ],
                                     "prop_key": "description.identificationInfo.extent.geographicElement",
