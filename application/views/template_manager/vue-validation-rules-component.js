@@ -166,48 +166,63 @@ Vue.component('validation-rules-component', {
     template: `
             <div class="validation-rules-component">
 
-            <div class="p-2 mb-3 row justify-content-md-right">
-                <div class="col-md-6">
-                <div class="form-inline">
-                <select 
-                    v-model="rule_selected" 
-                    class="custom-select" 
-                >
-                    <option value="">Select rule</option>
-                    <option v-for="(rule in ValidationRules">
-                        {{ rule.rule }}
-                    </option>
-                </select>
-                <button type="button" class="ml-1 btn btn-primary" @click="addRule" :disabled="rule_selected==''">Add</button>
-                </div>
-                </div>
-            </div>
+            <v-row class="p-2 mb-3" justify="end">
+                <v-col cols="12" md="6">
+                    <v-row align="center">
+                        <v-col cols="auto" class="flex-grow-1">
+                            <v-select
+                                v-model="rule_selected"
+                                :items="Object.keys(ValidationRules).map(key => ({ value: key, text: ValidationRules[key].rule }))"
+                                item-text="text"
+                                item-value="value"
+                                placeholder="Select rule"
+                                outlined
+                                dense
+                                hide-details
+                            ></v-select>
+                        </v-col>
+                        <v-col cols="auto">
+                            <v-btn color="primary" @click="addRule" :disabled="rule_selected==''" small>Add</v-btn>
+                        </v-col>
+                    </v-row>
+                </v-col>
+            </v-row>
 
-            <table class="table table-striped table-sm ">
-                <thead class="thead-light">
+            <v-simple-table>
+                <thead>
                 <tr>
                     <th>Rule</th>
                     <th>Value</th>
                     <th></th>
                 </tr>
                 </thead>
-                <tr v-for="(value_, name, index) in local">
+                <tbody>
+                <tr v-for="(value_, name, index) in local" :key="name">
                     <td>
                         <div class="text-primary">{{name}}</div>
                         <div class="text-secondary" style="font-size:small;margin-top:5px;">{{RuleDescription(name)}}</div>
                     </td>
-                    <td><div v-if="ruleHasParam(name)">
-                        <input type="text" :value="local[name]"  @input="update(name, $event.target.value)" class="form-control form-control-sm" />
+                    <td>
+                        <div v-if="ruleHasParam(name)">
+                            <v-text-field
+                                :value="local[name]"
+                                @input="update(name, $event)"
+                                outlined
+                                dense
+                                hide-details
+                                class="mt-2"
+                            ></v-text-field>
                         </div>
                         <div v-else>{{local[name]}}</div>
                     </td>
-                    <td scope="row">        
-                        <button type="button"  class="btn btn-sm btn-danger grid-button-delete float-right"  v-on:click="remove(name)">
-                        <i aria-hidden="true" class="v-icon notranslate mdi mdi-delete" style="font-size:16px;"></i>
-                        </button>
+                    <td>        
+                        <v-btn icon small color="error" @click="remove(name)" class="float-right">
+                            <v-icon>mdi-delete</v-icon>
+                        </v-btn>
                     </td>
                 </tr>
-            </table>
+                </tbody>
+            </v-simple-table>
 
             </div>  `    
 });

@@ -44,17 +44,8 @@ Vue.component('vue-key-field', {
             return this.local_value.indexOf('additional.')==0;
         },
         isKeyValid(){
-            // key must start with additional. (unless custom type)
-            // key must be unique
-            // key must not contain spaces
-            // key can only contain dot, letters, numbers, and underscores
-            // key cannot be empty
-            
-            // For custom type, don't require additional. prefix
-            if (!this.TemplateIsCustom && this.local_value.indexOf('additional.')!==0){
-              return false;
-            }
-
+            // key must be unique, non-empty, no empty dot segments
+            // allow namespaces (e.g., wb:org) and no prefix; permit letters, numbers, _, -, :
             let key=this.local_value;
 
             //break key into parts using dot as separator
@@ -65,15 +56,9 @@ Vue.component('vue-key-field', {
                 return false;
             }
 
-            //first part must be additional (unless custom type)
-            if (!this.TemplateIsCustom && parts[0]!='additional'){
-                return false;
-            }
-
-            //check all parts only contain letters, numbers, and underscores, dashes
-            let startIndex = this.TemplateIsCustom ? 0 : 1;
-            for(let i=startIndex;i<parts.length;i++){
-                if (parts[i].match(/^[a-zA-Z0-9_-]+$/)==null){
+            //check allowed characters for each part (allow namespace colon)
+            for(let i=0;i<parts.length;i++){
+                if (parts[i].match(/^[a-zA-Z0-9:_-]+$/)==null){
                     return false;
                 }
             }
@@ -94,22 +79,21 @@ Vue.component('vue-key-field', {
     },
     methods:{
         UpdateKeyValue: function(){
+            console.log("UpdateKeyValue", this.local_value);
             this.validation_errors=[];
             
             if (!this.ValidateKey()){
+                console.log("Validation failed", this.validation_errors);
                 return;
             }
-            
+            console.log("Validation passed", this.local_value);
             this.$emit('input', this.local_value);
 
         },
         ValidateKey: function()
         {
-            // key must start with additional. (unless custom type)
-            // key must be unique
-            // key must not contain spaces
-            // key can only contain dot, letters, numbers, and underscores
-            // key cannot be empty
+            // key must be unique, non-empty, no empty dot segments
+            // allow namespaces (e.g., wb:org) and no prefix; permit letters, numbers, _, -, :
 
             this.validation_errors=[];
 
@@ -127,16 +111,10 @@ Vue.component('vue-key-field', {
                 this.validation_errors.push('Key must not contain empty parts');
             }
 
-            //first part must be additional (unless custom type)
-            if (!this.TemplateIsCustom && parts[0]!='additional'){
-                this.validation_errors.push('Key must start with additional.');
-            }
-
-            //check all parts only contain letters, numbers, dash, and underscores
-            let startIndex = this.TemplateIsCustom ? 0 : 1;
-            for(let i=startIndex;i<parts.length;i++){
-                if (parts[i].match(/^[a-zA-Z0-9_-]+$/)==null){
-                    this.validation_errors.push('Key can only contain letters, numbers, and underscores');
+            //check all parts only contain letters, numbers, dash, underscore, colon
+            for(let i=0;i<parts.length;i++){
+                if (parts[i].match(/^[a-zA-Z0-9:_-]+$/)==null){
+                    this.validation_errors.push('Key can only contain letters, numbers, underscores, dashes, or colons');
                     break;
                 }
             }
@@ -154,10 +132,16 @@ Vue.component('vue-key-field', {
 
               <div><label for="key">{{$t("key")}}:</label></div>
 
-                <div class="form-group">
-                    <input type="text" class="form-control" id="key" placeholder="Key" v-model="local_value" v-on:blur="UpdateKeyValue">
-                    <div class="text-secondary font-small" style="font-size:small">{{this.value}}</div>
-                </div>
+                <v-text-field
+                    id="key"
+                    placeholder="Key"
+                    v-model="local_value"
+                    @blur="UpdateKeyValue"
+                    outlined
+                    dense
+                    class="mb-2"
+                ></v-text-field>
+                <div class="text-secondary font-small" style="font-size:small">{{this.value}}</div>
 
                 <div class="text-secondary font-small" style="margin-bottom:15px;font-size:small">                    
                     <div v-for="error in validation_errors" class="text-danger">{{error}}</div>

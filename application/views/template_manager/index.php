@@ -61,6 +61,10 @@
       color: #6f42c1!important;
     }
 
+    .v-icon.additional-item {
+      color: #6f42c1!important;
+    }
+
     .font-small{
       font-size:small;
     }
@@ -71,6 +75,45 @@
     
     .search-field .v-input__control {
       min-height: 32px !important;
+    }
+    
+    .prop-item {
+      color: #6c757d;
+      font-style: italic;
+    }
+    
+    /* Form label styling */
+    label.mb-1.d-block {
+      font-weight: 500;
+      color: rgba(0, 0, 0, 0.87);
+      margin-bottom: 4px !important;
+    }
+    
+    .v-application .v-container--fluid {
+      max-width: 100% !important;
+      padding-left: 0 !important;
+      padding-right: 0 !important;
+      width: 100% !important;
+    }
+    
+    .v-application {
+      width: 100% !important;
+      max-width: 100% !important;
+    }
+    
+    body, html {
+      width: 100% !important;
+      max-width: 100% !important;
+      overflow-x: hidden;
+    }
+    
+    #app {
+      width: 100% !important;
+      max-width: 100% !important;
+    }
+
+    .v-text-field__details{
+      display:none !important;
     }
   </style>
 
@@ -120,27 +163,28 @@
 
     let user_template = <?php echo $user_template; ?>;
     let template_icon_url = <?php echo json_encode(isset($template_icon_url) ? $template_icon_url : null); ?>;
+    let user_has_edit_access = <?php echo json_encode(isset($user_has_edit_access) ? $user_has_edit_access : false); ?>;
   </script>
 
   <div id="app" data-app>
     <v-app>
 
-      <div class="container-fluid">
+      <div class="pa-0">
 
-        <div class="row no-gutters sticky-top border-bottom bg-white">
+        <v-row no-gutters class="sticky-top border-bottom bg-white">
 
-          <div class="col-md-3">
+          <v-col cols="12" md="3">
             <div class="color-white branding-icon" style="padding:5px;padding-left:30px;font-weight:bold;">
               <v-icon large color="#007bff">mdi-alpha-t-box</v-icon>
               {{$t('template_manager')}}
             </div>
-          </div>
+          </v-col>
 
-          <div class="col-md-9">
+          <v-col cols="12" md="9">
             <!-- header -->
             <div class="header">
-              <div class="row">
-                <div class="col-md-9">
+              <v-row>
+                <v-col cols="12" md="9">
 
                   <div class="ml-5 pt-2">
                     <div class="text-crop">
@@ -155,28 +199,35 @@
                       <strong style="font-size:large;">{{user_template_info.name}}</strong>
                     </div>
                   </div>
-                </div>
-                <div class="col-md-3">
-                  <div class="float-right pt-1 mr-5">
-                    <button type="button" class="btn btn-sm btn-success" @click="saveTemplate()"><v-icon style="color:white;">mdi-content-save-check</v-icon> {{$t('save')}} <span v-if="is_dirty==true">*</span></button>
-                    <button type="button" class="btn btn-sm btn-default" @click="cancelTemplate()"><v-icon>mdi-exit-to-app</v-icon> {{$t('close')}}</button>
+                </v-col>
+                <v-col cols="12" md="3">
+                  <div class="text-right pt-1 mr-5">
+                    <v-btn v-if="isEditable" small color="success" @click="saveTemplate()" class="mr-2">
+                      <v-icon left style="color:white;">mdi-content-save-check</v-icon> {{$t('save')}} <span v-if="is_dirty==true">*</span>
+                    </v-btn>
+                    <v-btn v-else small outlined disabled class="mr-2">
+                      <v-icon left>mdi-lock</v-icon> {{$t('read_only')}}
+                    </v-btn>
+                    <v-btn small outlined @click="cancelTemplate()">
+                      <v-icon left>mdi-exit-to-app</v-icon> {{$t('close')}}
+                    </v-btn>
                   </div>
-                </div>
-              </div>
+                </v-col>
+              </v-row>
 
             </div>
             <!-- end header -->
-          </div>
+          </v-col>
 
 
-        </div>
+        </v-row>
 
-        <div class="row no-gutters" style="height:100vh;">
+        <v-row no-gutters style="height:100vh;">
 
-          <div class="col-md-3" style="height:100vh;">
+          <v-col cols="12" md="3" style="height:100vh;">
 
-            <div class="row no-gutters border-right pt-2" style="height:100vh;overflow:auto;">
-              <div class="col-md-11" style="height:100vh;">
+            <v-row no-gutters class="border-right pt-2" style="height:100vh;overflow:auto;">
+              <v-col cols="11" style="height:100vh;">
                 <div class="px-3 pb-2 pt-2">
                   <v-text-field
                     v-model="treeSearchQuery"
@@ -200,71 +251,71 @@
                       @initially-open="updateInitiallyOpen"
                       ></nada-treeview>
                 </div>
-              </div>
-              <div class="col-md-1 col-xs-2" style="position:relative;">
+              </v-col>
+              <v-col cols="1" style="position:relative;">
                 <div class="pr-1" v-if="!isEditingDescription" style="position:fixed;">
 
                   <div>
-                    <v-icon v-if="ActiveCoreNode.type" color="#3498db" @click="addField()">mdi-chevron-left-box</v-icon>
+                    <v-icon v-if="ActiveCoreNode.type && user_has_edit_access" color="#3498db" @click="addField()">mdi-chevron-left-box</v-icon>
                     <v-icon v-else class="disabled-button-color">mdi-chevron-left-box</v-icon>
                   </div>
                   <div>
-                    <v-icon v-if="ActiveNodeIsField" color="#3498db" @click="removeField()">mdi-chevron-right-box</v-icon>
+                    <v-icon v-if="ActiveNodeIsField && user_has_edit_access" color="#3498db" @click="removeField()">mdi-chevron-right-box</v-icon>
                     <v-icon v-else class="disabled-button-color">mdi-chevron-right-box</v-icon>
                   </div>
 
                   <div>
-                    <v-icon v-if="ActiveNode.type=='section_container' || ActiveNode.type=='section'" color="#3498db" @click="addSection()">mdi-plus-box</v-icon>
+                    <v-icon v-if="ActiveNode && (ActiveNode.type=='section_container' || ActiveNode.type=='section') && user_has_edit_access" color="#3498db" @click="addSection()">mdi-plus-box</v-icon>
                     <v-icon v-else class="disabled-button-color">mdi-plus-box</v-icon>
                   </div>
                   <div>
-                    <v-icon v-if="ActiveNode.type=='section'" color="#3498db" @click="removeField()">mdi-minus-box</v-icon>
+                    <v-icon v-if="ActiveNode && ActiveNode.type=='section' && user_has_edit_access" color="#3498db" @click="removeField()">mdi-minus-box</v-icon>
                     <v-icon v-else class="disabled-button-color">mdi-minus-box</v-icon>
                   </div>
                   <div>
-                    <v-icon v-if="ActiveNode.type!='section_container'  && ActiveNode.type" color="#3498db" @click="moveUp()">mdi-arrow-up-bold-box</v-icon>
+                    <v-icon v-if="ActiveNode && ActiveNode.type && ActiveNode.key && user_has_edit_access" color="#3498db" @click="moveUp()">mdi-arrow-up-bold-box</v-icon>
                     <v-icon v-else class="disabled-button-color">mdi-arrow-up-bold-box</v-icon>
                   </div>
                   <div>
-                    <v-icon v-if="ActiveNode.type!='section_container' && ActiveNode.type" color="#3498db" @click="moveDown()">mdi-arrow-down-bold-box</v-icon>
+                    <v-icon v-if="ActiveNode && ActiveNode.type && ActiveNode.key && user_has_edit_access" color="#3498db" @click="moveDown()">mdi-arrow-down-bold-box</v-icon>
                     <v-icon v-else class="disabled-button-color">mdi-arrow-down-bold-box</v-icon>
                   </div>
 
 
                   <div class="mt-5" title="Move">
-                    <v-icon v-if="ActiveNodeIsField" color="#3498db" @click="cutField()">mdi-content-copy</v-icon>
+                    <v-icon v-if="ActiveNodeIsField && user_has_edit_access" color="#3498db" @click="cutField()">mdi-content-copy</v-icon>
                     <v-icon v-else color="rgb(0 0 0 / 12%)">mdi-content-copy</v-icon>
                   </div>
 
                   <div class="mt-2" title="Paste">
-                    <v-icon v-if="ActiveNode.type=='section' && cut_fields.length>0" color="#3498db" @click="pasteField()">mdi-content-paste</v-icon>
+                    <v-icon v-if="ActiveNode && ActiveNode.type=='section' && cut_fields.length>0 && user_has_edit_access" color="#3498db" @click="pasteField()">mdi-content-paste</v-icon>
                     <v-icon v-else color="rgb(0 0 0 / 12%)">mdi-content-paste</v-icon>
                   </div>
 
                   <!--additional -->
-                  <div class="mt-5" v-if="ActiveNode.type=='section' || TemplateIsAdminMeta || TemplateIsCustom">
-                    <v-icon title="Add custom field" v-if="ActiveNode.type=='section_container' || ActiveNode.type=='section'" class="additional-item" @click="addAdditionalField()">mdi-text-box-plus-outline</v-icon>
+                  <div class="mt-5" v-if="(ActiveNode && (ActiveNode.type=='section_container' || ActiveNode.type=='section' || ActiveNode.type=='array' || ActiveNode.type=='nested_array')) || TemplateIsAdminMeta || TemplateIsCustom">
+                    <v-icon title="Add custom field" v-if="ActiveNode && (ActiveNode.type=='section_container' || ActiveNode.type=='section' || ActiveNode.type=='array' || ActiveNode.type=='nested_array') && user_has_edit_access" class="additional-item" @click="addAdditionalField()">mdi-text-box-plus-outline</v-icon>
                     <v-icon title="Add custom field" v-else class="disabled-button-color">mdi-text-box-plus-outline</v-icon>
                   </div>
 
-                  <div class="mt-1" v-if="ActiveNode.type=='section' || TemplateIsCustom">
-                    <v-icon title="Add custom Array field" v-if="ActiveNode.type=='section_container' || ActiveNode.type=='section'" class="additional-item"  @click="addAdditionalFieldArray()">mdi-table-large-plus</v-icon>
+                  <div class="mt-1" v-if="(ActiveNode && (ActiveNode.type=='section_container' || ActiveNode.type=='section' || ActiveNode.type=='nested_array')) || (TemplateIsCustom && ActiveNode && ActiveNode.type!='array')">
+                    <v-icon title="Add custom Array field" v-if="ActiveNode && ActiveNode.type!='array' && (ActiveNode.type=='section_container' || ActiveNode.type=='section' || ActiveNode.type=='nested_array') && user_has_edit_access" class="additional-item"  @click="addAdditionalFieldArray()">mdi-table-large-plus</v-icon>
                     <v-icon title="Add custom Array field" v-else class="disabled-button-color">mdi-table-large-plus</v-icon>
                   </div>
 
-                  <div class="mt-1" v-if="ActiveNode.type=='section' || TemplateIsCustom">
-                    <v-icon title="Add custom NestedArray field" v-if="ActiveNode.type=='section_container' || ActiveNode.type=='section'" class="additional-item"  @click="addAdditionalFieldNestedArray()">mdi-file-tree</v-icon>
+                  <div class="mt-1" v-if="(ActiveNode && (ActiveNode.type=='section_container' || ActiveNode.type=='section' || ActiveNode.type=='nested_array')) || (TemplateIsCustom && ActiveNode && ActiveNode.type!='array')">
+                    <v-icon title="Add custom NestedArray field" v-if="ActiveNode && ActiveNode.type!='array' && (ActiveNode.type=='section_container' || ActiveNode.type=='section' || ActiveNode.type=='nested_array') && user_has_edit_access" class="additional-item"  @click="addAdditionalFieldNestedArray()">mdi-file-tree</v-icon>
                     <v-icon title="Add custom NestedArray field" v-else class="disabled-button-color">mdi-file-tree</v-icon>
                   </div>
 
                 </div>
-              </div>
-            </div>
-          </div>
+              </v-col>
+            </v-row>
+          </v-col>
 
 
           <!--content section-->
-          <div class="col-md-9 bg-light" style="height:100vh;">
+          <v-col cols="12" md="9" class="bg-light" style="height:100vh;">
 
 
 
@@ -278,57 +329,112 @@
 
                 <h5>{{$t('description')}}</h5>
 
-                <div class="form-group">
-                  <label>{{$t('type')}}:</label>
-                  <input type="text" class="form-control" disabled="disabled" v-model="user_template_info.data_type">
+                <div class="mb-3">
+                  <label class="mb-1 d-block">{{$t('type')}}:</label>
+                  <v-text-field
+                    v-model="user_template_info.data_type"
+                    disabled
+                    outlined
+                    dense
+                    hide-details
+                  ></v-text-field>
                 </div>
 
-
-                <div class="form-group">
-                  <label>{{$t('language')}}:</label>
-                  <input type="text" class="form-control" placeholder="EN" v-model="user_template_info.lang" maxlength="30">
+                <div class="mb-3">
+                  <label class="mb-1 d-block">{{$t('language')}}:</label>
+                  <v-text-field
+                    v-model="user_template_info.lang"
+                    placeholder="EN"
+                    maxlength="30"
+                    outlined
+                    dense
+                    hide-details
+                    :disabled="!user_has_edit_access"
+                  ></v-text-field>
                 </div>
 
-                <div class="form-group">
-                  <label>{{$t('name')}}:</label>
-                  <input type="text" class="form-control" v-model="user_template_info.name" maxlength="150">
+                <div class="mb-3">
+                  <label class="mb-1 d-block">{{$t('name')}}:</label>
+                  <v-text-field
+                    v-model="user_template_info.name"
+                    maxlength="150"
+                    outlined
+                    dense
+                    hide-details
+                    :disabled="!user_has_edit_access"
+                  ></v-text-field>
                 </div>
 
-                <div class="form-group">
-                  <label>{{$t('version')}}:</label>
-                  <input type="text" class="form-control" v-model="user_template_info.version" maxlength="50">
+                <div class="mb-3">
+                  <label class="mb-1 d-block">{{$t('version')}}:</label>
+                  <v-text-field
+                    v-model="user_template_info.version"
+                    maxlength="50"
+                    outlined
+                    dense
+                    hide-details
+                    :disabled="!user_has_edit_access"
+                  ></v-text-field>
                 </div>
 
-                <div class="form-group">
-                  <label>{{$t('organisation')}}:</label>
-                  <input type="text" class="form-control" v-model="user_template_info.organization" maxlength="150">
+                <div class="mb-3">
+                  <label class="mb-1 d-block">{{$t('organisation')}}:</label>
+                  <v-text-field
+                    v-model="user_template_info.organization"
+                    maxlength="150"
+                    outlined
+                    dense
+                    hide-details
+                    :disabled="!user_has_edit_access"
+                  ></v-text-field>
                 </div>
 
-                <div class="form-group">
-                  <label>{{$t('author')}}:</label>
-                  <input type="text" class="form-control" v-model="user_template_info.author" maxlength="150">
+                <div class="mb-3">
+                  <label class="mb-1 d-block">{{$t('author')}}:</label>
+                  <v-text-field
+                    v-model="user_template_info.author"
+                    maxlength="150"
+                    outlined
+                    dense
+                    hide-details
+                    :disabled="!user_has_edit_access"
+                  ></v-text-field>
                 </div>
 
-                <div class="form-group">
-                  <label>{{$t('description')}}:</label>
-                  <textarea style="height:200px;" maxlength="1000" class="form-control" v-model="user_template_info.description"></textarea>
+                <div class="mb-3">
+                  <label class="mb-1 d-block">{{$t('description')}}:</label>
+                  <v-textarea
+                    v-model="user_template_info.description"
+                    maxlength="1000"
+                    outlined
+                    rows="8"
+                    hide-details
+                    :disabled="!user_has_edit_access"
+                  ></v-textarea>
                 </div>
 
-                <div class="form-group">
-                  <label>{{$t('instructions')}}: </label>
+                <div class="mb-3">
+                  <label class="mb-1 d-block">{{$t('instructions')}}: </label>
                   <span style="font-size:12px;color:gray">Markdown<a href="https://www.markdownguide.org/cheat-sheet/" target="_blannk"><v-icon style="font-size:14px;">mdi-open-in-new</v-icon> </a></span>
-                  <textarea style="min-height:300px;"  class="form-control" v-model="user_template_info.instructions"></textarea>
+                  <v-textarea
+                    v-model="user_template_info.instructions"
+                    outlined
+                    rows="12"
+                    hide-details
+                    class="mt-2"
+                    :disabled="!user_has_edit_access"
+                  ></v-textarea>
                 </div>
 
               </div>
             </div>
 
-          </div>
+          </v-col>
           <!-- end content -->
 
           <!--end content section-->
 
-        </div>
+        </v-row>
 
       </div>
     </v-app>
@@ -356,7 +462,6 @@
     <?php echo include_once("vue-tree-field-component.js"); ?>
     <?php echo include_once("vue-table-grid-component.js"); ?>
     <?php echo include_once("vue-validation-rules-component.js"); ?>
-    <?php echo include_once("vue-props-tree-component.js"); ?>
     <?php echo include_once("vue-prop-edit-component.js"); ?>
 
 
@@ -561,6 +666,7 @@
           tree_active_items: [],
           is_dirty: false,
           treeSearchQuery: '',
+          user_has_edit_access: user_has_edit_access,
           files: {
             html: 'mdi-language-html5',
             js: 'mdi-nodejs',
@@ -628,6 +734,10 @@
       created: function() {
         this.init_template();
         this.init_tree();
+        // Reset dirty state after initialization to prevent false positives
+        this.$nextTick(() => {
+          this.is_dirty = false;
+        });
         let vm=this;
         window.addEventListener('beforeunload', function(event) {
           return vm.onWindowUnload(event);
@@ -675,7 +785,20 @@
             if (item.items) {
               this.delete_tree_item(item.items, item_key);
             }
-            if (item.key == item_key) {
+            // Also check props for array/nested_array nodes
+            if ((item.type === 'array' || item.type === 'nested_array') && item.props) {
+              item.props.forEach((prop, propIdx) => {
+                const propKey = prop.prop_key || prop.key;
+                if (propKey === item_key) {
+                  Vue.delete(item.props, propIdx);
+                }
+                // Recursively check nested props
+                if (prop.props) {
+                  this.delete_tree_item([{ items: prop.props }], item_key);
+                }
+              });
+            }
+            if (item.key == item_key || (item.prop_key && item.prop_key == item_key)) {
               Vue.delete(tree, idx);
             }
           });
@@ -699,16 +822,160 @@
           this.$set(this.ActiveNode, "rules", e);
         },
         removeField: function() {
-          this.delete_tree_item(this.UserTreeItems, this.ActiveNode.key);
-          this.ActiveNode = {};
+          const nodeKey = this.ActiveNode.key || this.ActiveNode.prop_key;
+          if (!nodeKey) return;
+          
+          // Use ActiveNodeIsProp to check if this is actually a prop (in an array's props array)
+          // Just having prop_key doesn't mean it's a prop - it could be a regular field with prop_key set
+          if (this.ActiveNodeIsProp) {
+            const propKeyToDelete = this.ActiveNode.prop_key || nodeKey;
+            const activeNodeKey = this.ActiveNode.key;
+            
+            // Recursive function to find and delete prop from props arrays
+            const deletePropFromProps = (propsArray, vm) => {
+              if (!propsArray || !Array.isArray(propsArray)) return false;
+              
+              // Try to find the prop by multiple methods
+              let propIndex = -1;
+              
+              // First, try direct object reference (most reliable)
+              propIndex = propsArray.findIndex(p => p === vm.ActiveNode);
+              
+              // If not found, try by prop_key
+              if (propIndex === -1 && propKeyToDelete) {
+                propIndex = propsArray.findIndex(p => {
+                  const pKey = p.prop_key || p.key;
+                  return pKey === propKeyToDelete;
+                });
+              }
+              
+              // If still not found, try by key
+              if (propIndex === -1 && activeNodeKey) {
+                propIndex = propsArray.findIndex(p => {
+                  const pKey = p.key;
+                  return pKey === activeNodeKey;
+                });
+              }
+              
+              // If still not found, try by matching both key and prop_key parts
+              if (propIndex === -1 && propKeyToDelete && propKeyToDelete.includes('.')) {
+                const keyPart = propKeyToDelete.split('.').pop();
+                propIndex = propsArray.findIndex(p => {
+                  return (p.key === keyPart) || (p.key === activeNodeKey);
+                });
+              }
+              
+              if (propIndex !== -1) {
+                Vue.delete(propsArray, propIndex);
+                vm.ActiveNode = {};
+                vm.tree_active_items = [];
+                return true;
+              }
+              
+              // Recursively check nested props
+              for (let prop of propsArray) {
+                if (prop.props && Array.isArray(prop.props)) {
+                  if (deletePropFromProps(prop.props, vm)) {
+                    return true;
+                  }
+                }
+              }
+              
+              return false;
+            };
+            
+            // Recursive function to search through tree items
+            const searchAndDelete = (items, vm) => {
+              if (!items || !Array.isArray(items)) return false;
+              
+              for (let item of items) {
+                // Check if this item is an array/nested_array with props
+                if ((item.type === 'array' || item.type === 'nested_array') && item.props && Array.isArray(item.props)) {
+                  if (deletePropFromProps(item.props, vm)) {
+                    return true;
+                  }
+                }
+                
+                // Continue searching in items
+                if (item.items && Array.isArray(item.items)) {
+                  if (searchAndDelete(item.items, vm)) {
+                    return true;
+                  }
+                }
+              }
+              
+              return false;
+            };
+            
+            // Start search with reference to this
+            const deleted = searchAndDelete(this.UserTreeItems, this);
+            
+            // If prop deletion failed, fall back to regular deletion
+            // This handles cases where a field has prop_key but isn't actually in a props array
+            if (!deleted) {
+              this.delete_tree_item(this.UserTreeItems, nodeKey);
+              this.ActiveNode = {};
+              this.tree_active_items = [];
+            }
+          } else {
+            // Regular field deletion
+            this.delete_tree_item(this.UserTreeItems, nodeKey);
+            this.ActiveNode = {};
+            this.tree_active_items = [];
+          }
+        },
+        // Find parent array node that contains a prop
+        findParentArrayNode: function(tree, propKey) {
+          if (!tree || !Array.isArray(tree)) {
+            return null;
+          }
+          
+          for (let item of tree) {
+            // Check if this item is an array/nested_array with props
+            if ((item.type === 'array' || item.type === 'nested_array') && item.props && Array.isArray(item.props)) {
+              // Check if prop is directly in this array's props
+              const found = item.props.find(p => {
+                const pKey = p.prop_key || p.key;
+                return pKey === propKey;
+              });
+              if (found) {
+                return item;
+              }
+              
+              // Check nested props recursively
+              for (let prop of item.props) {
+                if (prop.props && Array.isArray(prop.props)) {
+                  const nestedResult = this.findParentArrayNode(prop.props.map(p => ({ 
+                    type: 'nested_array', 
+                    props: [p] 
+                  })), propKey);
+                  if (nestedResult) {
+                    // Return the parent array that contains this nested prop
+                    return item;
+                  }
+                }
+              }
+            }
+            
+            // Recursively search in items
+            if (item.items && Array.isArray(item.items)) {
+              const result = this.findParentArrayNode(item.items, propKey);
+              if (result) return result;
+            }
+          }
+          return null;
         },
         cutField: function() {
-          let active_container_key = this.getNodeContainerKey(this.UserTreeItems, this.ActiveNode.key);
+          const nodeKey = this.ActiveNode.key || this.ActiveNode.prop_key;
+          if (!nodeKey) return;
+          
+          let active_container_key = this.getNodeContainerKey(this.UserTreeItems, nodeKey);
 
           //unselect cut field
           for (i = 0; i < this.cut_fields.length; i++) {
             if (active_container_key == this.cut_fields[i].container) {
-              if (this.cut_fields[i].node.key == this.ActiveNode.key) {
+              const cutNodeKey = this.cut_fields[i].node.key || this.cut_fields[i].node.prop_key;
+              if (cutNodeKey == nodeKey) {
                 this.cut_fields.splice(i, 1);
                 return;
               }
@@ -717,7 +984,8 @@
 
           this.cut_fields.push({
             "node": this.ActiveNode,
-            "container": this.getNodeContainerKey(this.UserTreeItems, this.ActiveNode.key)
+            "container": active_container_key,
+            "isProp": !!this.ActiveNode.prop_key
           });
           //this.removeField();
         },
@@ -730,18 +998,29 @@
             return false;
           }
 
-          if (!this.ActiveNode.items) {
-            this.$set(this.ActiveNode, "items", []);
-          }
-
-          let active_container_key = this.getNodeContainerKey(this.UserTreeItems, this.ActiveNode.key);
+          const activeNodeKey = this.ActiveNode.key || this.ActiveNode.prop_key;
+          let active_container_key = this.getNodeContainerKey(this.UserTreeItems, activeNodeKey);
 
           for (i = 0; i < this.cut_fields.length; i++) {
             if (active_container_key == this.cut_fields[i].container) {
+              const cutNodeKey = this.cut_fields[i].node.key || this.cut_fields[i].node.prop_key;
+              
               //remove existing item
-              this.delete_tree_item(this.UserTreeItems, this.cut_fields[i].node.key);
-              //add copied item
-              this.ActiveNode.items.push(this.cut_fields[i].node);
+              this.delete_tree_item(this.UserTreeItems, cutNodeKey);
+              
+              // If pasting into an array/nested_array and the cut item is a prop, add to props
+              if ((this.ActiveNode.type === 'array' || this.ActiveNode.type === 'nested_array') && this.cut_fields[i].isProp) {
+                if (!this.ActiveNode.props) {
+                  this.$set(this.ActiveNode, "props", []);
+                }
+                this.ActiveNode.props.push(this.cut_fields[i].node);
+              } else {
+                // Regular paste to items
+                if (!this.ActiveNode.items) {
+                  this.$set(this.ActiveNode, "items", []);
+                }
+                this.ActiveNode.items.push(this.cut_fields[i].node);
+              }
             }
           }
 
@@ -750,11 +1029,15 @@
         },
         //check if an item is selected for cut/paste        
         isItemCut: function(item) {
-          let active_container_key = this.getNodeContainerKey(this.UserTreeItems, item.key);
+          const itemKey = item.key || item.prop_key;
+          if (!itemKey) return false;
+          
+          let active_container_key = this.getNodeContainerKey(this.UserTreeItems, itemKey);
 
           for (i = 0; i < this.cut_fields.length; i++) {
             if (active_container_key == this.cut_fields[i].container) {
-              if (item.key == this.cut_fields[i].node.key) {
+              const cutNodeKey = this.cut_fields[i].node.key || this.cut_fields[i].node.prop_key;
+              if (itemKey == cutNodeKey) {
                 return true;
               }
             }
@@ -817,90 +1100,230 @@
           
 
           this.ActiveNode = parentNode.items[parentNode.items.length - 1];
-          this.tree_active_items = new Array();
-          this.tree_active_items.push(new_node_key);
-          this.initiallyOpen.push(new_node_key);
-          this.initiallyOpen.push(parentNode.key);          
+          
+          // Use $nextTick to wait for Vue to finish updating the tree before activating the new item
+          this.$nextTick(() => {
+            this.tree_active_items = new Array();
+            this.tree_active_items.push(new_node_key);
+            this.initiallyOpen.push(new_node_key);
+            this.initiallyOpen.push(parentNode.key);
+          });
+        },
+        buildPathPrefix: function(parentNode){
+          if (!parentNode) return null;
+          const parentKey = parentNode.key || parentNode.prop_key;
+          if (!parentKey) return null;
+          const path = this.getNodePath(this.UserTreeItems, parentKey);
+          if (!path || typeof path !== 'string') return null;
+          const parts = path.split('/').filter(p => p);
+          if (parts.length === 0) return null;
+          return parts.join('.');
         },
         generateNewFieldKey: function() {
+          const timestamp = Date.now();
+
+          // Keep admin_meta behavior unchanged
           if (this.TemplateDataType=='admin_meta'){
-            new_node_key = "options." + Date.now();
-          }else if (this.TemplateDataType=='custom'){
-            // For custom type, allow fields without prefix (user can set any key)
-            new_node_key = "field." + Date.now();
-          }else{
-            new_node_key = "additional." + Date.now();
+            return "options." + timestamp;
           }
-          return new_node_key;
+
+          const pathPrefix = this.buildPathPrefix(this.ActiveNode);
+
+          // If current container is the Additional section, keep the additional.* convention
+          if (this.ActiveNodeContainerKey === 'additional_container'){
+            const baseKey = "additional.ns:field_" + timestamp;
+            return pathPrefix ? `${pathPrefix}.ns:field_${timestamp}` : baseKey;
+          }
+
+          const baseKey = `ns:field_${timestamp}`;
+          return pathPrefix ? `${pathPrefix}.${baseKey}` : baseKey;
         },
         addAdditionalField: function() {
-          /*if (this.ActiveNodeContainerKey != 'additional_container') {
+          console.log("addAdditionalField");
+          let parentNode = this.ActiveNode;
+          const new_node_key = this.generateNewFieldKey();
+
+          console.log("new_node_key", new_node_key);
+          console.log("parentNode", parentNode);
+
+          if (!parentNode) {
             return false;
-          }*/
+          }
 
-          parentNode = this.ActiveNode;
-          new_node_key = this.generateNewFieldKey();
+          // If parent is array/nested_array, add as prop; otherwise add as child item
+          if (parentNode.type === 'array' || parentNode.type === 'nested_array') {
+            if (!parentNode.props) {
+              this.$set(parentNode, "props", []);
+            }
+            const propKey = new_node_key;
+            const propKeyShort = propKey.split('.').pop();
+            parentNode.props.push({
+              "key": propKeyShort,
+              "prop_key": propKey,
+              "title": "Untitled",
+              "type": "string",
+              "help_text": "",
+              "display_type": "text",
+              "is_additional": true
+            });
+          } else {
+            if (!parentNode.items) {
+              this.$set(parentNode, "items", []);
+            }
 
-          parentNode.items.push({
-            "key": new_node_key,
-            "title": "Untitled",
-            "type": "string",            
-            "help_text": "",
-            "display_type": "text"
-          });
+            parentNode.items.push({
+              "key": new_node_key,
+              "title": "Untitled",
+              "type": "string",            
+              "help_text": "",
+              "display_type": "text",
+              "is_additional": true
+            });
+          }
 
           this.ActiveNode = parentNode.items[parentNode.items.length - 1];
-          this.tree_active_items = new Array();
-          this.tree_active_items.push(new_node_key);
-          this.initiallyOpen.push(new_node_key);
-          this.initiallyOpen.push(parentNode.key);
+
+          console.log("ActiveNode", this.ActiveNode);
+
+          // Use $nextTick to wait for Vue to finish updating the tree before activating the new item
+          this.$nextTick(() => {
+            this.tree_active_items = new Array();
+            this.tree_active_items.push(new_node_key);
+
+            console.log("tree_active_items", this.tree_active_items);
+
+            this.initiallyOpen.push(new_node_key);
+            this.initiallyOpen.push(parentNode.key);
+
+            console.log("initiallyOpen DONE", this.initiallyOpen);
+          });
+
+          this.markDirty();
         },
         addAdditionalFieldArray: function() {
-          /*if (this.ActiveNodeContainerKey != 'additional_container') {
-            return false;
-          }*/
-
-          parentNode = this.ActiveNode;
-          new_node_key = this.generateNewFieldKey();
+          let parentNode = this.ActiveNode;
+          const new_node_key = this.generateNewFieldKey();
           
-          parentNode.items.push({
+          if (!parentNode) {
+            return false;
+          }
+
+          // Do not allow adding array props inside a plain array node (only simple fields allowed)
+          if (parentNode.type === 'array') {
+            return false;
+          }
+
+          const newArrayNode = {
             "key": new_node_key,
             "title": "Untitled",
             "type": "array",
             "help_text": "",
+            "is_additional": true,
             "props": [                           
             ]
+          };
+
+          if (parentNode.type === 'array' || parentNode.type === 'nested_array') {
+            if (!parentNode.props) {
+              this.$set(parentNode, "props", []);
+            }
+            newArrayNode.prop_key = new_node_key;
+            newArrayNode.key = new_node_key.split('.').pop();
+            parentNode.props.push(newArrayNode);
+            this.ActiveNode = parentNode.props[parentNode.props.length - 1];
+          } else {
+            if (!parentNode.items) {
+              this.$set(parentNode, "items", []);
+            }
+            parentNode.items.push(newArrayNode);
+            this.ActiveNode = parentNode.items[parentNode.items.length - 1];
+          }
+          
+          // Use $nextTick to wait for Vue to finish updating the tree before activating the new item
+          this.$nextTick(() => {
+            this.tree_active_items = new Array();
+            this.tree_active_items.push(new_node_key);
+            this.initiallyOpen.push(new_node_key);
+            this.initiallyOpen.push(parentNode.key);
           });
 
-          this.ActiveNode = parentNode.items[parentNode.items.length - 1];
-          this.tree_active_items = new Array();
-          this.tree_active_items.push(new_node_key);
-          this.initiallyOpen.push(new_node_key);
-          this.initiallyOpen.push(parentNode.key);
+          this.markDirty();
 
           //this.ActiveNode.items.push(this.ActiveCoreNode);
           //store.commit('activeCoreNode', {});
         },
         addAdditionalFieldNestedArray: function() {
-          parentNode = this.ActiveNode;          
-          new_node_key = this.generateNewFieldKey();
-          parentNode.items.push({
+          let parentNode = this.ActiveNode;          
+          const new_node_key = this.generateNewFieldKey();
+          
+          if (!parentNode) {
+            return false;
+          }
+
+          // Do not allow adding nested_array props inside a plain array node (only simple fields allowed)
+          if (parentNode.type === 'array') {
+            return false;
+          }
+
+          const newNestedNode = {
             "key": new_node_key,
             "title": "Untitled",
             "type": "nested_array",            
             "help_text": "",
+            "is_additional": true,
             "props": [                           
             ]
-          });
+          };
+
+          if (parentNode.type === 'array' || parentNode.type === 'nested_array') {
+            if (!parentNode.props) {
+              this.$set(parentNode, "props", []);
+            }
+            newNestedNode.prop_key = new_node_key;
+            newNestedNode.key = new_node_key.split('.').pop();
+            parentNode.props.push(newNestedNode);
+            this.ActiveNode = parentNode.props[parentNode.props.length - 1];
+          } else {
+            if (!parentNode.items) {
+              this.$set(parentNode, "items", []);
+            }
+            parentNode.items.push(newNestedNode);
+            this.ActiveNode = parentNode.items[parentNode.items.length - 1];
+          }
           
-          this.ActiveNode = parentNode.items[parentNode.items.length - 1];
-          this.tree_active_items = new Array();
-          this.tree_active_items.push(new_node_key);
-          this.initiallyOpen.push(new_node_key);
-          this.initiallyOpen.push(parentNode.key);
+          // Use $nextTick to wait for Vue to finish updating the tree before activating the new item
+          this.$nextTick(() => {
+            this.tree_active_items = new Array();
+            this.tree_active_items.push(new_node_key);
+            this.initiallyOpen.push(new_node_key);
+            this.initiallyOpen.push(parentNode.key);
+          });
+
+          this.markDirty();
         },
         UpdateActiveNodeKey: function(e){
+          console.log("UpdateActiveNodeKey START...........");
+          console.log("UpdateActiveNodeKey", e);
+          const oldKey = this.ActiveNode.key || this.ActiveNode.prop_key;
           this.ActiveNode.key = e;
+          // Keep tree selection in sync with key changes to avoid UI errors
+          if (Array.isArray(this.tree_active_items)) {
+            const idx = this.tree_active_items.indexOf(oldKey);
+            if (idx !== -1) {
+              this.$set(this.tree_active_items, idx, e);
+            }
+          }
+          if (Array.isArray(this.initiallyOpen) && this.initiallyOpen.indexOf(e) === -1) {
+            this.initiallyOpen.push(e);
+          }
+          console.log("ActiveNode", this.ActiveNode);
+          console.log("markDirty");
+          this.markDirty();
+          console.log("markDirty DONE");
+        },
+        markDirty: function() {
+          // Explicitly mark template as dirty when any field is modified
+          this.is_dirty = true;
         },
         getNodeProps: function(node) {
 
@@ -913,6 +1336,34 @@
           }
 
           return [];
+        },
+        // Find parent node that contains a prop
+        findPropParentNode: function(propKey) {
+          // Search through user template to find the array/nested_array that contains this prop
+          const findInTree = (items) => {
+            for (let item of items) {
+              if ((item.type === 'array' || item.type === 'nested_array') && item.props) {
+                const found = item.props.find(p => (p.prop_key || p.key) === propKey);
+                if (found) {
+                  return item;
+                }
+                // Check nested props
+                for (let prop of item.props) {
+                  if (prop.props) {
+                    const nestedResult = findInTree([{ items: prop.props }]);
+                    if (nestedResult) return nestedResult;
+                  }
+                }
+              }
+              if (item.items) {
+                const result = findInTree(item.items);
+                if (result) return result;
+              }
+            }
+            return null;
+          };
+          
+          return findInTree(this.UserTreeItems);
         },
         moveUp: function() {
           parentNode = this.findNodeParent(this.UserTemplate, this.ActiveNode.key);
@@ -988,25 +1439,59 @@
           return found;
         },
         getNodePath: function(arr, name) {
-          if (!arr) {
+          if (!arr || !name) {
             return false;
           }
 
           for (let item of arr) {
-            if (item.key === name) return `/${item.key}`;
+            const itemKey = item.key || item.prop_key;
+            if (!itemKey) continue;
+            
+            if (itemKey === name) return `/${itemKey}`;
+            
             if (item.items) {
               const child = this.getNodePath(item.items, name);
-              if (child) return `/${item.key}${child}`
+              if (child) return `/${itemKey}${child}`
+            }
+            
+            // Also check props for array/nested_array
+            if ((item.type === 'array' || item.type === 'nested_array') && item.props && Array.isArray(item.props)) {
+              for (let prop of item.props) {
+                const propKey = prop.prop_key || prop.key;
+                if (!propKey) continue;
+                
+                if (propKey === name) return `/${itemKey}/${propKey}`;
+                
+                if (prop.props && Array.isArray(prop.props)) {
+                  const child = this.getNodePath(prop.props.map(p => ({ ...p, key: p.prop_key || p.key })), name);
+                  if (child) return `/${itemKey}${child}`
+                }
+              }
             }
           }
+          return false;
         },
         getNodeContainerKey: function(tree, node_key) {
+          if (!node_key) return null;
           let el_path = this.getNodePath(tree, node_key);
-          return el_path.split("/")[1];
+          if (!el_path || typeof el_path !== 'string') {
+            return null;
+          }
+          const parts = el_path.split("/").filter(p => p); // Filter out empty strings
+          return parts.length > 0 ? parts[0] : null;
         },
         saveTemplate: function() {
+          if (!this.user_has_edit_access) {
+            alert(this.$t("read_only") + " - " + this.$t("no_edit_permission"));
+            return;
+          }
+          
           vm = this;
           let url = CI.base_url + '/api/templates/update/' + this.user_template_info.uid;
+
+          // Sync UserTreeItems back to UserTemplate.items before saving
+          // This ensures all changes made to the tree are saved
+          this.$store.state.user_template.items = this.UserTreeItems;
 
           formData = this.user_template_info;
           formData.template = this.UserTemplate;
@@ -1072,6 +1557,7 @@
               if (filteredChildren.length > 0) {
                 return {
                   ...item,
+                  _originalItem: item._originalItem || item,
                   items: filteredChildren
                 };
               }
@@ -1118,18 +1604,35 @@
         user_template_info: {
           deep: true,
           handler(val, oldVal) {
-            if (JSON.stringify(oldVal) == '{}') {
+            // Don't mark as dirty during initialization
+            if (!oldVal || JSON.stringify(oldVal) == '{}' || Object.keys(oldVal).length === 0) {
               this.is_dirty = false;
               return;
             }
             this.is_dirty = true;
           }
         },
+        UserTemplate: 
+         {            
+            deep:true,
+            immediate: false,
+            handler(val, oldVal){
+              // Don't mark as dirty during initialization or if oldVal is undefined/null/empty
+              if (!oldVal || !oldVal.items) {
+                return;
+              }
+              
+              // Mark as dirty when UserTemplate changes (including nested property changes)
+              this.is_dirty=true;   
+             }
+         },
         UserTemplateClone: 
          {            
             deep:true,
+            immediate: false,
             handler(val, oldVal){
-              if (JSON.stringify(oldVal) == '{}') {
+              // Don't mark as dirty during initialization or if oldVal is undefined/null/empty
+              if (!oldVal || JSON.stringify(oldVal) == '{}' || (typeof oldVal === 'object' && Object.keys(oldVal).length === 0)) {
                 this.is_dirty=false;
                 return;
               }
@@ -1140,6 +1643,20 @@
 
       },
       computed: {
+        isCoreTemplate: function() {
+          if (!this.user_template_info) {
+            return false;
+          }
+          // Core templates have template_type === 'core'
+          // Generated templates also cannot be edited, but we're specifically checking for core here
+          return this.user_template_info.template_type === 'core';
+        },
+        isEditable: function() {
+          // Template is editable if:
+          // 1. It's not a core template
+          // 2. User has edit access
+          return !this.isCoreTemplate && this.user_has_edit_access;
+        },
         TemplateIsAdminMeta(){
           return this.user_template_info.data_type=='admin_meta';
         },
@@ -1192,13 +1709,19 @@
           }
         },
         ActiveNodekey() {
-          return JSON.parse(JSON.stringify(this.ActiveNode.key));
+          if (!this.ActiveNode) return null;
+          const nodeKey = this.ActiveNode.key || this.ActiveNode.prop_key;
+          return nodeKey ? JSON.parse(JSON.stringify(nodeKey)) : null;
         },
         ActiveNodeContainerKey(){
-          return this.getNodeContainerKey(this.UserTreeItems, this.ActiveNode.key);
+          if (!this.ActiveNode) return null;
+          const nodeKey = this.ActiveNode.key || this.ActiveNode.prop_key;
+          if (!nodeKey) return null;
+          return this.getNodeContainerKey(this.UserTreeItems, nodeKey);
         },
         ActiveNodeEnum: {
           get: function() {
+            if (!this.ActiveNode) return [];
             if (this.ActiveNode.enum && this.ActiveNode.enum.length > 0 && typeof(this.ActiveNode.enum[0]) == 'string') {
               let enum_list = [];
               this.ActiveNode.enum.forEach(function(item) {
@@ -1210,54 +1733,65 @@
               Vue.set(this.ActiveNode, "enum", enum_list);
               return enum_list;
             }
-            return this.ActiveNode.enum;
+            return this.ActiveNode.enum || [];
           },
           set: function(newValue) {
+            if (!this.ActiveNode) return;
             Vue.set(this.ActiveNode, "enum", newValue);
           }
         },
         ActiveNodeEnumStoreColumn:{
           get: function(){
+            if (!this.ActiveNode) return 'both';
             if (this.ActiveNode.enum_store_column){
               return this.ActiveNode.enum_store_column;
             }
             return 'both';
           },
           set: function(newValue){
+            if (!this.ActiveNode) return;
             Vue.set(this.ActiveNode, "enum_store_column", newValue);
         }
           
         },
         ActiveNodeEnumCount() {
-          if (this.ActiveNode.enum) {
-            return this.ActiveNode.enum.length;
+          if (!this.ActiveNode || !this.ActiveNode.enum) {
+            return 0;
           }
-          return 0;
+          return this.ActiveNode.enum.length;
         },
         ActiveNodeHasAdditionalPrefix(){
-            if (!this.ActiveNode.key) {
+            if (!this.ActiveNode) return false;
+            const nodeKey = this.ActiveNode.key || this.ActiveNode.prop_key;
+            if (!nodeKey) {
               return false;
             }
             // For custom type, don't require additional. prefix
             if (this.TemplateIsCustom) {
               return false;
             }
-            return this.ActiveNode.key.indexOf('additional.')==0;
+            return nodeKey.indexOf('additional.')==0;
         },
         ActiveCoreNode() {
           return this.$store.state.active_core_node;
         },
         ActiveNodeIsField() {
+          if (!this.ActiveNode) return false;
+          // If it's a prop (has prop_key), it's a field
+          if (this.ActiveNode.prop_key) {
+            return true;
+          }
+          // Regular fields
           if (!this.ActiveNode.type || this.ActiveNode.type == 'section' || this.ActiveNode.type == 'section_container') {
             return false;
           }
           return true;
         },
         ActiveNodeControlledVocabColumns() {
-          if (this.ActiveNode.props) {
-            return this.ActiveNode.props;
+          if (!this.ActiveNode || !this.ActiveNode.props) {
+            return false;
           }
-          return false;
+          return this.ActiveNode.props;
         },
         ActiveNodeSimpleControlledVocabColumns() {
           return [{
@@ -1274,6 +1808,7 @@
 
         },
         ActiveArrayNodeIsNested() {
+          if (!this.ActiveNode || !this.ActiveNode.type) return false;
           if (this.ActiveNode.type == 'array' || this.ActiveNode.type == 'nested_array') {
             let isNested = false;
 
@@ -1283,7 +1818,7 @@
             }
 
             this.ActiveNode.props.forEach((prop, index) => {
-              if (prop.props) {
+              if (prop && prop.props) {
                 isNested = true;
               }
             });
@@ -1291,6 +1826,65 @@
             return isNested;
           }
           return false;
+        },
+        ActiveNodeIsInsideNestedArray() {
+          // Check if the ActiveNode (section) is inside a nested_array
+          // Sections should never show tabs, so this is mainly for clarity
+          if (!this.ActiveNode || !this.ActiveNode.type) {
+            return false;
+          }
+          
+          // If it's a section, check if it's inside a nested_array
+          if (this.ActiveNode.type === 'section') {
+            const nodeKey = this.ActiveNode.key || this.ActiveNode.prop_key;
+            if (!nodeKey) return false;
+            
+            // Find the parent of this section by searching the tree
+            const findParent = (items, targetKey) => {
+              if (!items || !Array.isArray(items)) return null;
+              
+              for (let item of items) {
+                // Check if this item's items array contains the target section
+                if (item.items && Array.isArray(item.items)) {
+                  const found = item.items.find(child => {
+                    const childKey = child.key || child.prop_key;
+                    return childKey === targetKey;
+                  });
+                  
+                  if (found) {
+                    // Found it - return the parent
+                    return item;
+                  }
+                  
+                  // Recursively check nested items
+                  const nestedResult = findParent(item.items, targetKey);
+                  if (nestedResult) {
+                    return nestedResult;
+                  }
+                }
+              }
+              
+              return null;
+            };
+            
+            const parent = findParent(this.UserTreeItems, nodeKey);
+            // Return true if parent is a nested_array
+            return parent && parent.type === 'nested_array';
+          }
+          
+          return false;
+        },
+        ActiveNodeIsProp() {
+          // Check if ActiveNode is actually a prop (inside an array's props array)
+          if (!this.ActiveNode || !this.ActiveNode.prop_key) return false;
+          // If it has prop_key, check if it's actually in an array's props
+          const parent = this.findPropParentNode(this.ActiveNode.prop_key);
+          return parent !== null && parent !== undefined;
+        },
+        propParentNode() {
+          // Get the parent node for a prop
+          if (!this.ActiveNode || !this.ActiveNode.prop_key) return null;
+          return this.findPropParentNode(this.ActiveNode.prop_key);
         },
       }
     });

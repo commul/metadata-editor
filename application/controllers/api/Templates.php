@@ -122,11 +122,7 @@ class Templates extends MY_REST_Controller
 				throw new Exception("TEMPLATE_NOT_FOUND");
 			}
 
-			$response=array(
-				'status'=>'success',
-				'result'=>$result
-			);			
-			$this->set_response($response, REST_Controller::HTTP_OK);
+			$this->set_response($result, REST_Controller::HTTP_OK);
 		}
 		catch(Exception $e){
 			$error_output=array(

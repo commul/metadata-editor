@@ -16,7 +16,7 @@ Vue.component('vue-prop-key-field', {
         isKeyValid(){
             // key must be unique
             // key must not contain spaces
-            // key can only contain dot, letters, numbers, and underscores
+            // key can only contain dot, letters, numbers, underscores, dashes, or colons
             // key cannot be empty            
             let key=this.local_value;
 
@@ -28,9 +28,9 @@ Vue.component('vue-prop-key-field', {
                 return false;
             }
 
-            //check all parts only contain letters, numbers, and underscores, dashes
-            for(let i=1;i<parts.length;i++){
-                if (parts[i].match(/^[a-zA-Z0-9_-]+$/)==null){
+            //check all parts only contain letters, numbers, underscores, dashes, or colons
+            for(let i=0;i<parts.length;i++){
+                if (parts[i].match(/^[a-zA-Z0-9:_-]+$/)==null){
                     return false;
                 }
             }
@@ -66,7 +66,7 @@ Vue.component('vue-prop-key-field', {
         {
             // key must be unique
             // key must not contain spaces
-            // key can only contain dot, letters, numbers, and underscores
+            // key can only contain dot, letters, numbers, underscores, dashes, or colons
             // key cannot be empty
 
             this.validation_errors=[];
@@ -77,9 +77,9 @@ Vue.component('vue-prop-key-field', {
                 this.validation_errors.push('Key cannot be empty');
             }
 
-            //key can only contain letters, numbers, and underscores
-            if (key.match(/^[a-zA-Z0-9_-]+$/)==null){
-                this.validation_errors.push('Key can only contain letters, numbers, and underscores');
+            //key can only contain letters, numbers, underscores, dashes, or colons
+            if (key.match(/^[a-zA-Z0-9:_-]+$/)==null){
+                this.validation_errors.push('Key can only contain letters, numbers, underscores, dashes, or colons');
             }
            
             return this.validation_errors.length==0;
@@ -88,7 +88,14 @@ Vue.component('vue-prop-key-field', {
     template: `
         <div class="vue-prop-key-field">
 
-            <input type="text" class="form-control" id="key" placeholder="Key" v-model="local_value" v-on:blur="UpdateKeyValue">
+            <v-text-field
+                id="key"
+                placeholder="Key"
+                v-model="local_value"
+                @blur="UpdateKeyValue"
+                outlined
+                dense
+            ></v-text-field>
                 
             <div class="text-secondary font-small" style="margin-top:4px;font-size:small">
                 <div v-for="error in validation_errors" class="text-danger">{{error}}</div>

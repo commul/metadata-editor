@@ -308,8 +308,11 @@ class Editor_template_model extends ci_model {
 		$this->db->order_by('name','ASC');
 		$this->db->order_by('changed','DESC');
 		$this->db->where_in("data_type",$types);
-		$this->db->where_not_in("is_deleted",1);//exclude deleted
+
+		//exclude deleted
+		$this->db->where("(`is_deleted` IS NULL OR `is_deleted` != 1)");
 		$result= $this->db->get('editor_templates')->result_array();
+
 		$result=$this->decorate_template_rows($result);
 		$result=$this->decorate_template_rows($result);
 

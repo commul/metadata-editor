@@ -234,12 +234,7 @@
                         <span :title="item.changed_by_email" v-if="item.changed_by_username">{{item.changed_by_username}}</span>
                       </template>
                       <template v-slot:item.name="{ item }">
-                        <div v-if="isReadOnlyTemplate(item)">
-                          <span :title="'UID: ' + item.uid" href="#">{{item.name}}</span>                          
-                        </div>
-                        <div v-else>
-                          <a :title="'UID: ' + item.uid"  target="_blank" :href="getTemplateEditLink(item)" @xclick="editTemplate(item.uid)">{{item.name}}</a>
-                        </div>
+                        <a :title="'UID: ' + item.uid"  target="_blank" :href="getTemplateEditLink(item)" @xclick="editTemplate(item.uid)">{{item.name}}</a>
                       </template>
                     </v-data-table>
 

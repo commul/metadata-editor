@@ -103,8 +103,10 @@ Vue.component('prop-edit', {
       updatePropKey: function(e)
       {
         console.log("updating prop key", e);
-        this.prop.key=e;
-        this.prop.prop_key=this.parent.key + '.' + e;
+        const cleanedKey = (e || '').trim();
+        this.prop.key=cleanedKey;
+        // prop_key is always the full path based on parent + key
+        this.prop.prop_key=this.parent.key + '.' + cleanedKey;
       },    
       isField: function(field_type){
         let field_types= [

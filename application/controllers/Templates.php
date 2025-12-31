@@ -41,7 +41,23 @@ class Templates extends MY_Controller {
 			show_error("Template not found");
 		}
 
-		$this->editor_acl->user_has_template_access($uid,$permission='edit');
+		
+		// Check if template is a core template (core templates cannot be edited)
+		$is_core_template = (isset($user_template['template_type']) && $user_template['template_type'] === 'core') 
+			|| $this->Editor_template_model->get_core_template_by_uid($uid);
+		
+		// Check if user has edit access (only for custom templates)
+		$user_has_edit_access = false;
+		if (!$is_core_template) {
+			try {
+				$this->editor_acl->user_has_template_access($uid,$permission='edit');
+				$user_has_edit_access = true;
+			} catch (Exception $e) {
+				// User doesn't have edit access, but can still view
+				$user_has_edit_access = false;
+			}
+		}
+		
 		$core_templates=$this->Editor_template_model->get_core_template_by_data_type($user_template['data_type']);
 
 		$core_template=null;
@@ -69,7 +85,8 @@ class Templates extends MY_Controller {
 			'core_template'=>$core_template,
 			'user_template'=>$user_template,
 			'translations'=>$this->lang->language,
-			'template_icon_url'=>$template_icon_url
+			'template_icon_url'=>$template_icon_url,
+			'user_has_edit_access'=>$user_has_edit_access
 		);
 
 		unset($options['user_template_info']['template']);

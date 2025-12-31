@@ -1,7 +1,7 @@
 <div class="prop-edit-component">
     <div v-if="prop.key">
 
-        <div class="form-group" v-if="HasAdditionalPrefix(parent.key) || isAdminMetaTemplate()">
+        <div class="mb-3">
             <label for="name">{{$t('key')}}:</label>
             <vue-prop-key-field                
                 :parent="parent"
@@ -9,56 +9,67 @@
                 @input="updatePropKey"
                 >
             </vue-prop-key-field>
-            <div class="text-secondary font-small mb-3" >{{$t('Unique name for the field')}}</div>
-               
+            <div v-if="prop.prop_key" class="text-secondary font-small mb-3" >{{prop.prop_key}}</div>
         </div>
 
-        <div class="form-group">
-            <label for="name">{{$t('type')}}:</label>
-            <input type="text" class="form-control" v-model="prop.type" disabled="disabled">
+        <div class="mb-3">
+            <label class="mb-1 d-block">{{$t('type')}}:</label>
+            <v-text-field
+                v-model="prop.type"
+                disabled
+                outlined
+                dense
+                hide-details
+            ></v-text-field>
         </div>
 
-        <div class="form-group">
-            <label for="name">{{$t('label')}}:</label>
-            <input type="text" class="form-control" v-model="prop.title">
-            <div class="text-secondary font-small" style="margin-top:4px;font-size:small">
-                <span class="pl-3">{{$t('name')}}: {{prop.key}}</span>
-                <span class="pl-3">{{$t('type')}}: {{prop.type}}</span>
-            </div>
+        <div class="mb-3">
+            <label class="mb-1 d-block">{{$t('label')}}:</label>
+            <v-text-field
+                v-model="prop.title"
+                outlined
+                dense
+                hide-details
+            ></v-text-field>
+        </div>
+        <div class="text-secondary font-small mb-3" style="font-size:small">
+            <span class="pl-3">{{$t('name')}}: {{prop.key}}</span>
+            <span class="pl-3">{{$t('type')}}: {{prop.type}}</span>
         </div>
 
-        <div class="row">
-            <div class="col-auto">
-                <div class="form-group form-check" v-if="prop.type!=='section' &&  prop.type!=='section_container'">
-                    <input type="checkbox" class="form-check-input" id="required_prop" v-model="prop.is_required" >
-                    <label class="form-check-label" for="required_prop">{{$t("required")}}</label>
-                </div>
-            </div>
+        <v-row class="mb-3">
+            <v-col cols="auto">
+                <v-checkbox
+                    v-if="prop.type!=='section' &&  prop.type!=='section_container'"
+                    v-model="prop.is_required"
+                    :label="$t('required')"
+                    hide-details
+                ></v-checkbox>
+            </v-col>
 
-            <div class="col-auto">
-                <div class="form-group form-check" v-if="prop.type!=='section' &&  prop.type!=='section_container'">
-                    <input type="checkbox" class="form-check-input" id="recommended_prop" v-model="prop.is_recommended">
-                    <label class="form-check-label" for="recommended_prop">{{$t("recommended")}}</label>
-                </div>
-            </div>
+            <v-col cols="auto">
+                <v-checkbox
+                    v-if="prop.type!=='section' &&  prop.type!=='section_container'"
+                    v-model="prop.is_recommended"
+                    :label="$t('recommended')"
+                    hide-details
+                ></v-checkbox>
+            </v-col>
+        </v-row>
 
-            <!--
-            <div class="col-auto">
-                <div class="form-group form-check" v-if="prop.type!=='section' &&  prop.type!=='section_container'">
-                    <input type="checkbox" class="form-check-input" id="private_prop" v-model="prop.is_private">
-                    <label class="form-check-label" for="private_prop">{{$t("private")}}</label>
-                </div>
-            </div>
-            -->
-        </div>
-
-        <div class="form-group">
-            <label for="name">{{$t('description')}}:</label>
-            <textarea class="form-control" v-model="prop.help_text"/>
+        <div class="mb-3">
+            <label class="mb-1 d-block">{{$t('description')}}:</label>
+            <v-textarea
+                v-model="prop.help_text"
+                outlined
+                rows="4"
+                hide-details
+            ></v-textarea>
         </div> 
 
     </div>
-    <template>
+    <!-- Only show tabs for non-section props - sections should work like regular sections -->
+    <template v-if="prop.type!=='section' && prop.type!=='section_container'">
         <v-tabs background-color="transparent" class="mb-5" :key="prop.prop_key">
             <v-tab  v-if="isField(prop.type) || prop.type=='simple_array'">{{$t("display")}}</v-tab>
             <v-tab><span v-if="prop.enum && prop.enum.length>0"><v-icon style="color:green;">mdi-circle-medium</v-icon></span>{{$t("controlled_vocabulary")}}</v-tab>
@@ -69,27 +80,26 @@
             <v-tab-item class="p-3"  v-if="isField(prop.type)  || prop.type=='simple_array'">
 
                 <!--display-->
-                <div class="form-group" v-if="prop.type!='simple_array'">
-                    <label >{{$t("data_type")}}:</label>
-                    <select 
-                        v-model="prop.type" 
-                        class="form-control form-field-dropdown" >        
-                        <option v-for="field_type in field_data_types">
-                            {{field_type}}
-                        </option>
-                    </select>
+                <div v-if="prop.type!='simple_array'" class="mb-3">
+                    <label class="mb-1 d-block">{{$t('data_type')}}:</label>
+                    <v-select
+                        v-model="prop.type"
+                        :items="field_data_types"
+                        outlined
+                        dense
+                        hide-details
+                    ></v-select>
                 </div>
 
-                <div class="form-group">
-                    <label>{{$t("display")}}:</label>
-                    <select 
-                        v-model="prop.display_type" 
-                        class="form-control form-field-dropdown" >        
-                        <option v-for="display_type in field_display_types">
-                            {{display_type}}
-                        </option>
-                    </select>
-
+                <div class="mb-3">
+                    <label class="mb-1 d-block">{{$t('display')}}:</label>
+                    <v-select
+                        v-model="prop.display_type"
+                        :items="field_display_types"
+                        outlined
+                        dense
+                        hide-details
+                    ></v-select>
                 </div>
                 <!--end display -->
 
@@ -98,7 +108,7 @@
             <v-tab-item class="p-3">
                 <!-- controlled vocab -->
                 <template>
-                <div class="form-group" >
+                <div class="mb-3" >
                     <label for="controlled_vocab">{{$t("controlled_vocabulary")}}:</label>
                     <div class="border bg-white" style="max-height:300px;overflow:auto;">
 
@@ -151,7 +161,7 @@
             <v-tab-item class="p-3">
                 <!-- default -->
                 <template v-if="prop.type!=='section_container' && prop.type!=='section'">
-                    <div class="form-group" >
+                    <div class="mb-3" >
                         <label for="controlled_vocab">{{$t("default")}}:</label>
                         <div class="border bg-white" style="max-height:300px;overflow:auto;" v-if="prop.type=='array'">                            
 
@@ -165,19 +175,29 @@
 
                         </div>
                         <div class="border bg-white" v-else>
-                            <div v-if="prop.display_type=='textarea'">
-                                <textarea class="form-control" style="height:200px;" v-model="prop.default"></textarea>
-                            </div>
-                            <div v-else-if="isField(prop.type)">
-                                <input class="form-control" type="text" v-model="prop.default"/>
-                            </div>                        
+                            <v-textarea
+                                v-if="prop.display_type=='textarea'"
+                                v-model="prop.default"
+                                outlined
+                                rows="8"
+                                hide-details
+                                class="mt-2"
+                            ></v-textarea>
+                            <v-text-field
+                                v-else-if="isField(prop.type)"
+                                v-model="prop.default"
+                                outlined
+                                dense
+                                hide-details
+                                class="mt-2"
+                            ></v-text-field>                        
                         </div>
                     </div>
                 </template>
                 <!-- end default -->
             </v-tab-item>
             <v-tab-item class="p-3" v-if="isField(prop.type)">
-                <div class="form-group" >
+                <div class="mb-3" >
                     <label for="controlled_vocab">{{$t("validation_rules")}}:</label>
                     <div class="bg-white border">
                         <validation-rules-component v-model="prop.rules" @update:value="RulesUpdate"  class="m-2 pb-2" />
@@ -186,13 +206,14 @@
             </v-tab-item>
 
             <v-tab-item class="p-3">
-                <div class="form-group" >
+                <div class="mb-3" >
                     <label for="controlled_vocab">{{$t("json")}}:</label>
-                    <pre>{{prop}}</pre>
+                    <div class="bg-white border" :style="prop && prop.type === 'nested_array' ? 'max-height: 300px; overflow-y: auto;' : ''">
+                        <pre>{{prop}}</pre>
+                    </div>
                 </div>
             </v-tab-item>
         </v-tabs>
-
     </template>
 </div>
     

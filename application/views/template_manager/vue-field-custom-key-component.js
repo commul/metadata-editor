@@ -49,7 +49,7 @@ Vue.component('vue-custom-key-field', {
         isKeyValid(){
             // key must be unique
             // key must not contain spaces
-            // key can only contain dot, letters, numbers, and underscores
+            // key can only contain dot, letters, numbers, underscores, dashes, or colons
             // key cannot be empty
             
             let key=this.local_value;
@@ -62,9 +62,9 @@ Vue.component('vue-custom-key-field', {
                 return false;
             }
 
-            //check all parts only contain letters, numbers, and underscores, dashes
-            for(let i=1;i<parts.length;i++){
-                if (parts[i].match(/^[a-zA-Z0-9_-]+$/)==null){
+            //check all parts only contain letters, numbers, underscores, dashes, or colons
+            for(let i=0;i<parts.length;i++){
+                if (parts[i].match(/^[a-zA-Z0-9:_-]+$/)==null){
                     return false;
                 }
             }
@@ -98,7 +98,7 @@ Vue.component('vue-custom-key-field', {
         {
             // key must be unique
             // key must not contain spaces
-            // key can only contain dot, letters, numbers, and underscores
+            // key can only contain dot, letters, numbers, underscores, dashes, or colons
             // key cannot be empty
 
             this.validation_errors=[];
@@ -117,9 +117,9 @@ Vue.component('vue-custom-key-field', {
                 this.validation_errors.push(this.$t('key_must_not_contain_empty_parts'));
             }
 
-            //check all parts only contain letters, numbers, dash, and underscores
-            for(let i=1;i<parts.length;i++){
-                if (parts[i].match(/^[a-zA-Z0-9_-]+$/)==null){
+            //check all parts only contain letters, numbers, dash, underscore, or colon
+            for(let i=0;i<parts.length;i++){
+                if (parts[i].match(/^[a-zA-Z0-9:_-]+$/)==null){
                     this.validation_errors.push(this.$t('key_can_only_contain_letters_numbers_and_underscores'));
                     break;
                 }
@@ -138,10 +138,17 @@ Vue.component('vue-custom-key-field', {
 
               <div><label for="key">{{$t("key")}}:</label></div>
 
-                <div class="form-group">
-                    <input type="text" class="form-control" id="key" placeholder="Key" v-model="local_value" v-on:blur="UpdateKeyValue" :disabled="isFieldLocked">
-                    <div class="text-secondary font-small" style="font-size:small">{{this.value}}</div>
-                </div>
+                <v-text-field
+                    id="key"
+                    placeholder="Key"
+                    v-model="local_value"
+                    @blur="UpdateKeyValue"
+                    :disabled="isFieldLocked"
+                    outlined
+                    dense
+                    class="mb-2"
+                ></v-text-field>
+                <div class="text-secondary font-small" style="font-size:small">{{this.value}}</div>
 
                 <div class="text-secondary font-small" style="margin-bottom:15px;font-size:small">                    
                     <div v-for="error in validation_errors" class="text-danger">{{error}}</div>
