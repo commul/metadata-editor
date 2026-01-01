@@ -131,16 +131,25 @@ const VueAdminMetadataEdit = Vue.component('admin-metadata-edit', {
             let url=CI.base_url + '/api/admin-metadata/data/'+ this.ProjectID + '/'+this.MetadataTemplateRaw.uid;
             axios.get( url
             ).then(function(response){
-                if (response.data && response.data.data && response.data.data.metadata){
+                if (response.data && response.data.data && !Array.isArray(response.data.data) && response.data.data.metadata){
                     if (vm.isEmptyObject(response.data.data.metadata)){
                         vm.metadata_model={};
                     }else{
                         vm.metadata_info=response.data.data;
                         vm.metadata_model=response.data.data.metadata;
                     }
-                    vm.is_dirty=false;                    
+                } else if (response.data && response.data.data && Array.isArray(response.data.data) && response.data.data.length === 0){
+                    // Empty array response - no metadata exists yet
+                    vm.metadata_model={};
+                    vm.metadata_info={};
                 }
-                vm.is_metadata_loading=false;
+                // Set is_dirty=false while is_metadata_loading is still true
+                // This ensures the watcher won't fire (it returns early when is_metadata_loading is true)
+                vm.is_dirty=false;
+                // Use nextTick to set is_metadata_loading=false after Vue processes everything
+                vm.$nextTick(function(){
+                    vm.is_metadata_loading=false;
+                });
             })
             .catch(function(response){
                 vm.errors=response;
@@ -185,7 +194,7 @@ const VueAdminMetadataEdit = Vue.component('admin-metadata-edit', {
             axios.post( url, json_data)
             .then(function(response){
                 alert(vm.$t("saved"));
-                vm.is_dirty=false;
+                // Load metadata will set is_dirty=false after updating the model
                 vm.loadMetadata();
             })
             .catch(function(response){
@@ -205,6 +214,11 @@ const VueAdminMetadataEdit = Vue.component('admin-metadata-edit', {
                 error_text = error.response.data.message;
             }
             return error_text;
+        },
+        navigateToChangeLog: function(){
+            if (this.MetadataTemplateRaw && this.MetadataTemplateRaw.uid) {
+                this.$router.push('/metadata-types/' + this.MetadataTemplateRaw.uid + '/change-log');
+            }
         },
     },
     computed: {        
@@ -272,11 +286,13 @@ const VueAdminMetadataEdit = Vue.component('admin-metadata-edit', {
                         <div style="font-weight:normal">{{$t("Edit")}} - <span v-if="MetadataTemplateRaw">{{MetadataTemplateRaw.name}}</span></div>
 
                         <div v-if="HasEditAccess">
+                            <v-btn  small outlined color="primary" class="mr-2" @click="navigateToChangeLog">{{$t("Change log")}}</v-btn>
                             <v-btn  small outlined color="red" class="mr-5" @click="deleteMetadata" >{{$t("delete")}}</v-btn>
                             <v-btn color="primary" small @click="saveMetadata" >{{$t("save")}} <span v-if="is_dirty">*</span></v-btn>
                             <v-btn  small>{{$t("cancel")}}</v-btn>
                         </div>
                         <div v-else>
+                            <v-btn  small class="mr-2" @click="navigateToChangeLog">{{$t("Change log")}}</v-btn>
                             <v-btn  small outlined color="red">{{$t("read_only")}}</v-btn>
                         </div>
                     </v-card-title>

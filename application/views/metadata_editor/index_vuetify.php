@@ -349,7 +349,6 @@
             );
             i++;
           }
-          console.log("metadata types nodes:",metadata_types_nodes);
           return metadata_types_nodes;
         },
         DataFilesTreeNodes(){
@@ -545,8 +544,10 @@
         '$store.state.geospatial_features': function() {
             this.update_tree();
         },
+        '$store.state.metadata_types': function(newVal, oldVal) {
+            this.init_tree_data();
+        },
         $route(to, from) {
-          console.log("route changed to", to.path, "from", from.path);
           this.setTreeActiveNode(to.path);
         },
         ProjectMetadata: 
@@ -992,7 +993,11 @@
         },
         update_tree: function()
         {
-          if (this.items.length<1){return;}
+          if (this.items.length<1){
+            return;
+          }
+
+          let metadataTypesNodeFound = false;
 
           k=0;
           for(k=0;k<=this.items.length;k++){            
@@ -1012,7 +1017,22 @@
             if (this.items[k]["key"]=="feature-catalogue"){
               this.items[k]["items"]=this.GeospatialFeatures;
             }
+
+            if (this.items[k]["key"]=="metadata-types"){
+              metadataTypesNodeFound = true;
+              this.items[k]["items"]=this.MetadataTypesTreeNodes;
+            }
             
+          }
+          // add admin metadata to tree
+          if (!metadataTypesNodeFound && this.MetadataTypesTreeNodes.length > 0) {
+            this.items.push({
+              title: this.$t('Administrative metadata'),
+              type: 'metadata-types',
+              file: 'database',
+              key:'metadata-types',
+              items:this.MetadataTypesTreeNodes
+            });
           }
         },        
         templateToTree: function (){

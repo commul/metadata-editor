@@ -162,6 +162,8 @@ class Admin_metadata extends MY_REST_Controller
      *  - limit
      *  - template - comma separated list of template uids
      *  - project_id
+     *  - date_from - filter by date from (format: YYYY-MM-DD), filters on 'changed' field
+     *  - date_to - filter by date to (format: YYYY-MM-DD), filters on 'changed' field
      * 
      * - returns metadata from multiple projects
      * 
@@ -175,6 +177,8 @@ class Admin_metadata extends MY_REST_Controller
             $limit=(int)$this->input->get('limit') ? (int)$this->input->get('limit') : 50;
             $template=$this->input->get('template');
             $project_id=$this->input->get('project_id');
+            $date_from=$this->input->get('date_from');
+            $date_to=$this->input->get('date_to');
 
             $template_uid_list=array();
             if (!empty($template)){
@@ -198,6 +202,25 @@ class Admin_metadata extends MY_REST_Controller
                 'templates'=>$templates_id_list,
                 'project_id'=>$project_id
             );
+
+            // Add date range filters if provided
+            if (!empty($date_from) || !empty($date_to)){
+                if (!empty($date_from)){
+                    $date_from_timestamp = $this->convert_date_to_unix($date_from);
+                    if ($date_from_timestamp === false){
+                        throw new Exception("Invalid date_from format. Use YYYY-MM-DD");
+                    }
+                    $search_options['date_from'] = $date_from_timestamp;
+                }
+
+                if (!empty($date_to)){
+                    $date_to_timestamp = $this->convert_date_to_unix($date_to, true);
+                    if ($date_to_timestamp === false){
+                        throw new Exception("Invalid date_to format. Use YYYY-MM-DD");
+                    }
+                    $search_options['date_to'] = $date_to_timestamp;
+                }
+            }
             
             $result=$this->Admin_metadata_model->search($search_options);
 
@@ -267,7 +290,7 @@ class Admin_metadata extends MY_REST_Controller
             }
             
             if (!$result){
-                throw new Exception("NO_METADATA_FOUND");
+                $result = array();
             }
 
             $response=array(
@@ -752,7 +775,7 @@ class Admin_metadata extends MY_REST_Controller
     }
 
 	
-    
+	
     function _auth_override_check()
 	{
 		if ($this->session->userdata('user_id')){
@@ -760,5 +783,35 @@ class Admin_metadata extends MY_REST_Controller
 		}
 		parent::_auth_override_check();
 	}
+
+    /**
+     * 
+     * Convert date string to Unix timestamp
+     * 
+     * @param string $date_iso - Date in YYYY-MM-DD format
+     * @param bool $is_end - If true, adds 86400 seconds (1 day) to include entire end date
+     * @return int|false - Unix timestamp or false on invalid format
+     * 
+     */
+    private function convert_date_to_unix($date_iso, $is_end=false)
+    {
+        // Validate date format (YYYY-MM-DD)
+        if (!preg_match('/^\d{4}-\d{2}-\d{2}$/', $date_iso)){
+            return false;
+        }
+
+        $date = strtotime($date_iso);
+        
+        if ($date === false){
+            return false;
+        }
+
+        // If this is an end date, add 86400 seconds (1 day) to include the entire day
+        if ($is_end){
+            $date += 86400;
+        }
+
+        return $date;
+    }
 	
 }

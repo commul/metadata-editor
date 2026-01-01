@@ -35,6 +35,9 @@ CCREATE TABLE `admin_metadata` (
     {
         parent::__construct();
 		//$this->output->enable_profiler(TRUE);
+        $this->load->library("Audit_log");
+        $this->load->model("Editor_model");
+        $this->load->model("Audit_log_model");
     }
 
 
@@ -108,6 +111,8 @@ CCREATE TABLE `admin_metadata` (
      *      limit: 10,
      *      templates: [1,2,3]
      *      project_id:1 or IDNO
+     *      date_from: Unix timestamp (filters on 'changed' field)
+     *      date_to: Unix timestamp (filters on 'changed' field)
      * }
      * 
      * 
@@ -129,6 +134,20 @@ CCREATE TABLE `admin_metadata` (
 
         if (isset($options['project_id'])){
             $this->db->where('admin_metadata.sid',$options['project_id']);
+        }
+
+        // Filter by date range on 'changed' field
+        $date_from = isset($options['date_from']) ? $options['date_from'] : null;
+        $date_to = isset($options['date_to']) ? $options['date_to'] : null;
+
+        if ($date_from && !$date_to){
+            $this->db->where('admin_metadata.changed >=', $date_from);
+        }
+        elseif ($date_to && !$date_from){
+            $this->db->where('admin_metadata.changed <=', $date_to);
+        }
+        elseif ($date_from && $date_to){
+            $this->db->where('(admin_metadata.changed >= '. $this->db->escape($date_from).' AND admin_metadata.changed <= '.$this->db->escape($date_to).')', null, false);
         }
                 
         $this->db->limit($limit,$offset);
@@ -237,7 +256,16 @@ CCREATE TABLE `admin_metadata` (
             $this->update($template_id,$sid,$data);            
         }
         else{
-            $this->insert($template_id,$sid,$data);
+            $insert_id = $this->insert($template_id,$sid,$data);
+            // Log create action directly
+            $this->audit_log->log_event(
+                'admin-metadata',
+                $insert_id,
+                'create', 
+                isset($data['metadata']) ? $data['metadata'] : array(), 
+                isset($data['user_id']) ? $data['user_id'] : null, 
+                $sid
+            );
         }
     }
 
@@ -417,13 +445,24 @@ CCREATE TABLE `admin_metadata` (
 
         $original_metadata=$admin_metadata_record['metadata'];
 
-        if(empty($original_metadata)){
+        if(empty($original_metadata) || (is_array($original_metadata) && count($original_metadata) == 0)){
+            if (!empty($new_metadata) && (is_array($new_metadata) && count($new_metadata) > 0)){
+                $this->audit_log->log_event(
+                    $obj_type_='admin-metadata',
+                    $obj_id_=$admin_metadata_record['id'],
+                    $action='update', 
+                    $metadata_=$new_metadata, 
+                    $user_id_=$user_id, 
+                    $obj_ref_id=$sid
+                );
+            }
             return;
         }
 
-        //generate diff
+        //generate diff for non-empty original metadata
         $diff=$this->Editor_model->get_metadata_diff($metadata_original_=$original_metadata,$new_metadata, $ignore_errors=true);
 
+        // If diff is empty, no changes were made, skip logging
         if (empty($diff)){
             return;
         }
@@ -449,6 +488,11 @@ CCREATE TABLE `admin_metadata` (
     {
         //get admin_metadata id
         $admin_metadata_id=$this->get_project_id_by_template($template_id,$project_id);
+
+        // If no admin_metadata record exists for this template/project, return empty array
+        if (!$admin_metadata_id){
+            return array();
+        }
 
         //get history from audit log
         return $this->Audit_log_model->get_history(

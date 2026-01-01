@@ -17,11 +17,11 @@ Vue.component('vue-dialog-admin-metadata-component', {
             
             axios.post( url, json_data
             ).then(function(response){
-                
+                // Reload metadata types list to update the store
+                vm.$store.dispatch('loadMetadataTypesList', {});
             })
             .catch(function(response){
                 vm.errors=response;
-                console.log("failed", response);
             });            
         },
         disableAdminMetadata: function(template_uid){
@@ -33,11 +33,11 @@ Vue.component('vue-dialog-admin-metadata-component', {
             };
             axios.post( url, json_data
             ).then(function(response){
-                
+                // Reload metadata types list to update the store
+                vm.$store.dispatch('loadMetadataTypesList', {});
             })
             .catch(function(response){
                 vm.errors=response;
-                console.log("failed", response);
             });
         },
         toggleMetadata: function(template){
