@@ -3,10 +3,13 @@
 
 /**
  * 
- * Import project metadata from JSON or XML files
+ * Import project metadata from JSON, JSONL or XML files
  * 
  * Supports:
  * - JSON metadata files (all project types)
+ * - JSONL (JSON Lines) metadata files (all project types)
+ *   - For survey/microdata: first line contains project metadata, subsequent lines contain variables
+ *   - For other types: first line contains project metadata (same as JSON)
  * - XML/DDI files (survey projects)
  * - XML metadata files (geospatial projects)
  * 
@@ -59,18 +62,21 @@ class ImportJsonMetadata
 
         // Check if file has an extension
         if (empty($file_ext)){
-            throw new Exception("File has no extension. File: " . $file_path . ". Only JSON and XML files are supported.");
+            throw new Exception("File has no extension. File: " . $file_path . ". Only JSON, JSONL and XML files are supported.");
         }
 
         // Route to appropriate importer based on file extension (try JSON first, then XML)
         if ($file_ext == 'json'){
             return $this->import_from_json($sid, $file_path, $validate, $options);
         }
+        else if ($file_ext == 'jsonl'){
+            return $this->import_from_jsonl($sid, $file_path, $validate, $options);
+        }
         else if ($file_ext == 'xml'){
             return $this->import_from_xml($sid, $file_path, $validate, $options);
         }
         else{
-            throw new Exception("Unsupported file type: " . $file_ext . ". File: " . $file_path . ". Only JSON and XML files are supported.");
+            throw new Exception("Unsupported file type: " . $file_ext . ". File: " . $file_path . ". Only JSON, JSONL and XML files are supported.");
         }
     }
     
@@ -147,6 +153,207 @@ class ImportJsonMetadata
         else{
             //import project metadata
             $this->import_project_metadata($type, $sid,$json_data,$validate);
+        }
+
+        return true;
+    }
+
+
+    /**
+     * 
+     * Import metadata from JSONL (JSON Lines) file
+     * 
+     * For survey/microdata projects:
+     * - First line contains project metadata (schema_type='survey' or 'microdata')
+     * - Subsequent lines contain variables (schema_type='variable')
+     * 
+     * For other project types:
+     * - First line contains project metadata (same as JSON)
+     * 
+     * @param int $sid - Project ID
+     * @param string $jsonl_file_path - Path to JSONL file
+     * @param bool $validate - Whether to validate the metadata
+     * @param array $options - Additional options (type, created_by, etc.)
+     * @return bool|array - Returns true or import result array
+     * 
+     */
+    private function import_from_jsonl($sid,$jsonl_file_path,$validate=true,$options=array())
+    {
+        // Read file line by line
+        $handle = fopen($jsonl_file_path, 'r');
+        if ($handle === false){
+            throw new Exception("Failed to open JSONL file: " . $jsonl_file_path);
+        }
+
+        $line_number = 0;
+        $project_data = null;
+        $first_line = true;
+        
+        // Batch processing for variables
+        $batch_size = 200;
+        $variable_batch = array();
+        $batch_count = 0;
+        $file_id_mappings = null;
+        $project_type = null;
+
+        try {
+            while (($line = fgets($handle)) !== false) {
+                $line_number++;
+                $line = trim($line);
+                
+                // Skip empty lines
+                if (empty($line)){
+                    continue;
+                }
+
+                // Parse JSON line
+                $json_data = json_decode($line, true);
+                
+                if ($json_data === null){
+                    $json_error = json_last_error();
+                    if ($json_error !== JSON_ERROR_NONE){
+                        throw new Exception("Invalid JSON format on line " . $line_number . ": " . json_last_error_msg());
+                    }
+                }
+
+                // Get schema_type from the line
+                $schema_type = isset($json_data['schema_type']) ? $json_data['schema_type'] : 
+                              (isset($json_data['type']) ? $json_data['type'] : null);
+
+                // First line should contain project metadata
+                if ($first_line) {
+                    if (!$schema_type){
+                        throw new Exception("Invalid JSONL file. First line missing 'schema_type' or 'type' field.");
+                    }
+
+                    // Check if first line is project metadata (survey, microdata, or other types)
+                    if ($schema_type == 'survey' || $schema_type == 'microdata' || 
+                        !in_array($schema_type, array('variable'))) {
+                        $project_data = $json_data;
+                        $project_data['type'] = $schema_type;
+                        $project_type = $schema_type;
+                        $first_line = false;
+                        
+                        // Check type mismatch
+                        if (isset($options['type']) && $options['type'] != $schema_type){
+                            throw new Exception("Project type mismatched. The metadata 'type' is set to '".$schema_type."', but the project type is set to '".$options['type']."'.");
+                        }
+                        
+                        // For survey/microdata, we need to process project metadata and datafiles first
+                        // to get file_id_mappings before processing variables
+                        if ($schema_type == 'survey' || $schema_type == 'microdata') {
+                            // Merge options into project data
+                            $project_data_merged = array_merge($project_data, $options);
+                            
+                            // Use template if set [template_uid]
+                            if (isset($project_data_merged['template_uid'])){
+                                //get template by uid
+                                $template=$this->ci->Editor_template_model->get_template_by_uid($project_data_merged['template_uid']);
+                                
+                                if (!$template){
+                                    $project_data_merged['template_uid']=null;
+                                }
+                            }
+                            
+                            // Extract data_files from project_data
+                            $datafiles = isset($project_data_merged['data_files']) ? $project_data_merged['data_files'] : array();
+                            
+                            // Import project metadata first
+                            $project_data_for_import = $project_data_merged;
+                            unset($project_data_for_import['data_files']);
+                            unset($project_data_for_import['variables']);
+                            unset($project_data_for_import['variable_groups']);
+                            
+                            $this->import_project_metadata($schema_type, $sid, $project_data_for_import, $validate);
+                            
+                            // Import data file metadata to get file_id_mappings
+                            $file_id_mappings = $this->import_datafile_metadata($sid, $datafiles, $validate);
+                        }
+                    } else {
+                        throw new Exception("Invalid JSONL file. First line must contain project metadata (schema_type should be 'survey', 'microdata', or other project type), but found: " . $schema_type);
+                    }
+                } else {
+                    // Subsequent lines for survey/microdata projects
+                    if ($schema_type == 'variable') {
+                        // This is a variable line - add to batch
+                        $variable_batch[] = $json_data;
+                        $batch_count++;
+                        
+                        // Process batch when it reaches batch_size
+                        if ($batch_count >= $batch_size) {
+                            if ($file_id_mappings !== null) {
+                                $this->import_variable_metadata($sid, $variable_batch, $file_id_mappings, $validate);
+                            } else {
+                                throw new Exception("File ID mappings not available when processing variable batch. This should not happen.");
+                            }
+                            
+                            // Clear batch and reset counter
+                            $variable_batch = array();
+                            $batch_count = 0;
+                            
+                            // Free memory
+                            unset($json_data);
+                        }
+                    } else {
+                        // For non-survey/microdata projects, only process the first line
+                        // If encounter more lines, log a warning but continue
+                        log_message('warning', "JSONL file contains additional lines after first line for non-survey/microdata project. Line " . $line_number . " will be ignored.");
+                    }
+                }
+            }
+        } finally {
+            fclose($handle);
+        }
+
+        if ($project_data === null){
+            throw new Exception("Invalid JSONL file. No project metadata found in first line.");
+        }
+
+        // Process any remaining variables in the batch (for survey/microdata projects)
+        if (!empty($variable_batch) && ($project_type == 'survey' || $project_type == 'microdata')) {
+            if ($file_id_mappings !== null) {
+                $this->import_variable_metadata($sid, $variable_batch, $file_id_mappings, $validate);
+            } else {
+                throw new Exception("File ID mappings not available when processing remaining variable batch. This should not happen.");
+            }
+            // Clear batch
+            $variable_batch = array();
+        }
+
+        // For non-survey/microdata projects, process project metadata
+        if ($project_type != 'survey' && $project_type != 'microdata') {
+            // Merge options into project data
+            $project_data = array_merge($project_data, $options);
+
+            // Use template if set [template_uid]
+            if (isset($project_data['template_uid'])){
+                //get template by uid
+                $template=$this->ci->Editor_template_model->get_template_by_uid($project_data['template_uid']);
+                
+                if (!$template){
+                    $project_data['template_uid']=null;
+                }
+            }        
+
+            //fix for geospatial - flatten identificationInfo array
+            $type = $project_data['type'];
+            if ($type=='geospatial'){
+                if (isset($project_data['description']['identificationInfo']) && 
+                        is_array($project_data['description']['identificationInfo']) &&
+                        isset($project_data['description']['identificationInfo'][0])
+                    ){
+                    $project_data['description']['identificationInfo']=$project_data['description']['identificationInfo'][0];
+                }
+            }
+
+            // Import based on project type
+            if ($type=='geospatial'){
+                $this->import_geospatial_project($type, $sid, $project_data, $validate, $options);
+            }
+            else{
+                //import project metadata (other types - same as JSON)
+                $this->import_project_metadata($type, $sid, $project_data, $validate);
+            }
         }
 
         return true;
@@ -267,7 +474,7 @@ class ImportJsonMetadata
     {
         $file_id_mapping=[];//need these to map file_id in variables
 
-        foreach($datafiles as $datafile)
+        foreach($datafiles as $df_idx => $datafile)
         {
             // Validate required fields
             if (!isset($datafile['file_name'])){
@@ -305,6 +512,7 @@ class ImportJsonMetadata
                 $this->ci->Editor_datafile_model->insert($sid,$datafile);
             }
         }
+        
         return $file_id_mapping;
     }
 
@@ -316,8 +524,42 @@ class ImportJsonMetadata
      */
     function import_variable_metadata($sid,$variables, $file_id_mappings, $validate=true)
     {
-        foreach($variables as $variable){
-
+        // Batch load existing variables to avoid individual lookups
+        $existing_vars_lookup = array();
+        
+        // Get unique fids from this batch
+        $batch_fids = array();
+        $batch_var_map = array(); // fid|name => true
+        foreach($variables as $variable) {
+            if (isset($variable['fid']) && isset($file_id_mappings[$variable['fid']])) {
+                $fid = $file_id_mappings[$variable['fid']];
+                $name = isset($variable['name']) ? $variable['name'] : null;
+                if ($name) {
+                    $batch_fids[$fid] = true;
+                    $batch_var_map[$fid . '|' . $name] = true;
+                }
+            }
+        }
+        
+        // Batch load existing variables for all fids in this batch
+        if (!empty($batch_fids)) {
+            $fids_list = array_keys($batch_fids);
+            $this->ci->db->select('fid, name, uid');
+            $this->ci->db->where('sid', $sid);
+            $this->ci->db->where_in('fid', $fids_list);
+            
+            $existing_vars = $this->ci->db->get('editor_variables')->result_array();
+            
+            // Build lookup map: fid|name => uid (only for variables in this batch)
+            foreach($existing_vars as $var) {
+                $var_key = $var['fid'] . '|' . $var['name'];
+                if (isset($batch_var_map[$var_key])) {
+                    $existing_vars_lookup[$var_key] = $var['uid'];
+                }
+            }
+        }
+        
+        foreach($variables as $var_idx => $variable){
             // Validate variable has required fid field
             if (!isset($variable['fid'])){
                 log_message('error', "Variable missing 'fid' field. Skipping variable: " . (isset($variable['name']) ? $variable['name'] : 'unknown'));
@@ -338,7 +580,15 @@ class ImportJsonMetadata
             $variable['fid']=$fid;
 
             //check if variable exists
-            $variable_info=$this->ci->Editor_variable_model->variable_by_name($sid,$fid, $variable['name']);
+            $var_key = $fid . '|' . (isset($variable['name']) ? $variable['name'] : '');
+            $variable_info = null;
+            
+            if (isset($existing_vars_lookup[$var_key])) {
+                // Variable exists - get full info
+                $existing_uid = $existing_vars_lookup[$var_key];
+                $variable_info = $this->ci->Editor_variable_model->variable($sid, $existing_uid, false);
+            }
+            
             if (!isset($variable['var_catgry_labels'])){
                 $variable['var_catgry_labels']=$this->get_variable_category_value_labels($variable);
             }
@@ -420,14 +670,11 @@ class ImportJsonMetadata
     {
         $feature_types = array();
         
-        log_message('debug', "import_geospatial_project called for sid: {$sid}");
-        
         // Extract featureType from feature_catalogue
         // Check both locations: description.feature_catalogue.featureType (new structure) and feature_catalogue.featureType (root level)
         if (isset($json_data['description']['feature_catalogue']['featureType']) && 
             is_array($json_data['description']['feature_catalogue']['featureType'])) {
             $feature_types = $json_data['description']['feature_catalogue']['featureType'];
-            log_message('debug', "Found featureType in description.feature_catalogue, count: " . count($feature_types));
             // Remove from json_data before storing in project metadata
             unset($json_data['description']['feature_catalogue']['featureType']);
         }
@@ -435,8 +682,6 @@ class ImportJsonMetadata
                  isset($json_data['feature_catalogue']['featureType']) && 
                  is_array($json_data['feature_catalogue']['featureType'])) {
             $feature_types = $json_data['feature_catalogue']['featureType'];
-            log_message('debug', "Found featureType in root feature_catalogue, count: " . count($feature_types));
-            log_message('debug', "First featureType sample: " . json_encode(isset($feature_types[0]) ? $feature_types[0] : 'empty'));
             
             // Move feature_catalogue to description.feature_catalogue if it doesn't exist there
             if (!isset($json_data['description']['feature_catalogue'])) {
@@ -453,12 +698,6 @@ class ImportJsonMetadata
             }
             // Remove root level feature_catalogue (it's been moved or featureType removed)
             unset($json_data['feature_catalogue']);
-        } else {
-            log_message('debug', "No featureType found. Checking structure: " . json_encode(array(
-                'has_description_feature_catalogue' => isset($json_data['description']['feature_catalogue']),
-                'has_feature_catalogue' => isset($json_data['feature_catalogue']),
-                'feature_catalogue_keys' => isset($json_data['feature_catalogue']) ? array_keys($json_data['feature_catalogue']) : array()
-            )));
         }
         
         // Import project metadata (without featureType)
@@ -467,7 +706,6 @@ class ImportJsonMetadata
         // Import feature types and characteristics
         if (!empty($feature_types)) {
             $user_id = isset($options['user_id']) ? $options['user_id'] : (isset($options['created_by']) ? $options['created_by'] : null);
-            log_message('debug', "Calling import_feature_catalogue with " . count($feature_types) . " feature types, user_id: {$user_id}");
             try {
                 $result = $this->import_feature_catalogue($sid, $feature_types, $user_id, $validate);
                 log_message('info', "Geospatial feature catalogue import completed: " . json_encode($result));
@@ -496,15 +734,8 @@ class ImportJsonMetadata
         $features_imported = 0;
         $characteristics_imported = 0;
         
-        log_message('debug', "import_feature_catalogue called with " . count($feature_types) . " feature types for sid: {$sid}");
-        
         foreach ($feature_types as $idx => $feature_type) {
             try {
-                log_message('debug', "Processing feature type #{$idx}: " . json_encode(array(
-                    'typeName' => isset($feature_type['typeName']) ? $feature_type['typeName'] : 'MISSING',
-                    'code' => isset($feature_type['code']) ? $feature_type['code'] : 'MISSING',
-                    'has_carrierOfCharacteristics' => isset($feature_type['carrierOfCharacteristics'])
-                )));
                 // Extract feature type data
                 $type_name = isset($feature_type['typeName']) ? $feature_type['typeName'] : '';
                 $code = isset($feature_type['code']) ? $feature_type['code'] : '';
@@ -534,9 +765,6 @@ class ImportJsonMetadata
                 // Check by code within project first (if code is provided)
                 if (!empty($code)) {
                     $existing_feature = $this->ci->Geospatial_features_model->select_by_code_and_project($code, $sid);
-                    if ($existing_feature) {
-                        log_message('debug', "Found existing feature by code '{$code}' in project {$sid}");
-                    }
                 }
                 
                 // If not found by code, check by name within project
@@ -545,7 +773,6 @@ class ImportJsonMetadata
                     foreach ($project_features as $proj_feature) {
                         if (isset($proj_feature['name']) && $proj_feature['name'] == $type_name) {
                             $existing_feature = $proj_feature;
-                            log_message('debug', "Found existing feature by name '{$type_name}' in project {$sid}");
                             break;
                         }
                     }
@@ -567,13 +794,11 @@ class ImportJsonMetadata
                 // Insert or update feature
                 if ($existing_feature) {
                     // Update existing feature
-                    log_message('debug', "Updating existing feature: {$type_name} (ID: {$existing_feature['id']})");
                     $this->ci->Geospatial_features_model->update($existing_feature['id'], $feature_data);
                     $feature_id = $existing_feature['id'];
                     log_message('info', "Updated existing feature: {$type_name} (ID: {$feature_id})");
                 } else {
                     // Insert new feature
-                    log_message('debug', "Inserting new feature: {$type_name} with data: " . json_encode($feature_data));
                     try {
                         $feature_id = $this->ci->Geospatial_features_model->insert($feature_data);
                         if (!$feature_id) {

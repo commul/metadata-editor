@@ -66,7 +66,7 @@ class ImportProject extends MY_REST_Controller
 			$options['idno']=$idno;	
 			
 			//upload file and import metadata
-			$allowed_file_types="json|xml|zip";
+			$allowed_file_types="json|jsonl|xml|zip";
 			$uploaded_filepath=$this->Editor_resource_model->upload_temporary_file($allowed_file_types,$file_field_name='file',$temp_upload_folder=null);
 
 			if (!file_exists($uploaded_filepath)){
@@ -99,7 +99,7 @@ class ImportProject extends MY_REST_Controller
 					else{
 						throw new Exception("Unsupported file type");
 					}
-				}else if ($file_ext=='json'){
+				}else if ($file_ext=='json' || $file_ext=='jsonl'){
 					$this->load->library('ImportJsonMetadata');
 					$result=$this->importjsonmetadata->import($sid,$uploaded_filepath,$validate=true,$options);
 				}

@@ -20,7 +20,9 @@ use Swaggest\JsonDiff\JsonMergePatch;
 class Editor_model extends CI_Model {
 
 	private $storage_path='datafiles/editor';
-	private $tmp_storage_path='datafiles/editor';
+	private $tmp_storage_path='datafiles/editor';	
+	private $schema_registry_cache = null;
+	private $schema_list_cache = null;
 
 	private $listing_fields=array(
 		'id',
@@ -1143,11 +1145,15 @@ class Editor_model extends CI_Model {
 			}
 			
 			// If not found by UID, try to find by alias
-			// Get all schemas and check aliases
-			$this->load->library('Schema_registry');
-			$schemas = $this->schema_registry->list_schemas(array());
+			if ($this->schema_list_cache === null) {
+				if ($this->schema_registry_cache === null) {
+					$this->load->library('Schema_registry');
+					$this->schema_registry_cache = $this->schema_registry;
+				}
+				$this->schema_list_cache = $this->schema_registry_cache->list_schemas(array());
+			}
 			
-			foreach ($schemas as $schema) {
+			foreach ($this->schema_list_cache as $schema) {
 				// Check if type matches the schema UID
 				if (isset($schema['uid']) && $schema['uid'] === $type) {
 					return $schema['uid'];

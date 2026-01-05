@@ -517,7 +517,7 @@
                   */ ?>
                 </div>
                 <v-file-input v-if="upload_type=='file'"
-                  accept=".json,.xml,.zip"
+                  accept=".json,.jsonl,.xml,.zip"
                   label=""                  
                   truncate-length="50"                  
                   dense
