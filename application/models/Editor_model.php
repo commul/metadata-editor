@@ -1128,7 +1128,7 @@ class Editor_model extends CI_Model {
 	 * Falls back to legacy known types.
 	 * Returns canonical uid string, or false if not found.
 	 */
-	private function resolve_canonical_type($type)
+	public function resolve_canonical_type($type)
 	{
 		if (!$type){
 			return false;
