@@ -235,8 +235,9 @@ class Editor extends MY_REST_Controller
 	/**
 	 * 
 	 * 
-	 * Create new study
-	 * @type - survey, timesereis, geospatial
+	 * Create new project
+	 * 
+	 * @type - microdata, indicator, geospatial
 	 * 
 	 */
 	function create_post($type=null)
@@ -277,9 +278,7 @@ class Editor extends MY_REST_Controller
 				'template_uid' => isset($project_options['template_uid']) ? $project_options['template_uid'] : null
 			);
  
-			//$this->has_dataset_access('edit',null,$options['repositoryid']);			
-
-			//validate & create dataset
+			//validate & create project
 			$dataset_id=$this->Editor_model->create_project($type,$options);
 
 			if(!$dataset_id){
@@ -350,21 +349,9 @@ class Editor extends MY_REST_Controller
 			$options['changed_by']=$user_id;
 			$options['changed']=date("U");
 
-			//get project metadata
-			//$project_metadata=$this->Editor_model->get_metadata($id);
-			
 			//validate & update project
 			$this->Editor_model->update_project($type,$id,$options,$validate);
 			$this->Editor_model->create_project_folder($id);
-
-			//generate diff
-			//$diff=$this->Editor_model->get_metadata_diff($project_metadata,$options);
-			//$this->audit_log->log_event($obj_type='project',$obj_id=$id,$action='update', $metadata=$diff);
-
-			//add to collections
-			if (is_array($collections) && count($collections)>0){
-				$this->Collection_model->add_batch_projects($collections, array($id));
-			}
 
 			$response=array(
 				'status'=>'success'
