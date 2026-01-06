@@ -597,8 +597,8 @@
                     return axios
                     .get(url)
                     .then(function (response) {                        
-                        if (response.data.result){
-                            store.state.formTemplate=response.data.result;
+                        if (response.data.template){
+                            store.state.formTemplate=response.data;
                         }else{
                             console.log("error load template", response.data);
                             alert("error loading template");
