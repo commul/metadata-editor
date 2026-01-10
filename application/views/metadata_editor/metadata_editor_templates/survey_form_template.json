@@ -2973,7 +2973,7 @@
                         {
                             "key": "datacite.creators",
                             "title": "Creators",
-                            "type": "array",
+                            "type": "nested_array",
                             "help_text": "Creators",
                             "props": [
                                 {
@@ -3007,6 +3007,52 @@
                                     "type": "string",
                                     "help_text": "Family name",
                                     "display_type": "text"
+                                },
+                                {
+                                    "key": "affiliation",
+                                    "title": "Affiliation",
+                                    "type": "array",
+                                    "help_text": "",                                        
+                                    "props": [
+                                        {
+                                            "key": "affiliationIdentifier",
+                                            "prop_key": "datacite.creators.affiliation.affiliationIdentifier",
+                                            "title": "Affiliation identifier",
+                                            "type": "string",
+                                            "help_text": "Uniquely identifies the organizational affiliation of the creator.",
+                                            "display_type": "text",                                                
+                                            "isProp": true
+                                        },
+                                        {
+                                            "key": "affiliationIdentifierScheme",
+                                            "prop_key": "datacite.creators.affiliation.affiliationIdentifierScheme",
+                                            "title": "Affiliation identifier scheme",
+                                            "type": "string",
+                                            "help_text": "",
+                                            "display_type": "text",                                                
+                                            "isProp": true
+                                        },
+                                        {
+                                            "key": "name",
+                                            "prop_key": "datacite.creators.affiliation.name",
+                                            "title": "Name",
+                                            "type": "string",
+                                            "help_text": "",
+                                            "display_type": "text",                                                
+                                            "isProp": true
+                                        },
+                                        {
+                                            "key": "schemeUri",
+                                            "prop_key": "datacite.creators.affiliation.schemeUri",
+                                            "title": "Schema URI",
+                                            "type": "string",
+                                            "help_text": "The URI of the name identifier scheme. \n\nExamples: \n- https:\/\/orcid.org\/\n- https:\/\/ror.org\/",
+                                            "display_type": "text",                                                
+                                            "isProp": true
+                                        }
+                                    ],
+                                    "prop_key": "datacite.creators.affiliation",
+                                    "isProp": true
                                 }
                             ]
                         },

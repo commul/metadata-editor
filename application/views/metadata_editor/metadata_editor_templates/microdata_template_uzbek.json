@@ -4150,35 +4150,35 @@
                             "key": "datacite.doi",
                             "title": "DOI",
                             "type": "string",
-                            "help_text": "DOI handle",
+                            "help_text": "DOI identifikatori",
                             "display_type": "text"
                         },
                         {
                             "key": "datacite.prefix",
                             "title": "Prefiks",
                             "type": "string",
-                            "help_text": "DOI prefix",
+                            "help_text": "DOI prefiksi",
                             "display_type": "text"
                         },
                         {
                             "key": "datacite.suffix",
                             "title": "Suffiks",
                             "type": "string",
-                            "help_text": "DOI suffix",
+                            "help_text": "DOI suffiksi",
                             "display_type": "text"
                         },
                         {
                             "key": "datacite.creators",
                             "title": "Yaratuvchilar",
-                            "type": "array",
-                            "help_text": "Creators",
+                            "type": "nested_array",
+                            "help_text": "Yaratuvchilar",
                             "props": [
                                 {
                                     "key": "name",
                                     "prop_key": "datacite.creators.name",
-                                    "title": "Nomi",
+                                    "title": "Ism",
                                     "type": "string",
-                                    "help_text": "Nomi",
+                                    "help_text": "Ism",
                                     "display_type": "text"
                                 },
                                 {
@@ -4186,7 +4186,7 @@
                                     "prop_key": "datacite.creators.nameType",
                                     "title": "Ism turi",
                                     "type": "string",
-                                    "help_text": "Name type. valid values: 'Personal', 'Organizational'",
+                                    "help_text": "Ism turi. Mavjud qiymatlar: 'Personal', 'Organizational'",
                                     "display_type": "text"
                                 },
                                 {
@@ -4194,7 +4194,7 @@
                                     "prop_key": "datacite.creators.givenName",
                                     "title": "Berilgan ism",
                                     "type": "string",
-                                    "help_text": "Given name",
+                                    "help_text": "Berilgan ism",
                                     "display_type": "text"
                                 },
                                 {
@@ -4202,8 +4202,54 @@
                                     "prop_key": "datacite.creators.familyName",
                                     "title": "Familiya",
                                     "type": "string",
-                                    "help_text": "Family name",
+                                    "help_text": "Familiya",
                                     "display_type": "text"
+                                },
+                                {
+                                    "key": "affiliation",
+                                    "title": "Affiliatsiya",
+                                    "type": "array",
+                                    "help_text": "",
+                                    "props": [
+                                        {
+                                            "key": "affiliationIdentifier",
+                                            "prop_key": "datacite.creators.affiliation.affiliationIdentifier",
+                                            "title": "Affiliatsiya identifikatori",
+                                            "type": "string",
+                                            "help_text": "Yaratuvchining tashkilotiga oid noyob identifikator.",
+                                            "display_type": "text",
+                                            "isProp": true
+                                        },
+                                        {
+                                            "key": "affiliationIdentifierScheme",
+                                            "prop_key": "datacite.creators.affiliation.affiliationIdentifierScheme",
+                                            "title": "Affiliatsiya identifikatori sxemasi",
+                                            "type": "string",
+                                            "help_text": "",
+                                            "display_type": "text",
+                                            "isProp": true
+                                        },
+                                        {
+                                            "key": "name",
+                                            "prop_key": "datacite.creators.affiliation.name",
+                                            "title": "Tashkilot nomi",
+                                            "type": "string",
+                                            "help_text": "",
+                                            "display_type": "text",
+                                            "isProp": true
+                                        },
+                                        {
+                                            "key": "schemeUri",
+                                            "prop_key": "datacite.creators.affiliation.schemeUri",
+                                            "title": "Sxema URI",
+                                            "type": "string",
+                                            "help_text": "Nom identifikatori sxemasi URI manzili. \n\nMisollar: \n- https:\/\/orcid.org\/\n- https:\/\/ror.org\/",
+                                            "display_type": "text",
+                                            "isProp": true
+                                        }
+                                    ],
+                                    "prop_key": "datacite.creators.affiliation",
+                                    "isProp": true
                                 }
                             ]
                         },
@@ -4211,7 +4257,7 @@
                             "key": "datacite.titles",
                             "title": "Sarlavhalar",
                             "type": "array",
-                            "help_text": "Titles",
+                            "help_text": "Sarlavhalar",
                             "props": [
                                 {
                                     "key": "title",
@@ -4226,7 +4272,7 @@
                                     "prop_key": "datacite.titles.titleType",
                                     "title": "Sarlavha turi",
                                     "type": "string",
-                                    "help_text": "Title type. valid values: 'MainTitle', 'Subtitle', 'TranslatedTitle', 'AlternativeTitle'",
+                                    "help_text": "Sarlavha turi. Mavjud qiymatlar: 'MainTitle', 'Subtitle', 'TranslatedTitle', 'AlternativeTitle'",
                                     "display_type": "text"
                                 },
                                 {
@@ -4234,7 +4280,7 @@
                                     "prop_key": "datacite.titles.lang",
                                     "title": "Til",
                                     "type": "string",
-                                    "help_text": "Language",
+                                    "help_text": "Til",
                                     "display_type": "text"
                                 }
                             ]
@@ -4243,28 +4289,28 @@
                             "key": "datacite.publisher",
                             "title": "Nashriyotchi",
                             "type": "string",
-                            "help_text": "Publisher",
+                            "help_text": "Nashriyot",
                             "display_type": "text"
                         },
                         {
                             "key": "datacite.publicationYear",
                             "title": "Nashr yili",
                             "type": "string",
-                            "help_text": "Publication year",
+                            "help_text": "Nashr yili",
                             "display_type": "text"
                         },
                         {
                             "key": "datacite.types.resourceType",
                             "title": "Resurs turi",
                             "type": "string",
-                            "help_text": "Resource type",
+                            "help_text": "Resurs turi",
                             "display_type": "text"
                         },
                         {
                             "key": "datacite.types.resourceTypeGeneral",
                             "title": "Umumiy resurs turi",
                             "type": "string",
-                            "help_text": "Valid values: 'Audiovisual', 'Collection', 'DataPaper', 'Dataset', 'Event', 'Image', 'InteractiveResource', 'Model', 'PhysicalObject', 'Service', 'Software', 'Sound', 'Text', 'Workflow', 'Other'",
+                            "help_text": "Mavjud qiymatlar: 'Audiovisual', 'Collection', 'DataPaper', 'Dataset', 'Event', 'Image', 'InteractiveResource', 'Model', 'PhysicalObject', 'Service', 'Software', 'Sound', 'Text', 'Workflow', 'Other'",
                             "display_type": "text"
                         },
                         {
