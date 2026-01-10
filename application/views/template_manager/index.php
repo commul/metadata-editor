@@ -241,19 +241,16 @@
                   ></v-text-field>
                 </div>
                 
-                <div @click="isEditingDescription=true" style="padding:5px;padding-left:38px;cursor:pointer;" class="pb-2" :class="{isactive: isEditingDescription}"><v-icon>mdi-ballot-outline</v-icon>{{$t('description')}}</div>
-                <div @click="isEditingDescription=false">
-                  <nada-treeview 
-                      v-model="filteredUserTreeItems" 
-                      :cut_fields="cut_fields" 
-                      :initially_open="initiallyOpen" 
-                      :tree_active_items="tree_active_items"
-                      @initially-open="updateInitiallyOpen"
-                      ></nada-treeview>
-                </div>
+                <nada-treeview 
+                    v-model="filteredUserTreeItems" 
+                    :cut_fields="cut_fields" 
+                    :initially_open="initiallyOpen" 
+                    :tree_active_items="tree_active_items"
+                    @initially-open="updateInitiallyOpen"
+                    ></nada-treeview>
               </v-col>
-              <v-col cols="1" style="position:relative;">
-                <div class="pr-1" v-if="!isEditingDescription" style="position:fixed;">
+              <v-col cols="1" style="position:relative;padding-left:5px;" >
+                <div class="pr-1" style="position:fixed;">
 
                   <div>
                     <v-icon v-if="ActiveCoreNode.type && user_has_edit_access" color="#3498db" @click="addField()">mdi-chevron-left-box</v-icon>
@@ -273,11 +270,11 @@
                     <v-icon v-else class="disabled-button-color">mdi-minus-box</v-icon>
                   </div>
                   <div>
-                    <v-icon v-if="ActiveNode && ActiveNode.type && ActiveNode.key && user_has_edit_access" color="#3498db" @click="moveUp()">mdi-arrow-up-bold-box</v-icon>
+                    <v-icon v-if="ActiveNode && ActiveNode.type && ActiveNode.key && !ActiveNodeIsRoot && !ActiveNodeIsDescription && user_has_edit_access" color="#3498db" @click="moveUp()">mdi-arrow-up-bold-box</v-icon>
                     <v-icon v-else class="disabled-button-color">mdi-arrow-up-bold-box</v-icon>
                   </div>
                   <div>
-                    <v-icon v-if="ActiveNode && ActiveNode.type && ActiveNode.key && user_has_edit_access" color="#3498db" @click="moveDown()">mdi-arrow-down-bold-box</v-icon>
+                    <v-icon v-if="ActiveNode && ActiveNode.type && ActiveNode.key && !ActiveNodeIsRoot && !ActiveNodeIsDescription && user_has_edit_access" color="#3498db" @click="moveDown()">mdi-arrow-down-bold-box</v-icon>
                     <v-icon v-else class="disabled-button-color">mdi-arrow-down-bold-box</v-icon>
                   </div>
 
@@ -322,111 +319,7 @@
             <!-- content -->
             <div class="main-content-container p-3" style="height:100vh;overflow:auto;">
 
-              <div v-if="isEditingDescription==false">
-                <?php echo $this->load->view('template_manager/edit_content', null, true); ?>
-              </div>
-              <div v-if="isEditingDescription==true" class="pl-4 pt-2">
-
-                <h5>{{$t('description')}}</h5>
-
-                <div class="mb-3">
-                  <label class="mb-1 d-block">{{$t('type')}}:</label>
-                  <v-text-field
-                    v-model="user_template_info.data_type"
-                    disabled
-                    outlined
-                    dense
-                    hide-details
-                  ></v-text-field>
-                </div>
-
-                <div class="mb-3">
-                  <label class="mb-1 d-block">{{$t('language')}}:</label>
-                  <v-text-field
-                    v-model="user_template_info.lang"
-                    placeholder="EN"
-                    maxlength="30"
-                    outlined
-                    dense
-                    hide-details
-                    :disabled="!user_has_edit_access"
-                  ></v-text-field>
-                </div>
-
-                <div class="mb-3">
-                  <label class="mb-1 d-block">{{$t('name')}}:</label>
-                  <v-text-field
-                    v-model="user_template_info.name"
-                    maxlength="150"
-                    outlined
-                    dense
-                    hide-details
-                    :disabled="!user_has_edit_access"
-                  ></v-text-field>
-                </div>
-
-                <div class="mb-3">
-                  <label class="mb-1 d-block">{{$t('version')}}:</label>
-                  <v-text-field
-                    v-model="user_template_info.version"
-                    maxlength="50"
-                    outlined
-                    dense
-                    hide-details
-                    :disabled="!user_has_edit_access"
-                  ></v-text-field>
-                </div>
-
-                <div class="mb-3">
-                  <label class="mb-1 d-block">{{$t('organisation')}}:</label>
-                  <v-text-field
-                    v-model="user_template_info.organization"
-                    maxlength="150"
-                    outlined
-                    dense
-                    hide-details
-                    :disabled="!user_has_edit_access"
-                  ></v-text-field>
-                </div>
-
-                <div class="mb-3">
-                  <label class="mb-1 d-block">{{$t('author')}}:</label>
-                  <v-text-field
-                    v-model="user_template_info.author"
-                    maxlength="150"
-                    outlined
-                    dense
-                    hide-details
-                    :disabled="!user_has_edit_access"
-                  ></v-text-field>
-                </div>
-
-                <div class="mb-3">
-                  <label class="mb-1 d-block">{{$t('description')}}:</label>
-                  <v-textarea
-                    v-model="user_template_info.description"
-                    maxlength="1000"
-                    outlined
-                    rows="8"
-                    hide-details
-                    :disabled="!user_has_edit_access"
-                  ></v-textarea>
-                </div>
-
-                <div class="mb-3">
-                  <label class="mb-1 d-block">{{$t('instructions')}}: </label>
-                  <span style="font-size:12px;color:gray">Markdown<a href="https://www.markdownguide.org/cheat-sheet/" target="_blannk"><v-icon style="font-size:14px;">mdi-open-in-new</v-icon> </a></span>
-                  <v-textarea
-                    v-model="user_template_info.instructions"
-                    outlined
-                    rows="12"
-                    hide-details
-                    class="mt-2"
-                    :disabled="!user_has_edit_access"
-                  ></v-textarea>
-                </div>
-
-              </div>
+              <?php echo $this->load->view('template_manager/edit_content', null, true); ?>
             </div>
 
           </v-col>
@@ -660,7 +553,6 @@
       vuetify: new Vuetify(),
       data() {
         return {
-          isEditingDescription: true,
           user_template_info: user_template_info,
           initiallyOpen: [],
           tree_active_items: [],
@@ -755,6 +647,21 @@
           event.returnValue = message;
           return message;
         },
+        formatDate: function(timestamp) {
+          if (!timestamp) return '';
+          // Handle Unix timestamp (seconds) - convert to milliseconds if needed
+          const date = new Date(timestamp * 1000);
+          // Check if date is valid
+          if (isNaN(date.getTime())) return '';
+          // Format as: YYYY-MM-DD HH:MM:SS
+          const year = date.getFullYear();
+          const month = String(date.getMonth() + 1).padStart(2, '0');
+          const day = String(date.getDate()).padStart(2, '0');
+          const hours = String(date.getHours()).padStart(2, '0');
+          const minutes = String(date.getMinutes()).padStart(2, '0');
+          const seconds = String(date.getSeconds()).padStart(2, '0');
+          return `${year}-${month}-${day} ${hours}:${minutes}:${seconds}`;
+        },
         init_template: function(){
           //check if user template includes additional container and add if not
 
@@ -776,6 +683,20 @@
         init_tree: function() {
           this.$store.state.core_tree_items = this.$store.state.core_template.items;
           this.$store.state.user_tree_items = this.$store.state.user_template.items;
+          
+          // Set root node as active by default
+          this.$nextTick(() => {
+            const rootNode = {
+              key: 'template_root',
+              title: this.TemplateDataType ? (this.TemplateDataType.charAt(0).toUpperCase() + this.TemplateDataType.slice(1).replace(/-/g, ' ')) : 'Template',
+              type: 'template_root',
+              isVirtual: true,
+              items: []
+            };
+            store.commit('activeNode', rootNode);
+            this.tree_active_items = ['template_root'];
+            this.initiallyOpen = ['template_root'];
+          });
         },
         updateInitiallyOpen: function (e){
           this.initiallyOpen=e;
@@ -1045,7 +966,7 @@
           return false;
         },
         isItemContainer: function(item) {
-          if (item.type == 'section' || item.type == 'section_container' || item.type == 'nested_array_') {
+          if (item.type == 'section' || item.type == 'section_container' || item.type == 'nested_array_' || item.type == 'template_root' || item.type == 'template_description') {
             return true;
           }
           return false;
@@ -1109,9 +1030,64 @@
             this.initiallyOpen.push(parentNode.key);
           });
         },
+        addSectionContainer: function(container) {
+          if (!container || !container.key) {
+            return false;
+          }
+          
+          // Check if already in use
+          if (this.isItemInUse(container.key)) {
+            return false;
+          }
+          
+          // Ensure UserTemplate.items exists
+          if (!this.UserTemplate.items) {
+            this.$set(this.UserTemplate, "items", []);
+          }
+          
+          // Check if container already exists
+          const exists = this.UserTemplate.items.some(item => 
+            item && item.key === container.key
+          );
+          
+          if (exists) {
+            return false;
+          }
+          
+          // Clone the container to avoid reference issues
+          const containerToAdd = JSON.parse(JSON.stringify(container));
+          
+          // Add to root items array
+          this.UserTemplate.items.push(containerToAdd);
+          
+          // Update tree items to reflect the change
+          this.$store.state.user_tree_items = this.UserTemplate.items;
+          
+          // Activate the newly added container (not the root)
+          this.ActiveNode = containerToAdd;
+          
+          // Use $nextTick to wait for Vue to finish updating the tree
+          this.$nextTick(() => {
+            this.tree_active_items = new Array();
+            this.tree_active_items.push(container.key);
+            this.initiallyOpen.push(container.key);
+            // Keep root open
+            if (this.initiallyOpen.indexOf('template_root') === -1) {
+              this.initiallyOpen.push('template_root');
+            }
+          });
+          
+          this.markDirty();
+          return true;
+        },
         buildPathPrefix: function(parentNode){
           if (!parentNode) return null;
-          const parentKey = parentNode.key || parentNode.prop_key;
+          // If parent is a prop (has prop_key), use it directly as it's already the full path
+          if (parentNode.prop_key) {
+            return parentNode.prop_key;
+          }
+          // Otherwise, use key and find the path in the tree
+          const parentKey = parentNode.key;
           if (!parentKey) return null;
           const path = this.getNodePath(this.UserTreeItems, parentKey);
           if (!path || typeof path !== 'string') return null;
@@ -1166,6 +1142,7 @@
               "display_type": "text",
               "is_additional": true
             });
+            this.ActiveNode = parentNode.props[parentNode.props.length - 1];
           } else {
             if (!parentNode.items) {
               this.$set(parentNode, "items", []);
@@ -1179,9 +1156,8 @@
               "display_type": "text",
               "is_additional": true
             });
+            this.ActiveNode = parentNode.items[parentNode.items.length - 1];
           }
-
-          this.ActiveNode = parentNode.items[parentNode.items.length - 1];
 
           console.log("ActiveNode", this.ActiveNode);
 
@@ -1343,15 +1319,29 @@
           const findInTree = (items) => {
             for (let item of items) {
               if ((item.type === 'array' || item.type === 'nested_array') && item.props) {
-                const found = item.props.find(p => (p.prop_key || p.key) === propKey);
+                // Check if prop is directly in this array's props
+                const found = item.props.find(p => {
+                  const pKey = p.prop_key || p.key;
+                  return pKey === propKey;
+                });
                 if (found) {
                   return item;
                 }
-                // Check nested props
+                // Check nested props - if a prop is itself an array/nested_array, check its props
                 for (let prop of item.props) {
-                  if (prop.props) {
-                    const nestedResult = findInTree([{ items: prop.props }]);
-                    if (nestedResult) return nestedResult;
+                  if ((prop.type === 'array' || prop.type === 'nested_array') && prop.props && Array.isArray(prop.props)) {
+                    // Check if the target prop is in this prop's props array
+                    const nestedFound = prop.props.find(p => {
+                      const pKey = p.prop_key || p.key;
+                      return pKey === propKey;
+                    });
+                    if (nestedFound) {
+                      // Return the prop (array) that contains the target prop
+                      return prop;
+                    }
+                    // Recursively check deeper nested props
+                    const deeperResult = findInTree([{ type: prop.type, props: prop.props }]);
+                    if (deeperResult) return deeperResult;
                   }
                 }
               }
@@ -1406,6 +1396,10 @@
           return -1;
         },
         isItemInUse: function(item_key) {
+          // Virtual nodes (root and description) are never "in use" in the traditional sense
+          if (item_key === 'template_root' || item_key === 'template_description') {
+            return false;
+          }
           return _.includes(this.UserTreeUsedKeys, item_key);
         },
         checkNodeKeyExists: function(node, key) {
@@ -1491,6 +1485,7 @@
 
           // Sync UserTreeItems back to UserTemplate.items before saving
           // This ensures all changes made to the tree are saved
+          // Note: Root and description nodes are virtual and not saved
           this.$store.state.user_template.items = this.UserTreeItems;
 
           formData = this.user_template_info;
@@ -1587,11 +1582,6 @@
         }
       },
       watch: {
-        isEditingDescription: function(val) {
-          if (val == true) {
-            this.tree_active_items = new Array();
-          }
-        },
         treeSearchQuery: function(newQuery) {
           if (newQuery && newQuery.length > 0) {
             // Auto-expand all items when searching to show results
@@ -1684,12 +1674,57 @@
         UserTreeItems() {
           return this.$store.state.user_tree_items;
         },
+        UserTreeItemsWithRoot() {
+          // Create a virtual root node with data_type as the key/title
+          const dataType = this.TemplateDataType || 'template';
+          const dataTypeTitle = dataType.charAt(0).toUpperCase() + dataType.slice(1).replace(/-/g, ' ');
+          
+          // Create description node (virtual, first child)
+          const descriptionNode = {
+            key: 'template_description',
+            title: this.$t('description') || 'Description',
+            type: 'template_description',
+            isVirtual: true,
+            items: []
+          };
+          
+          // Create root node with description as first child, then rest of items
+          const rootNode = {
+            key: 'template_root',
+            title: dataTypeTitle,
+            type: 'template_root',
+            isVirtual: true,
+            items: [descriptionNode, ...this.UserTreeItems]
+          };
+          
+          return [rootNode];
+        },
         filteredUserTreeItems() {
+          const itemsToFilter = this.UserTreeItemsWithRoot;
+          
           if (!this.treeSearchQuery) {
-            return this.UserTreeItems;
+            return itemsToFilter;
           }
           
-          return this.filterTreeItems(this.UserTreeItems, this.treeSearchQuery.toLowerCase());
+          // Filter the tree, but preserve root and description nodes
+          const filtered = this.filterTreeItems(itemsToFilter, this.treeSearchQuery.toLowerCase());
+          
+          // Always include root and description if they exist
+          if (itemsToFilter && itemsToFilter.length > 0 && itemsToFilter[0].key === 'template_root') {
+            const root = itemsToFilter[0];
+            // If root was filtered out, add it back with description
+            if (!filtered.find(item => item.key === 'template_root')) {
+              return [{
+                ...root,
+                items: [
+                  root.items[0], // description node
+                  ...this.filterTreeItems(this.UserTreeItems, this.treeSearchQuery.toLowerCase())
+                ]
+              }];
+            }
+          }
+          
+          return filtered;
         },
         coreTreeKeys() {
           return this.$store.state.core_tree_keys;
@@ -1777,6 +1812,10 @@
         },
         ActiveNodeIsField() {
           if (!this.ActiveNode) return false;
+          // Virtual nodes (root and description) are not fields
+          if (this.ActiveNode.type === 'template_root' || this.ActiveNode.type === 'template_description') {
+            return false;
+          }
           // If it's a prop (has prop_key), it's a field
           if (this.ActiveNode.prop_key) {
             return true;
@@ -1786,6 +1825,12 @@
             return false;
           }
           return true;
+        },
+        ActiveNodeIsRoot() {
+          return this.ActiveNode && this.ActiveNode.type === 'template_root';
+        },
+        ActiveNodeIsDescription() {
+          return this.ActiveNode && this.ActiveNode.type === 'template_description';
         },
         ActiveNodeControlledVocabColumns() {
           if (!this.ActiveNode || !this.ActiveNode.props) {
@@ -1885,6 +1930,30 @@
           // Get the parent node for a prop
           if (!this.ActiveNode || !this.ActiveNode.prop_key) return null;
           return this.findPropParentNode(this.ActiveNode.prop_key);
+        },
+        MissingSectionContainers() {
+          // Get all section_containers from core template
+          if (!this.CoreTemplate || !this.CoreTemplate.items) {
+            return [];
+          }
+          
+          const coreContainers = this.CoreTemplate.items.filter(item => 
+            item && item.type === 'section_container'
+          );
+          
+          // Get keys of existing section_containers in user template
+          if (!this.UserTemplate || !this.UserTemplate.items) {
+            return coreContainers;
+          }
+          
+          const userContainerKeys = this.UserTemplate.items
+            .filter(item => item && item.type === 'section_container')
+            .map(item => item.key);
+          
+          // Return missing ones (not in user template)
+          return coreContainers.filter(container => 
+            container.key && !userContainerKeys.includes(container.key)
+          );
         },
       }
     });

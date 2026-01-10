@@ -36,6 +36,8 @@ $lang['revisions']="Revisions";
 $lang['UUID']="UUID";
 $lang['external-resource']="External resource";
 $lang['administrative_metadata']="Administrative metadata";
+$lang['missing_section_containers']="Missing Section Containers";
+$lang['add_missing_section_containers_help']="Click the add icon to add a section container to your template";
 
 /* End of file template_manager_lang.php */
 /* Location: ./application/language/english/template_manager_lang.php */

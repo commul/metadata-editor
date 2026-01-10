@@ -150,6 +150,20 @@ Vue.component('nada-treeview', {
           this.initiallyOpen.push(nodeKey);
         }
         
+        // Handle virtual root node
+        if (node.type === 'template_root') {
+          // Root node selected - commit the node itself (virtual)
+          store.commit('activeNode', node);
+          return;
+        }
+        
+        // Handle virtual description node
+        if (node.type === 'template_description') {
+          // Description node selected - commit the node itself (virtual)
+          store.commit('activeNode', node);
+          return;
+        }
+        
         // If this is a prop node (has isProp flag AND parentArray), we need the original prop reference
         // Note: Just having prop_key doesn't make it a prop - it must be inside an array's props array
         if (node.isProp && node.parentArray && node.parentArray.props) {
@@ -280,7 +294,13 @@ Vue.component('nada-treeview', {
                 </template>
 
                 <template v-slot:prepend="{ item, open }" >
-                  <v-icon v-if="item.type=='section_container'" :class="{'additional-item': isItemAdditional(item)}">
+                  <v-icon v-if="item.type=='template_root'" :class="{'additional-item': isItemAdditional(item)}">
+                    mdi-file-document-edit-outline
+                  </v-icon>
+                  <v-icon v-else-if="item.type=='template_description'" :class="{'additional-item': isItemAdditional(item)}">
+                    mdi-ballot-outline
+                  </v-icon>
+                  <v-icon v-else-if="item.type=='section_container'" :class="{'additional-item': isItemAdditional(item)}">
                     {{ open ? 'mdi-dresser' : 'mdi-dresser' }}
                   </v-icon> 
                   <v-icon v-else-if="item.type=='section'" :class="{'additional-item': isItemAdditional(item)}">

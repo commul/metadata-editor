@@ -1,6 +1,6 @@
 /// view treeview component
 Vue.component('nada-treeview-field', {
-    props:['value'],
+    props:['value', 'showSectionContainersOnly'],
     data: function () {    
         return {
             template: this.value,
@@ -27,6 +27,17 @@ Vue.component('nada-treeview-field', {
     
     computed: {
         Items(){
+          // If showSectionContainersOnly prop is true, show only section_containers from core template
+          if (this.showSectionContainersOnly) {
+            if (!this.CoreTemplate || !this.CoreTemplate.items) {
+              return [];
+            }
+            // Return only section_containers from core template
+            return this.CoreTemplate.items.filter(item => 
+              item && item.type === 'section_container'
+            );
+          }
+          
           if (!this.TemplateActiveNode) {
             return [];
           }
@@ -265,6 +276,11 @@ Vue.component('nada-treeview-field', {
       isItemInUse: function(item_key){
         if (!item_key) return false;
         
+        // Virtual nodes (root and description) are never "in use" in the traditional sense
+        if (item_key === 'template_root' || item_key === 'template_description') {
+          return false;
+        }
+        
         const activeNode = this.TemplateActiveNode;
         
         // For nested_array, check within the active nested_array's context first
@@ -411,7 +427,7 @@ Vue.component('nada-treeview-field', {
         return checkInTree(this.UserTreeItems, excludeSectionKey);
       },
       isItemContainer: function(item){
-        if (item.type=='section' || item.type=='section_container' || item.type=='nested_array_'){
+        if (item.type=='section' || item.type=='section_container' || item.type=='nested_array_' || item.type=='template_root' || item.type=='template_description'){
           return true;
         }
         return false;
@@ -445,6 +461,45 @@ Vue.component('nada-treeview-field', {
         if (event) {
           event.stopPropagation();
           event.preventDefault();
+        }
+        
+        // If showSectionContainersOnly is true, handle adding section_container to root
+        if (this.showSectionContainersOnly) {
+          if (!item || !item.key || item.type !== 'section_container') {
+            return false;
+          }
+          
+          // Check if already in use
+          if (this.isItemInUse(item.key)) {
+            return false;
+          }
+          
+          // Call parent's addSectionContainer method if available
+          // Access parent Vue instance to call the method
+          const parentVm = this.$parent;
+          if (parentVm && typeof parentVm.addSectionContainer === 'function') {
+            return parentVm.addSectionContainer(item);
+          }
+          
+          // Fallback: directly add to UserTemplate if parent method not available
+          if (!this.UserTemplate || !this.UserTemplate.items) {
+            this.$set(this.UserTemplate, "items", []);
+          }
+          
+          const exists = this.UserTemplate.items.some(i => i && i.key === item.key);
+          if (exists) {
+            return false;
+          }
+          
+          const containerToAdd = JSON.parse(JSON.stringify(item));
+          this.UserTemplate.items.push(containerToAdd);
+          this.$store.state.user_tree_items = this.UserTemplate.items;
+          
+          if (parentVm && typeof parentVm.markDirty === 'function') {
+            parentVm.markDirty();
+          }
+          
+          return true;
         }
         
         const activeNode = this.TemplateActiveNode;
@@ -719,14 +774,14 @@ Vue.component('nada-treeview-field', {
 
                   <template v-slot:prepend="{ item, open }">
                     <div style="display: flex; align-items: center; gap: 4px;">
-                      <!-- Add button for non-container items -->
+                      <!-- Add button for items (non-containers, or section_containers when showSectionContainersOnly is true) -->
                       <span 
-                        v-if="!isItemContainer(item)" 
+                        v-if="(!isItemContainer(item) || (showSectionContainersOnly && item.type === 'section_container'))" 
                         @click.stop="handleAddItemClick(item, $event)"
                         @mousedown.stop
                         @mouseup.stop
                         style="cursor: pointer; display: inline-flex; align-items: center; padding: 2px; position: relative; z-index: 100;"
-                        :title="!isItemInUse(item.key) ? 'Add item' : 'Item already in use'"
+                        :title="!isItemInUse(item.key) ? (showSectionContainersOnly ? 'Add section container' : 'Add item') : 'Item already in use'"
                       >
                         <v-icon 
                           small 
@@ -737,7 +792,13 @@ Vue.component('nada-treeview-field', {
                       </span>
                       
                       <!-- Item type icon -->
-                      <v-icon v-if="isItemContainer(item)">
+                      <v-icon v-if="item.type === 'template_root'">
+                        mdi-file-document-edit-outline
+                      </v-icon>
+                      <v-icon v-else-if="item.type === 'template_description'">
+                        mdi-ballot-outline
+                      </v-icon>
+                      <v-icon v-else-if="isItemContainer(item)">
                         {{ open ? 'mdi-folder-open' : 'mdi-folder' }}
                       </v-icon>
                       <v-icon v-else-if="item.isProp">

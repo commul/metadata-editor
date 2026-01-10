@@ -33,6 +33,15 @@ Vue.component('prop-edit', {
         }
     },
     mounted: function(){
+      // Ensure prop_key is correct on mount (fixes any existing incorrect prop_keys)
+      if (this.prop && this.prop.key && this.parent) {
+        const parentPath = (this.parent.prop_key) ? this.parent.prop_key : (this.parent.key ? this.parent.key : '');
+        const expectedPropKey = parentPath ? `${parentPath}.${this.prop.key}` : this.prop.key;
+        // Only update if prop_key is missing or incorrect
+        if (!this.prop.prop_key || this.prop.prop_key !== expectedPropKey) {
+          this.prop.prop_key = expectedPropKey;
+        }
+      }
     },    
     computed: {        
         prop:{           
@@ -106,7 +115,9 @@ Vue.component('prop-edit', {
         const cleanedKey = (e || '').trim();
         this.prop.key=cleanedKey;
         // prop_key is always the full path based on parent + key
-        this.prop.prop_key=this.parent.key + '.' + cleanedKey;
+        // Use parent.prop_key if available (for nested arrays), otherwise use parent.key
+        const parentPath = (this.parent && this.parent.prop_key) ? this.parent.prop_key : (this.parent && this.parent.key ? this.parent.key : '');
+        this.prop.prop_key = parentPath ? `${parentPath}.${cleanedKey}` : cleanedKey;
       },    
       isField: function(field_type){
         let field_types= [

@@ -36,6 +36,8 @@ $lang['instructions']="Instructions";
 $lang['owner']="Propriétaire";
 $lang['changed_at']="Mis à jour le";
 $lang['changed_by']="Dernière mise à jour par";
+$lang['missing_section_containers']="Conteneurs de section manquants";
+$lang['add_missing_section_containers_help']="Cliquez sur l'icône d'ajout pour ajouter un conteneur de section à votre modèle";
 
 /* End of file template_manager_lang.php */
 /* Location: ./application/language/french/template_manager_lang.php */

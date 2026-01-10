@@ -37,6 +37,8 @@ $lang['changed_at']="Actualizado el";
 $lang['changed_by']="Última actualización por";
 $lang['available_items']="Elementos disponibles";
 $lang['controlled_vocabulary']="Vocabulario controlado";
+$lang['missing_section_containers']="Contenedores de sección faltantes";
+$lang['add_missing_section_containers_help']="Haga clic en el icono de agregar para agregar un contenedor de sección a su plantilla";
 
 /* End of file template_manager_lang.php */
 /* Location: ./application/language/spanish/template_manager_lang.php */

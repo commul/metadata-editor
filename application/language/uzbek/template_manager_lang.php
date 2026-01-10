@@ -36,6 +36,8 @@ $lang['revisions']="Tahrirlashlar";
 $lang['UUID']="UUID";
 $lang['external-resource']="Tashqi resurs";
 $lang['administrative_metadata']="Ma'muriy metadata";
+$lang['missing_section_containers']="Yetishmayotgan bo'lim konteynerlari";
+$lang['add_missing_section_containers_help']="Shablonga bo'lim konteynerini qo'shish uchun qo'shish ikonkasini bosing";
 
 /* End of file template_manager_lang.php */
 /* Location: ./application/language/uzbek/template_manager_lang.php */

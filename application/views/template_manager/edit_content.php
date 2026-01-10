@@ -1,7 +1,230 @@
-<div v-if="!ActiveNode || (!ActiveNode.key && !ActiveNode.prop_key)" class="m-3 p-3">{{$t("click_on_sidebar_to_edit")}}</div>
+<!-- Show available section containers when root node is selected -->
+<div v-if="ActiveNode && ActiveNode.type === 'template_root'" class="m-3">
+    <!-- Template Description Preview Panel -->
+    <div class="mb-4 p-3 elevation-2 border" style="background-color: #fff;">
+        <h5 class="mb-3 d-flex align-items-center">
+            <v-icon class="mr-2" color="primary">mdi-information-outline</v-icon>
+            {{$t("description") || "Template Description"}}
+        </h5>
+        <v-row dense class="pl-3">
+            <v-col cols="12" md="6" v-if="user_template_info && user_template_info.uid">
+                <div class="mb-2">
+                    <strong class="text-secondary" style="font-size: 0.875rem;">{{$t('ID') || 'UID'}}:</strong>
+                    <div class="mt-1" style="font-family: monospace; font-size: 0.875rem;">{{user_template_info.uid}}</div>
+                </div>
+            </v-col>
+            <v-col cols="12" md="6" v-if="user_template_info && user_template_info.name">
+                <div class="mb-2">
+                    <strong class="text-secondary" style="font-size: 0.875rem;">{{$t('name') || 'Name'}}:</strong>
+                    <div class="mt-1">{{user_template_info.name}}</div>
+                </div>
+            </v-col>
+            <v-col cols="12" md="6" v-if="user_template_info && user_template_info.created">
+                <div class="mb-2">
+                    <strong class="text-secondary" style="font-size: 0.875rem;">{{$t('created') || 'Date Created'}}:</strong>
+                    <div class="mt-1">{{formatDate(user_template_info.created)}}</div>
+                </div>
+            </v-col>
+            <v-col cols="12" md="6" v-if="user_template_info && user_template_info.changed">
+                <div class="mb-2">
+                    <strong class="text-secondary" style="font-size: 0.875rem;">{{$t('changed') || 'Date Changed'}}:</strong>
+                    <div class="mt-1">{{formatDate(user_template_info.changed)}}</div>
+                </div>
+            </v-col>
+            
+            <v-col cols="12" md="6" v-if="user_template_info && user_template_info.data_type">
+                <div class="mb-2">
+                    <strong class="text-secondary" style="font-size: 0.875rem;">{{$t('type') || 'Type'}}:</strong>
+                    <div class="mt-1">{{user_template_info.data_type}}</div>
+                </div>
+            </v-col>
+            <v-col cols="12" md="6" v-if="user_template_info && user_template_info.version">
+                <div class="mb-2">
+                    <strong class="text-secondary" style="font-size: 0.875rem;">{{$t('version') || 'Version'}}:</strong>
+                    <div class="mt-1">{{user_template_info.version}}</div>
+                </div>
+            </v-col>
+            <v-col cols="12" md="6" v-if="user_template_info && user_template_info.lang">
+                <div class="mb-2">
+                    <strong class="text-secondary" style="font-size: 0.875rem;">{{$t('language') || 'Language'}}:</strong>
+                    <div class="mt-1">{{user_template_info.lang}}</div>
+                </div>
+            </v-col>
+            <v-col cols="12" md="6" v-if="user_template_info && user_template_info.organization">
+                <div class="mb-2">
+                    <strong class="text-secondary" style="font-size: 0.875rem;">{{$t('organisation') || 'Organization'}}:</strong>
+                    <div class="mt-1">{{user_template_info.organization}}</div>
+                </div>
+            </v-col>
+            <v-col cols="12" md="6" v-if="user_template_info && user_template_info.author">
+                <div class="mb-2">
+                    <strong class="text-secondary" style="font-size: 0.875rem;">{{$t('author') || 'Author'}}:</strong>
+                    <div class="mt-1">{{user_template_info.author}}</div>
+                </div>
+            </v-col>
+            <v-col cols="12" v-if="user_template_info && user_template_info.description">
+                <div class="mb-2">
+                    <strong class="text-secondary" style="font-size: 0.875rem;">{{$t('description') || 'Description'}}:</strong>
+                    <div class="mt-1" style="max-height: 200px; overflow-y: auto;background:#dee2e6;padding:10px;white-space: pre-wrap;">{{user_template_info.description}}</div>
+                </div>
+            </v-col>
+            <!--
+            <v-col cols="12" v-if="user_template_info && user_template_info.instructions">
+                <div class="mb-2">
+                    <strong class="text-secondary" style="font-size: 0.875rem;">{{$t('instructions') || 'Instructions'}}:</strong>
+                    <div class="mt-1" style="white-space: pre-wrap;">{{user_template_info.instructions}}</div>
+                </div>
+            </v-col>
+            -->
+        </v-row>
+    </div>
+
+    <div v-if="MissingSectionContainers && MissingSectionContainers.length > 0" class="mb-3 p-2 elevation-2 border" style="background-color: #fff;">
+        <label for="name" class="mb-2 d-block">
+            
+            <v-icon color="warning">mdi-alert-circle</v-icon>
+            <strong>{{$t("missing_section_containers")}}:</strong>
+        </label>
+        <div class="text-secondary font-small mb-2">{{$t("add_missing_section_containers_help")}}</div>
+        <div class="border bg-light p-3">        
+            <div v-for="container in MissingSectionContainers" :key="container.key" class="d-flex align-items-center justify-content-between border-bottom pb-2 mb-2" style="padding: 8px;">
+                <div class="flex-grow-1">
+                    <strong>{{container.title || container.key}}</strong>
+                    <div class="text-secondary font-small" style="font-size: 0.875rem;">{{container.key}}</div>
+                    <div v-if="container.help_text" class="text-secondary font-small mt-1" style="font-size: 0.75rem;">{{container.help_text}}</div>
+                </div>
+                <div>
+                    <v-icon 
+                        v-if="!isItemInUse(container.key) && user_has_edit_access"
+                        color="#007bff" 
+                        @click="addSectionContainer(container)"
+                        style="cursor: pointer;"
+                        title="Add section container"
+                    >
+                        mdi-plus-box
+                    </v-icon>
+                    <v-icon 
+                        v-else
+                        color="grey"
+                        title="Already added or no edit access"
+                    >
+                        mdi-checkbox-marked
+                    </v-icon>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div v-else class="m-3 p-3">
+        <div class="text-secondary font-small mt-2">
+            {{$t("all_section_containers_added") || "All section containers from the core template have been added."}}
+        </div>
+    </div>
+</div>
+
+<!-- Show description editing when description node is selected -->
+<div v-if="ActiveNode && ActiveNode.type === 'template_description'" class="pl-4 pt-2">
+    <h5>{{$t('description')}}</h5>
+
+    <div class="mb-3">
+      <label class="mb-1 d-block">{{$t('type')}}:</label>
+      <v-text-field
+        v-model="user_template_info.data_type"
+        disabled
+        outlined
+        dense
+        hide-details
+      ></v-text-field>
+    </div>
+
+    <div class="mb-3">
+      <label class="mb-1 d-block">{{$t('language')}}:</label>
+      <v-text-field
+        v-model="user_template_info.lang"
+        placeholder="EN"
+        maxlength="30"
+        outlined
+        dense
+        hide-details
+        :disabled="!user_has_edit_access"
+      ></v-text-field>
+    </div>
+
+    <div class="mb-3">
+      <label class="mb-1 d-block">{{$t('name')}}:</label>
+      <v-text-field
+        v-model="user_template_info.name"
+        maxlength="150"
+        outlined
+        dense
+        hide-details
+        :disabled="!user_has_edit_access"
+      ></v-text-field>
+    </div>
+
+    <div class="mb-3">
+      <label class="mb-1 d-block">{{$t('version')}}:</label>
+      <v-text-field
+        v-model="user_template_info.version"
+        maxlength="50"
+        outlined
+        dense
+        hide-details
+        :disabled="!user_has_edit_access"
+      ></v-text-field>
+    </div>
+
+    <div class="mb-3">
+      <label class="mb-1 d-block">{{$t('organisation')}}:</label>
+      <v-text-field
+        v-model="user_template_info.organization"
+        maxlength="150"
+        outlined
+        dense
+        hide-details
+        :disabled="!user_has_edit_access"
+      ></v-text-field>
+    </div>
+
+    <div class="mb-3">
+      <label class="mb-1 d-block">{{$t('author')}}:</label>
+      <v-text-field
+        v-model="user_template_info.author"
+        maxlength="150"
+        outlined
+        dense
+        hide-details
+        :disabled="!user_has_edit_access"
+      ></v-text-field>
+    </div>
+
+    <div class="mb-3">
+      <label class="mb-1 d-block">{{$t('description')}}:</label>
+      <v-textarea
+        v-model="user_template_info.description"
+        maxlength="1000"
+        outlined
+        rows="8"
+        hide-details
+        :disabled="!user_has_edit_access"
+      ></v-textarea>
+    </div>
+
+    <div class="mb-3">
+      <label class="mb-1 d-block">{{$t('instructions')}}: </label>
+      <span style="font-size:12px;color:gray">Markdown<a href="https://www.markdownguide.org/cheat-sheet/" target="_blannk"><v-icon style="font-size:14px;">mdi-open-in-new</v-icon> </a></span>
+      <v-textarea
+        v-model="user_template_info.instructions"
+        outlined
+        rows="12"
+        hide-details
+        class="mt-2"
+        :disabled="!user_has_edit_access"
+      ></v-textarea>
+    </div>
+</div>
 
 <!--key editing / display-->
-    <div class="mb-3" v-if="ActiveNode && (ActiveNode.key || ActiveNode.prop_key) && !ActiveNodeIsProp">
+    <div class="mb-3" v-if="ActiveNode && (ActiveNode.key || ActiveNode.prop_key) && !ActiveNodeIsProp && ActiveNode.type !== 'template_root' && ActiveNode.type !== 'template_description'">
 
         <vue-custom-key-field
             :field="ActiveNode" 
@@ -15,7 +238,7 @@
 
 
 <!--item-->
-<div v-if="ActiveNode && (ActiveNode.key || ActiveNode.prop_key)">
+<div v-if="ActiveNode && (ActiveNode.key || ActiveNode.prop_key) && ActiveNode.type !== 'template_root' && ActiveNode.type !== 'template_description'">
 
 <!--section container fields - only show for non-prop nodes -->
 <div v-if="ActiveNode && !ActiveNodeIsProp" class="mb-3">
