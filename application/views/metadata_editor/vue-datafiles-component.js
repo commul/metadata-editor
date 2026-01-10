@@ -33,14 +33,57 @@ Vue.component('datafiles', {
         }
     }, 
     mounted: function () {
-    },  
+        // Load data files when component is mounted
+        this.reloadDataFiles();
+        
+        // Listen for page visibility changes (tab activation)
+        document.addEventListener('visibilitychange', this.handleVisibilityChange);
+    },
+    beforeDestroy: function() {
+        // Clean up event listener
+        document.removeEventListener('visibilitychange', this.handleVisibilityChange);
+    },
     watch: {
-        'data_files': function(newVal,oldVal) {
-            if (oldVal.length<1){
-                return;
-            }
-            this.updateDataFilesWeight();
+        'data_files': {
+            handler: function(newVal, oldVal) {
+                if (oldVal.length < 1) {
+                    return;
+                }
+                
+                // Only update weights if the order actually changed
+                // Compare the sequence of IDs
+                if (newVal.length !== oldVal.length) {
+                    // Length changed (files added/removed), update weights
+                    this.updateDataFilesWeight();
+                    return;
+                }
+                
+                // Check if order changed by comparing IDs at each position
+                let orderChanged = false;
+                for (let i = 0; i < newVal.length; i++) {
+                    // Compare by 'id' property (used in getRowSequence)
+                    if (!newVal[i] || !oldVal[i] || newVal[i].id !== oldVal[i].id) {
+                        orderChanged = true;
+                        break;
+                    }
+                }
+                
+                if (orderChanged) {
+                    this.updateDataFilesWeight();
+                }
+            },
+            deep: false // Don't watch deep changes, only array reference and order
         },
+        // Watch for route changes to refresh when navigating to datafiles page
+        '$route': {
+            handler: function(to, from) {
+                // Refresh when navigating to /datafiles route
+                if (to.path === '/datafiles') {
+                    this.reloadDataFiles();
+                }
+            },
+            immediate: false
+        }
     }, 
     methods: {
         momentDate(date) {
@@ -374,6 +417,12 @@ Vue.component('datafiles', {
         },
         confirmExport: function(){
             // This function is no longer needed as the export dialog handles everything
+        },
+        handleVisibilityChange: function() {
+            // Refresh data files when page/tab becomes visible
+            if (!document.hidden) {
+                this.reloadDataFiles();
+            }
         },
     },
     computed: {
