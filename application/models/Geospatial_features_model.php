@@ -237,27 +237,20 @@ class Geospatial_features_model extends CI_Model {
     {
         $data = array_intersect_key($data, array_flip($this->fields));
 
-        // Validate required fields
-        foreach ($this->required as $field) {
-            if (!isset($data[$field]) || empty($data[$field])) {
-                throw new Exception('Missing required field: ' . $field);
-            }
-        }
-
         // Check if code is unique within the project (if provided)
-        if (isset($data['code']) && !empty($data['code'])) {
+        if (isset($data['code']) && !empty($data['code']) && isset($data['sid'])) {
             if ($this->feature_code_exists($data['code'], $data['sid'])) {
                 throw new Exception('Feature code already exists in this project');
             }
         }
 
-        // Check if project exists
-        if (!$this->project_exists($data['sid'])) {
+        // Check if project exists (if sid is provided)
+        if (isset($data['sid']) && !$this->project_exists($data['sid'])) {
             throw new Exception('Project not found');
         }
 
         // Generate unique name if conflict exists (auto-rename instead of throwing exception)
-        if ($this->feature_name_exists($data['name'], $data['sid'])) {
+        if (isset($data['name']) && isset($data['sid']) && $this->feature_name_exists($data['name'], $data['sid'])) {
             $original_name = $data['name'];
             $data['name'] = $this->generate_unique_feature_name($original_name, $data['sid']);
             log_message('info', "Feature name auto-renamed during insert: '{$original_name}' -> '{$data['name']}'");
@@ -311,7 +304,7 @@ class Geospatial_features_model extends CI_Model {
             }
         }
 
-        // Validate required fields
+        // Validate name field if being updated (data quality check, not required field validation)
         if (isset($data['name'])) {
             $data['name'] = trim($data['name']);
             if (empty($data['name'])) {
@@ -704,6 +697,8 @@ class Geospatial_features_model extends CI_Model {
                 'sid' => $sid,
                 'name' => $feature_name,
                 'code' => $this->generate_feature_code($feature_name),
+                'definition' => 'Geospatial feature: ' . $feature_name, // Required field - default definition, can be updated later by user
+                'is_abstract' => 0, // Required field - default to false
                 'file_name' => $file_name,
                 'file_type' => $file_extension,
                 'file_size' => filesize($file_path) ?: 0,
