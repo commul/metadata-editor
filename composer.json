@@ -15,7 +15,8 @@
         "firebase/php-jwt": "^6.0.0",
         "ramsey/uuid": "^4.2",
         "nelexa/zip": "^3.3",
-        "swaggest/json-diff": "^3.11"
+        "swaggest/json-diff": "^3.11",
+        "halaxa/json-machine": "^1.2"
     },
     "config": {
         "platform": {

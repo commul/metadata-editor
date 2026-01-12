@@ -91,6 +91,8 @@ class ImportProject extends MY_REST_Controller
 				if ($file_ext=='xml'){
 					if (in_array($options['type'],array('survey','microdata'))){
 						$result=$this->Editor_model->importDDI($sid, $parseOnly=false,$options);
+						// Link data files after import
+						$this->link_data_files($sid);
 					}
 					else if ($options['type']=='geospatial'){
 						$this->load->library('Geospatial_import');
@@ -102,6 +104,7 @@ class ImportProject extends MY_REST_Controller
 				}else if ($file_ext=='json' || $file_ext=='jsonl'){
 					$this->load->library('ImportJsonMetadata');
 					$result=$this->importjsonmetadata->import($sid,$uploaded_filepath,$validate=true,$options);
+					$this->link_data_files($sid);
 				}
 				else if ($file_ext=='zip')
 				{
@@ -110,7 +113,7 @@ class ImportProject extends MY_REST_Controller
 
 					if (isset($result['project_info']['idno'])){
 						$idno=$result['project_info']['idno'];
-					}
+					}					
 				}			
 
 				$this->Editor_model->set_project_options($sid,$options=array(
@@ -195,6 +198,22 @@ class ImportProject extends MY_REST_Controller
 	{
 		$this->load->library('ImportPackage');
 		return $this->importpackage->import($sid,$zip_path);
+	}
+
+
+	/**
+	 * 
+	 * Link data files in editor_data_files table with actual files in /data folder
+	 * 
+	 * @param int $sid - Project ID
+	 * @return array - Results of linking operation
+	 * 
+	 */
+	private function link_data_files($sid)
+	{
+		$this->load->library('ImportPackage');
+		$project_path = $this->Editor_model->get_project_folder($sid);
+		return $this->importpackage->link_data_files($sid, $project_path);
 	}
 
 

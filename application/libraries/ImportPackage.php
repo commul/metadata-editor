@@ -26,6 +26,7 @@ class ImportPackage
 
         $this->ci->load->model("Editor_model");
         $this->ci->load->model("Editor_resource_model");
+        $this->ci->load->model("Editor_datafile_model");
         $this->ci->load->library("ImportJsonMetadata");
     }
 
@@ -56,6 +57,9 @@ class ImportPackage
 
         // Import metadata (JSON or XML)
         $metadata_result = $this->import_metadata($sid, $project_path, $project_info);
+
+        // Link data files for microdata projects
+        $this->link_data_files($sid, $project_path);
 
         // Import external resources (RDF JSON or XML)
         $resources_imported = $this->import_resources($sid, $project_path, $project_info);
@@ -333,6 +337,150 @@ class ImportPackage
         }
 
         return $thumbnail;
+    }
+
+
+    /**
+     * 
+     * Link data files with actual files in project-folder/data folder
+     * 
+     * This function:
+     * 1. Reads all data file names from project-folder/data folder
+     * 2. Sanitizes file_name to remove file extension
+     * 3. Looks in project-folder/data folder for .CSV, .DTA, and .SAV files in that order
+     * 4. Updates the file_name field in project-folder/data_files table if a match is found
+     * 
+     * @param int $sid - Project ID
+     * @param string $project_path - Path to project folder (optional, will be retrieved if not provided)
+     * @return array - Results of linking operation
+     * 
+     */
+    public function link_data_files($sid, $project_path = null)
+    {
+        // Get project type - only link for microdata/survey projects
+        $project = $this->ci->Editor_model->get_basic_info($sid);
+        if (!$project) {
+            log_message('warning', "Project not found for linking data files: " . $sid);
+            return array('linked' => 0, 'skipped' => 0, 'errors' => array());
+        }
+
+        $project_type = isset($project['type']) ? $project['type'] : '';
+        if (!in_array($project_type, array('microdata', 'survey'))) {
+            log_message('info', "Skipping data file linking for project type: " . $project_type);
+            return array('linked' => 0, 'skipped' => 0, 'errors' => array());
+        }
+
+        // Get project folder path if not provided
+        if (!$project_path) {
+            $project_path = $this->ci->Editor_model->get_project_folder($sid);
+        }
+
+        $data_folder = $project_path . '/data/';
+
+        // Check if data folder exists
+        if (!file_exists($data_folder) || !is_dir($data_folder)) {
+            return array('linked' => 0, 'skipped' => 0, 'errors' => array('Data folder not found'));
+        }
+
+        // Get all data files from database
+        $data_files = $this->ci->Editor_datafile_model->select_all($sid);
+        
+        if (empty($data_files)) {
+            return array('linked' => 0, 'skipped' => 0, 'errors' => array());
+        }
+
+        $linked_count = 0;
+        $skipped_count = 0;
+        $errors = array();
+
+        // Get list of files in data folder
+        $data_folder_files = array();
+        if (is_dir($data_folder) && ($handle = opendir($data_folder))) {
+            while (false !== ($entry = readdir($handle))) {
+                if ($entry != "." && $entry != ".." && is_file($data_folder . $entry)) {
+                    $data_folder_files[] = $entry;
+                }
+            }
+            closedir($handle);
+        }
+
+        // Process each data file from database
+        foreach ($data_files as $file_id => $data_file) {
+            $current_file_name = isset($data_file['file_name']) ? $data_file['file_name'] : '';
+            
+            if (empty($current_file_name)) {
+                $skipped_count++;
+                continue;
+            }
+
+            // Sanitize file_name to remove extension (if present)
+            $sanitized_name = $this->ci->Editor_datafile_model->filename_part($current_file_name);
+
+            // Look for matching files in order: .CSV, .DTA, .SAV
+            $extensions = array('csv', 'dta', 'sav');
+            $found_file = null;
+            $found_extension = null;
+
+            foreach ($extensions as $ext) {
+                $search_filename = $sanitized_name . '.' . $ext;
+                
+                // Case-insensitive search
+                foreach ($data_folder_files as $folder_file) {
+                    if (strcasecmp($folder_file, $search_filename) == 0) {
+                        $found_file = $folder_file;
+                        $found_extension = $ext;
+                        break 2; // Break out of both loops
+                    }
+                }
+            }
+
+            // If file found, update file_name and file_physical_name if needed
+            if ($found_file) {
+                $update_data = array();
+                $needs_update = false;
+
+                // Update file_name if it differs from sanitized name
+                if ($sanitized_name != $current_file_name) {
+                    $update_data['file_name'] = $sanitized_name;
+                    $needs_update = true;
+                }
+
+                // Update file_physical_name if it's empty or doesn't match found file
+                $current_physical_name = isset($data_file['file_physical_name']) ? $data_file['file_physical_name'] : '';
+                if (empty($current_physical_name) || strcasecmp($current_physical_name, $found_file) != 0) {
+                    $update_data['file_physical_name'] = $found_file;
+                    $needs_update = true;
+                }
+
+                if ($needs_update) {
+                    try {
+                        // Update the database
+                        $this->ci->Editor_datafile_model->update($data_file['id'], $update_data);
+                        
+                        $update_msg = "Linked data file: {$current_file_name} -> {$sanitized_name} (found: {$found_file})";
+                        $linked_count++;
+                    }
+                    catch (Exception $e) {
+                        $error_msg = "Failed to update file_name for file_id {$file_id}: " . $e->getMessage();
+                        $errors[] = $error_msg;
+                    }
+                }
+                else {
+                    // File already correctly linked
+                    $skipped_count++;
+                }
+            }
+            else {
+                // File not found in data folder
+                $skipped_count++;
+            }
+        }
+
+        return array(
+            'linked' => $linked_count,
+            'skipped' => $skipped_count,
+            'errors' => $errors
+        );
     }
 
 }

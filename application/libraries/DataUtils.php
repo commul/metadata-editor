@@ -302,6 +302,37 @@ class DataUtils
 		];
 	}
 
+	/**
+	 * Process microdata file - generates data dictionary and exports to CSV in one go
+	 * 
+	 * @param string $datafile_path Path to the data file
+	 * @param array $options Dictionary parameters (weights, missings, dtypes, categorical)
+	 * @return array Response with job_id and status
+	 */
+	public function process_microdata_queue($datafile_path, $options)
+	{
+		$client = new Client([
+			'base_uri' => $this->DataApiUrl.'process-microdata-queue'
+		]);
+
+		$request_body = $options;
+		$request_body["file_path"] = realpath($datafile_path);
+			
+		$api_response = $client->request('POST', '', [
+			'json' => 
+				$request_body
+			,
+			['debug' => false]
+		]);
+
+		$response = json_decode($api_response->getBody()->getContents(), true);
+		return [
+			'response' => $response,
+			'request_url' => $client->getConfig('base_uri'),
+			'status_code' => $api_response->getStatusCode() //e.g. 200 or 202
+		];
+	}
+
 
 	function get_file_extension($name)
 	{		

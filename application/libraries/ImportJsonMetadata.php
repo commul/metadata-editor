@@ -1,5 +1,9 @@
 <?php  if ( ! defined('BASEPATH')) exit('No direct script access allowed');
 
+use JsonMachine\Items;
+use JsonMachine\JsonDecoder\ExtJsonDecoder;
+use JsonMachine\JsonDecoder\DecodingError;
+
 
 /**
  * 
@@ -34,6 +38,9 @@ class ImportJsonMetadata
         $this->ci->load->model("Editor_variable_groups_model");
         $this->ci->load->model("Geospatial_features_model");
         $this->ci->load->model("Geospatial_feature_chars_model");
+        
+        // Threshold for using streaming parser (10MB)
+        $this->streaming_threshold = 5 * 1024 * 1024;
 	}
     
     /**
@@ -85,8 +92,270 @@ class ImportJsonMetadata
      * 
      * Import metadata from JSON file
      * 
+     * Uses streaming parser (json-machine) for large files to avoid memory issues
+     * 
      */
     private function import_from_json($sid,$json_file_path,$validate=true,$options=array())
+    {
+        $type = $this->detect_project_type($json_file_path, $options);
+        $canonical_type = $this->ci->Editor_model->resolve_canonical_type($type) ?: $type;
+        
+        // microdata and geospatial always use streaming
+        $is_microdata = ($canonical_type === 'microdata' || $canonical_type === 'survey');
+        $is_geospatial = ($canonical_type === 'geospatial');
+        
+        if ($is_microdata) {
+            log_message('info', sprintf(
+                'Using streaming parser for microdata project: %s',
+                basename($json_file_path)
+            ));
+            return $this->import_microdata_streaming($sid, $json_file_path, $validate, $options);
+        }
+        else if ($is_geospatial) {
+            log_message('info', sprintf(
+                'Using streaming parser for geospatial project: %s',
+                basename($json_file_path)
+            ));
+            return $this->import_geospatial_streaming($sid, $json_file_path, $validate, $options);
+        }
+        else {
+            // Other types: use traditional approach
+            return $this->import_from_json_traditional($sid, $json_file_path, $validate, $options);
+        }
+    }
+    
+    /**
+     * 
+     * Detect project type from JSON file or options
+     * 
+     * Priority:
+     * 1. Type from options (if provided)
+     * 2. Extract type from JSON using json-machine JSON Pointer
+     * 3. Fallback to reading first chunk of file
+     * 
+     * @param string $json_file_path - Path to JSON file
+     * @param array $options - Options array that may contain 'type'
+     * @return string - Project type
+     * 
+     */
+    private function detect_project_type($json_file_path, $options=array())
+    {
+        // Use type from options if provided
+        if (isset($options['type']) && !empty($options['type'])) {
+            return $options['type'];
+        }
+        
+        try {
+            $items = Items::fromFile($json_file_path, [
+                'decoder' => new ExtJsonDecoder(true),
+                'pointer' => ['/type', '/schematype']
+            ]);
+            
+            foreach ($items as $key => $value) {
+                if (($key === 'type' || $key === 'schematype') && !empty($value)) {
+                    return $value;
+                }
+            }
+        } catch (Exception $e) {
+            log_message('error', 'Failed to extract type using json-machine: ' . $e->getMessage());
+        }
+        
+        throw new Exception("Could not detect project type from JSON file: " . $json_file_path);
+    }
+
+
+    
+    /**
+     * 
+     * Import microdata project using streaming parser (json-machine)
+     * 
+     * This method uses JSON Pointers to stream process large arrays (variables, data_files)
+     * without loading the entire file into memory.
+     * 
+     * Strategy:
+     * 1. Extract metadata using JSON Pointers (doc_desc, study_desc, etc.)
+     * 2. Stream process data_files array
+     * 3. Stream process variables array in batches
+     * 
+     * @param int $sid - Project ID
+     * @param string $json_file_path - Path to JSON file
+     * @param bool $validate - Whether to validate the metadata
+     * @param array $options - Additional options
+     * @return bool - Returns true on success
+     * 
+     */
+    private function import_microdata_streaming($sid,$json_file_path,$validate=true,$options=array())
+    {
+        // Extract metadata using json-machine, but exclude large arrays
+        // Use iterator_to_array but then remove large arrays before processing
+        $json_data = array();
+        
+        try {
+            $items = Items::fromFile($json_file_path, [
+                'decoder' => new ExtJsonDecoder(true)
+            ]);
+            
+            // Convert iterator to array
+            $json_data = iterator_to_array($items, true);
+            
+            // Remove large arrays
+            unset($json_data['variables']);
+            unset($json_data['data_files']);
+            unset($json_data['variable_groups']);
+            
+        } catch (Exception $e) {
+            log_message('error', 'Failed to extract metadata using json-machine: ' . $e->getMessage());
+            throw new Exception("Failed to extract metadata from JSON file: " . $e->getMessage());
+        }
+        
+        // Get type
+        $type = isset($json_data['type']) ? $json_data['type'] : 
+                (isset($json_data['schematype']) ? $json_data['schematype'] : null);
+        
+        if (!$type) {
+            throw new Exception("Invalid JSON file. Missing 'type' field.");
+        }
+        
+        $json_data['type'] = $type;
+        
+        // Check type mismatch - use canonical type resolution
+        if (isset($options['type'])){
+            $canonical_options_type = $this->ci->Editor_model->resolve_canonical_type($options['type']) ?: $options['type'];
+            $canonical_metadata_type = $this->ci->Editor_model->resolve_canonical_type($type) ?: $type;
+            
+            if ($canonical_options_type !== $canonical_metadata_type){
+                throw new Exception("Project type mismatched. The metadata 'type' is set to '".$type."', but the project type is set to '".$options['type']."'.");
+            }
+        }
+        
+        // Merge options into JSON data
+        $json_data = array_merge($json_data, $options);
+        
+        // Use template if set [template_uid]
+        if (isset($json_data['template_uid'])){
+            $template = $this->ci->Editor_template_model->get_template_by_uid($json_data['template_uid']);
+            if (!$template){
+                $json_data['template_uid'] = null;
+            }
+        }
+        
+        // Import project metadata first
+        $this->import_project_metadata($type, $sid, $json_data, $validate);
+        
+        // Stream process data_files array
+        $file_id_mappings = $this->stream_process_datafiles($sid, $json_file_path, $validate);
+        
+        // Stream process variables array in batches
+        $this->stream_process_variables($sid, $json_file_path, $file_id_mappings, $validate);
+        
+        return true;
+    }
+    
+    /**
+     * 
+     * Import geospatial project using streaming parser (json-machine)
+     * 
+     * This method uses JSON Pointers to stream process large feature catalogues
+     * without loading the entire file into memory.
+     * 
+     * @param int $sid - Project ID
+     * @param string $json_file_path - Path to JSON file
+     * @param bool $validate - Whether to validate the metadata
+     * @param array $options - Additional options
+     * @return bool - Returns true on success
+     * 
+     */
+    private function import_geospatial_streaming($sid,$json_file_path,$validate=true,$options=array())
+    {        
+        // Extract metadata using json-machine, but exclude feature_catalogue
+        $json_data = array();
+        $root_feature_catalogue = null;
+        
+        try {
+            $items = Items::fromFile($json_file_path, [
+                'decoder' => new ExtJsonDecoder(true)
+            ]);
+            
+            // Convert iterator to array
+            $json_data = iterator_to_array($items, true);
+            
+            // Handle feature_catalogue
+            if (isset($json_data['feature_catalogue'])) {
+                $root_feature_catalogue = $json_data['feature_catalogue'];
+            }            
+        } catch (Exception $e) {
+            log_message('error', 'Failed to extract metadata using json-machine: ' . $e->getMessage());
+            throw new Exception("Failed to extract metadata from JSON file: " . $e->getMessage());
+        }
+        
+        // Get type
+        $type = isset($json_data['type']) ? $json_data['type'] : 
+                (isset($json_data['schematype']) ? $json_data['schematype'] : null);
+        
+        if (!$type) {
+            throw new Exception("Invalid JSON file. Missing 'type' field.");
+        }
+        
+        $json_data['type'] = $type;
+        
+        // Check type mismatch - use canonical type resolution
+        if (isset($options['type'])){
+            $canonical_options_type = $this->ci->Editor_model->resolve_canonical_type($options['type']) ?: $options['type'];
+            $canonical_metadata_type = $this->ci->Editor_model->resolve_canonical_type($type) ?: $type;
+            
+            if ($canonical_options_type !== $canonical_metadata_type){
+                throw new Exception("Project type mismatched. The metadata 'type' is set to '".$type."', but the project type is set to '".$options['type']."'.");
+            }
+        }
+        
+        // Merge options into JSON data
+        $json_data = array_merge($json_data, $options);
+        
+        // Use template if set [template_uid]
+        if (isset($json_data['template_uid'])){
+            $template = $this->ci->Editor_template_model->get_template_by_uid($json_data['template_uid']);
+            if (!$template){
+                $json_data['template_uid'] = null;
+            }
+        }
+        
+        // Fix for geospatial - flatten identificationInfo array
+        if (isset($json_data['description']['identificationInfo']) && 
+            is_array($json_data['description']['identificationInfo']) &&
+            isset($json_data['description']['identificationInfo'][0])
+        ){
+            $json_data['description']['identificationInfo'] = $json_data['description']['identificationInfo'][0];
+        }
+        
+        // Handle feature_catalogue at root level - move to description if needed
+        if (!isset($json_data['description']['feature_catalogue']) && $root_feature_catalogue !== null) {
+            if (!isset($json_data['description'])) {
+                $json_data['description'] = array();
+            }
+            // Copy feature_catalogue data except featureType (we'll process it separately)
+            $feature_catalogue_data = $root_feature_catalogue;
+            if (isset($feature_catalogue_data['featureType'])) {
+                unset($feature_catalogue_data['featureType']);
+            }
+            $json_data['description']['feature_catalogue'] = $feature_catalogue_data;
+        }
+        
+        // Import project metadata first
+        $this->import_project_metadata($type, $sid, $json_data, $validate);
+        
+        // Stream process feature catalogue if present
+        $this->stream_process_feature_catalogue($sid, $json_file_path, $options, $validate);
+        
+        return true;
+    }
+    
+    
+    /**
+     * 
+     * Traditional JSON import method (extracted for fallback)
+     * 
+     */
+    private function import_from_json_traditional($sid,$json_file_path,$validate=true,$options=array())
     {
         // Read file
         $json = file_get_contents($json_file_path);
@@ -114,9 +383,14 @@ class ImportJsonMetadata
         $type=isset($json_data['type']) ? $json_data['type'] : $json_data['schematype'];
         $json_data['type']=$type;
 
-        // Check type mismatch
-        if (isset($options['type']) && $options['type']!=$type){
-            throw new Exception("Project type mismatched. The metadata 'type' is set to '".$type."', but the project type is set to '".$options['type']."'.");
+        // Check type mismatch - use canonical type resolution
+        if (isset($options['type'])){
+            $canonical_options_type = $this->ci->Editor_model->resolve_canonical_type($options['type']) ?: $options['type'];
+            $canonical_metadata_type = $this->ci->Editor_model->resolve_canonical_type($type) ?: $type;
+            
+            if ($canonical_options_type !== $canonical_metadata_type){
+                throw new Exception("Project type mismatched. The metadata 'type' is set to '".$type."', but the project type is set to '".$options['type']."'.");
+            }
         }
 
         // Merge options into JSON data
@@ -124,7 +398,6 @@ class ImportJsonMetadata
 
         // Use template if set [template_uid]
         if (isset($json_data['template_uid'])){
-
             //get template by uid
             $template=$this->ci->Editor_template_model->get_template_by_uid($json_data['template_uid']);
             
@@ -157,6 +430,31 @@ class ImportJsonMetadata
 
         return true;
     }
+    
+    /**
+     * Format bytes to human-readable format
+     * 
+     * @param int $bytes - Number of bytes
+     * @param int $precision - Decimal precision
+     * @return string - Formatted string (e.g., "1.5 MB")
+     */
+    private function format_bytes($bytes, $precision = 2)
+    {
+        $units = array('B', 'KB', 'MB', 'GB', 'TB');
+        
+        if ($bytes < 0) {
+            return '-' . $this->format_bytes(abs($bytes), $precision);
+        }
+        
+        if ($bytes == 0) {
+            return '0 B';
+        }
+        
+        $base = log($bytes, 1024);
+        $unit = $units[floor($base)];
+        
+        return round(pow(1024, $base - floor($base)), $precision) . ' ' . $unit;
+    }
 
 
     /**
@@ -179,6 +477,12 @@ class ImportJsonMetadata
      */
     private function import_from_jsonl($sid,$jsonl_file_path,$validate=true,$options=array())
     {
+        // Resolve canonical type for options['type'] once at the start (if set)
+        $canonical_options_type = null;
+        if (isset($options['type'])) {
+            $canonical_options_type = $this->ci->Editor_model->resolve_canonical_type($options['type']) ?: $options['type'];
+        }
+        
         // Read file line by line
         $handle = fopen($jsonl_file_path, 'r');
         if ($handle === false){
@@ -195,6 +499,7 @@ class ImportJsonMetadata
         $batch_count = 0;
         $file_id_mappings = null;
         $project_type = null;
+        $canonical_project_type = null;
 
         try {
             while (($line = fgets($handle)) !== false) {
@@ -226,22 +531,27 @@ class ImportJsonMetadata
                         throw new Exception("Invalid JSONL file. First line missing 'schema_type' or 'type' field.");
                     }
 
+                    // Resolve canonical type for schema_type once
+                    $canonical_schema_type = $this->ci->Editor_model->resolve_canonical_type($schema_type) ?: $schema_type;
+                    
+                    // Check type mismatch using canonical types
+                    if ($canonical_options_type !== null && $canonical_options_type !== $canonical_schema_type){
+                        throw new Exception("Project type mismatched. The metadata 'type' is set to '".$schema_type."', but the project type is set to '".$options['type']."'.");
+                    }
+
                     // Check if first line is project metadata (survey, microdata, or other types)
-                    if ($schema_type == 'survey' || $schema_type == 'microdata' || 
-                        !in_array($schema_type, array('variable'))) {
+                    // Use canonical type for comparison
+                    $is_microdata_type = ($canonical_schema_type === 'survey' || $canonical_schema_type === 'microdata');
+                    if ($is_microdata_type || !in_array($schema_type, array('variable'))) {
                         $project_data = $json_data;
                         $project_data['type'] = $schema_type;
                         $project_type = $schema_type;
+                        $canonical_project_type = $canonical_schema_type;
                         $first_line = false;
-                        
-                        // Check type mismatch
-                        if (isset($options['type']) && $options['type'] != $schema_type){
-                            throw new Exception("Project type mismatched. The metadata 'type' is set to '".$schema_type."', but the project type is set to '".$options['type']."'.");
-                        }
                         
                         // For survey/microdata, we need to process project metadata and datafiles first
                         // to get file_id_mappings before processing variables
-                        if ($schema_type == 'survey' || $schema_type == 'microdata') {
+                        if ($is_microdata_type) {
                             // Merge options into project data
                             $project_data_merged = array_merge($project_data, $options);
                             
@@ -310,7 +620,10 @@ class ImportJsonMetadata
         }
 
         // Process any remaining variables in the batch (for survey/microdata projects)
-        if (!empty($variable_batch) && ($project_type == 'survey' || $project_type == 'microdata')) {
+        // Use canonical type for comparison (fallback to original type if canonical not resolved)
+        $canonical_type_for_check = $canonical_project_type ?: $project_type;
+        $is_microdata_project = ($canonical_type_for_check === 'survey' || $canonical_type_for_check === 'microdata');
+        if (!empty($variable_batch) && $is_microdata_project) {
             if ($file_id_mappings !== null) {
                 $this->import_variable_metadata($sid, $variable_batch, $file_id_mappings, $validate);
             } else {
@@ -321,7 +634,8 @@ class ImportJsonMetadata
         }
 
         // For non-survey/microdata projects, process project metadata
-        if ($project_type != 'survey' && $project_type != 'microdata') {
+        // Use canonical type for comparison
+        if (!$is_microdata_project) {
             // Merge options into project data
             $project_data = array_merge($project_data, $options);
 
@@ -453,7 +767,225 @@ class ImportJsonMetadata
         //import variable groups
         //$this->import_variable_groups($sid,$variable_groups, $validate);
     }
+    
+    /**
+     * 
+     * Import microdata project with streaming support for large arrays
+     * 
+     * This method processes variables and data_files in batches to reduce memory usage
+     * 
+     * @param string $type - Project type
+     * @param int $sid - Project ID
+     * @param array $json_data - Project metadata (without variables/data_files)
+     * @param array $variables - Variables array (can be large)
+     * @param array $datafiles - Data files array
+     * @param bool $validate - Whether to validate
+     * 
+     */
+    private function import_microdata_project_streaming($type, $sid, $json_data, $variables, $datafiles, $validate=true)
+    {
+        // Import project metadata first
+        $this->import_project_metadata($type, $sid, $json_data, $validate);
+        
+        // Import data files
+        $file_id_mappings = $this->import_datafile_metadata($sid, $datafiles, $validate);
+        
+        // Process variables in batches to reduce memory usage
+        $batch_size = 500;
+        $variable_batch = [];
+        $batch_count = 0;
+        
+        foreach ($variables as $variable) {
+            $variable_batch[] = $variable;
+            $batch_count++;
+            
+            if ($batch_count >= $batch_size) {
+                $this->import_variable_metadata($sid, $variable_batch, $file_id_mappings, $validate);
+                $variable_batch = [];
+                $batch_count = 0;
+                
+                // Free memory
+                if (function_exists('gc_collect_cycles')) {
+                    gc_collect_cycles();
+                }
+            }
+        }
+        
+        // Process remaining variables
+        if (!empty($variable_batch)) {
+            $this->import_variable_metadata($sid, $variable_batch, $file_id_mappings, $validate);
+        }
+    }
 
+    /**
+     * 
+     * Stream process data_files array from JSON file
+     * 
+     * @param int $sid - Project ID
+     * @param string $json_file_path - Path to JSON file
+     * @param bool $validate - Whether to validate
+     * @return array - File ID mappings
+     * 
+     */
+    private function stream_process_datafiles($sid, $json_file_path, $validate=true)
+    {
+        require_once(APPPATH.'../vendor/autoload.php');
+        
+        $datafiles = array();
+        
+        try {
+            // Stream process data_files array using JSON Pointer
+            $items = Items::fromFile($json_file_path, [
+                'decoder' => new ExtJsonDecoder(true),
+                'pointer' => '/data_files'
+            ]);
+            
+            foreach ($items as $datafile) {
+                $datafiles[] = $datafile;
+            }
+        } catch (Exception $e) {
+            // If data_files doesn't exist or is empty, that's okay
+            log_message('debug', 'No data_files array found or error reading: ' . $e->getMessage());
+        }
+        
+        // Import data files (usually small, can process in memory)
+        return $this->import_datafile_metadata($sid, $datafiles, $validate);
+    }
+    
+    /**
+     * 
+     * Stream process variables array from JSON file in batches
+     * 
+     * This method uses JSON Pointer to stream the variables array and processes
+     * them in batches to avoid loading all variables into memory at once.
+     * 
+     * @param int $sid - Project ID
+     * @param string $json_file_path - Path to JSON file
+     * @param array $file_id_mappings - File ID mappings from datafiles
+     * @param bool $validate - Whether to validate
+     * 
+     */
+    private function stream_process_variables($sid, $json_file_path, $file_id_mappings, $validate=true)
+    {
+        require_once(APPPATH.'../vendor/autoload.php');
+        
+        $batch_size = 500;
+        $variable_batch = array();
+        $batch_count = 0;
+        $total_variables = 0;
+        
+        try {
+            // Stream process variables array using JSON Pointer
+            $items = Items::fromFile($json_file_path, [
+                'decoder' => new ExtJsonDecoder(true),
+                'pointer' => '/variables'
+            ]);
+            
+            foreach ($items as $variable) {
+                $variable_batch[] = $variable;
+                $batch_count++;
+                $total_variables++;
+                
+                // Process batch when it reaches batch_size
+                if ($batch_count >= $batch_size) {
+                    $this->import_variable_metadata($sid, $variable_batch, $file_id_mappings, $validate);
+                    $variable_batch = array();
+                    $batch_count = 0;
+                    
+                    // Free memory
+                    if (function_exists('gc_collect_cycles')) {
+                        gc_collect_cycles();
+                    }
+                    
+                    log_message('debug', sprintf(
+                        'Processed %d variables (batch) - Total: %d',
+                        $batch_size,
+                        $total_variables
+                    ));
+                }
+            }
+            
+            // Process remaining variables
+            if (!empty($variable_batch)) {
+                $this->import_variable_metadata($sid, $variable_batch, $file_id_mappings, $validate);
+                log_message('debug', sprintf(
+                    'Processed final batch of %d variables - Total: %d',
+                    count($variable_batch),
+                    $total_variables
+                ));
+            }
+            
+            log_message('info', sprintf(
+                'Completed streaming import of %d variables for project %d',
+                $total_variables,
+                $sid
+            ));
+            
+        } catch (Exception $e) {
+            // If variables array doesn't exist, that's okay (some projects may not have variables)
+            log_message('debug', 'No variables array found or error reading: ' . $e->getMessage());
+        }
+    }
+    
+    /**
+     * 
+     * Stream process feature catalogue from JSON file
+     * 
+     * @param int $sid - Project ID
+     * @param string $json_file_path - Path to JSON file
+     * @param array $options - Additional options
+     * @param bool $validate - Whether to validate
+     * 
+     */
+    private function stream_process_feature_catalogue($sid, $json_file_path, $options=array(), $validate=true)
+    {
+        require_once(APPPATH.'../vendor/autoload.php');
+        
+        $feature_types = array();
+        
+        try {
+            // Try to get feature_catalogue from description.feature_catalogue.featureType
+            $items = Items::fromFile($json_file_path, [
+                'decoder' => new ExtJsonDecoder(true),
+                'pointer' => '/description/feature_catalogue/featureType'
+            ]);
+            
+            foreach ($items as $feature_type) {
+                $feature_types[] = $feature_type;
+            }
+        } catch (Exception $e) {
+            // Try root level feature_catalogue.featureType
+            try {
+                $items = Items::fromFile($json_file_path, [
+                    'decoder' => new ExtJsonDecoder(true),
+                    'pointer' => '/feature_catalogue/featureType'
+                ]);
+                
+                foreach ($items as $feature_type) {
+                    $feature_types[] = $feature_type;
+                }
+            } catch (Exception $e2) {
+                // No feature catalogue found, that's okay
+                log_message('debug', 'No feature catalogue found: ' . $e2->getMessage());
+                return;
+            }
+        }
+        
+        // Import feature types if found
+        if (!empty($feature_types)) {
+            $user_id = isset($options['user_id']) ? $options['user_id'] : 
+                      (isset($options['created_by']) ? $options['created_by'] : null);
+            
+            try {
+                $result = $this->import_feature_catalogue($sid, $feature_types, $user_id, $validate);
+                log_message('info', "Geospatial feature catalogue import completed: " . json_encode($result));
+            } catch (Exception $e) {
+                log_message('error', "Error importing feature catalogue: " . $e->getMessage());
+                throw $e;
+            }
+        }
+    }
+    
     /**
      * 
      * Import project metadata
