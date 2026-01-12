@@ -112,6 +112,125 @@ class Data extends MY_REST_Controller
 		}
 	}
 
+	/**
+	 * 
+	 * Upload data file and create import job in one step
+	 * 
+	 * POST /api/data/import_microdata/{sid}
+	 * 
+	 * Accepts multipart/form-data with:
+	 *   - file: The data file to upload
+	 *   - overwrite: (optional) 0 or 1, default 0
+	 *   - store_data: (optional) "store" or "remove", default "store"
+	 * 
+	 * Returns:
+	 *   - file_id: The uploaded file ID
+	 *   - job_id: The created job ID
+	 *   - job: Full job information
+	 * 
+	 **/ 
+	function import_microdata_post($sid=null)
+	{		
+		try{
+			$exists=$this->Editor_model->check_id_exists($sid);
+
+			if(!$exists){
+				throw new Exception("Project not found");
+			}
+
+			// Validate file upload exists
+			if (!isset($_FILES['file']) || !is_uploaded_file($_FILES['file']['tmp_name'])) {
+				throw new Exception("File upload is required");
+			}
+
+			$overwrite=$this->input->post("overwrite") ? (int)$this->input->post("overwrite") : 0;
+			$store_data=$this->input->post("store_data");
+
+			if (empty($store_data)) {
+				$store_data = 'store';
+			}
+
+			if ($store_data !== "store" && $store_data !== "remove") {
+				throw new Exception("Invalid value for store_data. Valid values are 'store', 'remove'");
+			}
+
+			$this->editor_acl->user_has_project_access($sid,$permission='edit',$this->api_user());
+			
+			// Step 1: Upload file
+			$upload_result=$this->Editor_datafile_model->upload_create(
+				$sid,
+				$overwrite,
+				$store_data,
+				$this->get_api_user_id()
+			);
+
+			if (empty($upload_result['file_id'])) {
+				throw new Exception("File upload succeeded but file_id was not returned");
+			}
+
+			$file_id = $upload_result['file_id'];
+
+			// Step 2: Create import job
+			$this->load->model('Job_queue_model');
+			
+			// Load job registry for validation
+			require_once APPPATH . 'libraries/Jobs/JobHandlerInterface.php';
+			require_once APPPATH . 'libraries/Jobs/JobRegistry.php';
+			
+			$job_type = 'import_microdata';
+			$payload = array(
+				'project_id' => $sid,
+				'file_id' => $file_id
+			);
+			
+			// Validate job type exists
+			if (!$this->Job_queue_model->is_valid_job_type($job_type)) {
+				throw new Exception("Job type '{$job_type}' is not available");
+			}
+			
+			// Validate payload using the job handler
+			$handler = JobRegistry::getHandler($job_type);
+			if ($handler) {
+				$handler->validatePayload($payload);
+			}
+			
+			// Enqueue the job
+			$job_id = $this->Job_queue_model->enqueue(
+				$job_type,
+				$payload,
+				$this->get_api_user_id(),
+				0, // priority
+				3  // max_attempts
+			);
+			
+			// Get the created job
+			$job = $this->Job_queue_model->get($job_id);
+			
+			// Remove numeric ID from job object for API response
+			$job_uuid = isset($job['uuid']) ? $job['uuid'] : null;
+			$job_response = $job;
+			unset($job_response['id']);
+
+			$output=array(
+				'status'=>'success',
+				'message'=>'File uploaded and import job created successfully',
+				'file_id'=>$file_id,
+				'uuid'=>$job_uuid,
+				'job'=>$job_response,
+				'upload_result'=>$upload_result
+			);
+						
+			$this->set_response($output, REST_Controller::HTTP_CREATED);			
+		}
+		catch(Exception $e){
+			$response=array(
+				'status'=>'failed',
+				'message'=>$e->getMessage()
+			);
+			$this->set_response($response, REST_Controller::HTTP_BAD_REQUEST);
+		}
+	}
+
 	
 	/**
 	 * 

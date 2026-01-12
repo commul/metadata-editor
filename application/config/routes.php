@@ -62,6 +62,9 @@ $route['api/geospatial-features/(:num)/global-bounds'] = "api/geospatial_feature
 $route['api/geospatial-features'] = "api/geospatial_features";
 $route['api/geospatial-features/(.*)'] = "api/geospatial_features/$1";
 
+// Jobs API aliases - route job-specific endpoints to their implementations
+$route['api/jobs/import_microdata/(:num)'] = "api/data/import_microdata/$1";
+
 
 
 //admin paths

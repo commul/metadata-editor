@@ -840,7 +840,7 @@ CREATE TABLE `geospatial_features` (
   `sid` int NOT NULL,
   `code` varchar(100) DEFAULT NULL,
   `name` varchar(255) NOT NULL,
-  `definition` text,
+  `definition` text default NULL,
   `is_abstract` tinyint(1) DEFAULT '0',
   `aliases` json DEFAULT NULL,
   `metadata` json DEFAULT NULL,
@@ -883,3 +883,30 @@ CREATE TABLE `geospatial_feature_chars` (
 
 
 CREATE INDEX idx_feature_chars_feature_id ON geospatial_feature_chars(feature_id);
+
+
+CREATE TABLE `job_queue` (
+  `id` int(11) NOT NULL AUTO_INCREMENT,
+  `uuid` char(36) NOT NULL,
+  `job_type` varchar(50) NOT NULL,
+  `job_hash` varchar(64) DEFAULT NULL,
+  `status` enum('pending','processing','completed','failed') DEFAULT 'pending',
+  `priority` int(11) DEFAULT 0,
+  `user_id` int(11) DEFAULT NULL,
+  `payload` json DEFAULT NULL,
+  `result` json DEFAULT NULL,
+  `error_message` text,
+  `attempts` int(11) DEFAULT 0,
+  `max_attempts` int(11) DEFAULT 3,
+  `created_at` timestamp DEFAULT CURRENT_TIMESTAMP,
+  `started_at` timestamp NULL,
+  `completed_at` timestamp NULL,
+  `worker_id` varchar(100) DEFAULT NULL,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `idx_uuid` (`uuid`),
+  KEY `idx_status_priority` (`status`, `priority` DESC, `created_at`),
+  KEY `idx_job_type` (`job_type`),
+  KEY `idx_job_hash` (`job_hash`),
+  KEY `idx_user_id` (`user_id`),
+  KEY `idx_worker` (`worker_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
