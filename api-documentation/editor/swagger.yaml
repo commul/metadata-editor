@@ -127,6 +127,7 @@ x-tagGroups:
     tags:
       - Catalog connections 
 schemes:
+  - https
   - http
 paths:
 
@@ -291,6 +292,73 @@ paths:
       responses:
         '200':
           description: successful operation
+
+  /editor/generate_pdf/{id}:
+    get:
+      tags:
+        - Projects
+      summary: Generate project PDF documentation
+      description: Generate PDF documentation for a project. Returns status and result information.
+      operationId: generateProjectPDF
+      consumes:
+        - application/json
+      produces:
+        - application/json
+      parameters:
+        - name: id
+          in: path
+          title: Project unique ID
+          description: Project ID or IDNO
+          type: string
+          required: true
+        - name: include_private_fields
+          in: query
+          title: Include private fields
+          description: Include private fields in the PDF (0 = exclude, 1 = include). Default is 0.
+          type: integer
+          enum:
+            - 0
+            - 1
+          required: false
+        - name: template_uid
+          in: query
+          title: Template UID
+          description: Template UID to use for PDF generation
+          type: string
+          required: false
+        - name: include_external_resources
+          in: query
+          title: Include external resources
+          description: Include external resources in the PDF (0 = exclude, 1 = include). Default is 0.
+          type: integer
+          enum:
+            - 0
+            - 1
+          required: false
+      responses:
+        '200':
+          description: PDF generation successful
+          schema:
+            type: object
+            properties:
+              status:
+                type: string
+                example: "success"
+              result:
+                type: object
+                description: PDF generation result information
+        '400':
+          description: Bad request - project not found or generation failed
+          schema:
+            type: object
+            properties:
+              status:
+                type: string
+                example: "failed"
+              message:
+                type: string
+      security:
+        - ApiKeyAuth: []
 
   /editor/delete/{id}:
     get:
@@ -1952,9 +2020,15 @@ paths:
         tags:
           - External resources
         summary: Create resource
-        description: Create a new resource for a project
+        description: |
+          Create a new resource for a project. This endpoint accepts multipart/form-data to allow file uploads along with resource metadata.
+          
+          **File Upload**: If the 'file' parameter is provided, the file will be uploaded and attached to the resource.
+          
+          **Filename/URL**: The 'filename' parameter (string) can be used to specify either a filename or a URL. This is separate from the file upload.
         operationId: CreateResource
         consumes:
+          - multipart/form-data
           - application/json
         produces:
           - application/json
@@ -2014,9 +2088,18 @@ paths:
             type: string
             required: false
           - in: "formData"
-            name: "filename"
+            name: "file"
             type: file
-            description: "Upload file"
+            description: |
+              File to upload and attach to this resource. Send as multipart/form-data with field name 'file'.
+              If provided, the file will be uploaded and associated with the resource. The file can be any type (PDF, document, image, etc.).
+            required: false
+          - in: "formData"
+            name: "filename"
+            type: string
+            description: |
+              Filename or URL for the resource. This can be either a filename string or a URL pointing to an external resource.
+              This is separate from the 'file' parameter - use 'file' to upload a file, or 'filename' to specify a filename/URL.
             required: false
         responses:
           '200':
@@ -2030,9 +2113,15 @@ paths:
         tags:
           - External resources
         summary: Update resource
-        description: Update external resource for a project
+        description: |
+          Update external resource for a project. This endpoint accepts multipart/form-data to allow file uploads along with resource metadata.
+          
+          **File Upload**: If the 'file' parameter is provided, the file will be uploaded and attached to the resource (replacing any existing file).
+          
+          **Filename/URL**: The 'filename' parameter (string) can be used to specify either a filename or a URL. This is separate from the file upload.
         operationId: UpdateResource
         consumes:
+          - multipart/form-data
           - application/json
         produces:
           - application/json
@@ -2096,9 +2185,19 @@ paths:
             type: string
             required: false
           - in: "formData"
-            name: "filename"
+            name: "file"
             type: file
-            description: "Upload file"
+            description: |
+              File to upload and attach to this resource. Send as multipart/form-data with field name 'file'.
+              If provided, the file will be uploaded and associated with the resource (replacing any existing file).
+              The file can be any type (PDF, document, image, etc.).
+            required: false
+          - in: "formData"
+            name: "filename"
+            type: string
+            description: |
+              Filename or URL for the resource. This can be either a filename string or a URL pointing to an external resource.
+              This is separate from the 'file' parameter - use 'file' to upload a file, or 'filename' to specify a filename/URL.
             required: false
         responses:
           '200':
@@ -2544,29 +2643,45 @@ paths:
         tags:
           - Admin metadata
         summary: Query admin metadata
-        description: Query administrative metadata across projects. By default, returns all admin metadata for all projects and templates that the user has access to. To filter by project, template or limit the number of results, use the query parameters.
+        description: Query administrative metadata across projects. By default, returns all admin metadata for all projects and templates that the user has access to. To filter by project, template, date range or limit the number of results, use the query parameters.
         operationId: queryAdminMetadataData
         consumes:
           - application/json
         produces:
           - application/json
         parameters:
-          - in: "path"
+          - in: "query"
             name: "project_id"
             type: string
             description: "(optional) Project ID or IDNO"
-          - in: "path"
+            required: false
+          - in: "query"
             name: "template"
             type: string
             description: "(optional) Admin metadata template UID. For multiple templates, separate with comma"
-          - in: "path"
+            required: false
+          - in: "query"
             name: "limit"
             type: integer
-            description: "(optional) Limit number of results"
-          - in: "path"
+            description: "(optional) Limit number of results. Default is 50"
+            required: false
+          - in: "query"
             name: "offset"
             type: integer
-            description: "(optional) Offset number of results"
+            description: "(optional) Offset number of results. Default is 0"
+            required: false
+          - in: "query"
+            name: "date_from"
+            type: string
+            format: date
+            description: "(optional) Filter by date from (format: YYYY-MM-DD). Filters on the 'changed' field. Records with changed date >= date_from will be returned."
+            required: false
+          - in: "query"
+            name: "date_to"
+            type: string
+            format: date
+            description: "(optional) Filter by date to (format: YYYY-MM-DD). Filters on the 'changed' field. Records with changed date <= date_to will be returned. The entire end date is included."
+            required: false
         responses:
           '200':
             description: successful operation
@@ -3085,8 +3200,6 @@ paths:
           '200':
             description: successful operation
         security:
-
-
 
   
 ###############################################################
