@@ -191,35 +191,18 @@ class Job_queue_model extends CI_Model {
 	 */
 	function get_next_job($worker_id = null)
 	{
-		// Check database driver for locking support
-		$db_driver = $this->db->dbdriver;
-		
-		// Start transaction for atomic operation
 		$this->db->trans_start();
 		
-		// MySQL/MariaDB supports FOR UPDATE SKIP LOCKED (MySQL 8.0+)
-		// For older MySQL or other databases, use regular FOR UPDATE
-		if (in_array($db_driver, array('mysqli', 'mysql', 'pdo'))) {
-			// Try to use SKIP LOCKED if available (MySQL 8.0+)
-			$sql = "SELECT * FROM job_queue 
-					WHERE status = 'pending' 
-					ORDER BY priority DESC, created_at ASC 
-					LIMIT 1 
-					FOR UPDATE SKIP LOCKED";
-		} else {
-			// Fallback for other databases or older MySQL
-			$sql = "SELECT * FROM job_queue 
-					WHERE status = 'pending' 
-					ORDER BY priority DESC, created_at ASC 
-					LIMIT 1 
-					FOR UPDATE";
-		}
+		$sql = "SELECT * FROM job_queue 
+				WHERE status = 'pending' 
+				ORDER BY priority DESC, created_at ASC 
+				LIMIT 1 
+				FOR UPDATE";
 		
 		$query = $this->db->query($sql);
 		$job = $query->row_array();
 		
 		if ($job) {
-			// Immediately mark as processing within the same transaction
 			$update_data = array(
 				'status' => 'processing',
 				'started_at' => date('Y-m-d H:i:s'),
@@ -227,10 +210,10 @@ class Job_queue_model extends CI_Model {
 			);
 			
 			$this->db->where('id', $job['id']);
-			$this->db->where('status', 'pending'); // Double-check status
+			$this->db->where('status', 'pending');
 			$this->db->update('job_queue', $update_data);
 			
-			// If update failed (job was taken), return null
+			// Update failed?
 			if ($this->db->affected_rows() == 0) {
 				$job = null;
 			} else {
