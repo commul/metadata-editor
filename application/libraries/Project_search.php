@@ -321,8 +321,9 @@ class Project_search
 		//filter by type
 		$data_type_filters=$this->get_search_filter($search_options,'type');
 		
-		if ($data_type_filters){
-			$this->ci->db->where_in('type',$data_type_filters);
+		if ($data_type_filters){		
+			$expanded_types = $this->expand_type_filters($data_type_filters);
+			$this->ci->db->where_in('type',$expanded_types);
 			$applied_filters['type']=$data_type_filters;
 		}
 
@@ -416,6 +417,43 @@ class Project_search
 		}
 
 		return $values;
+	}
+
+	/**
+	 * Expand type filters according to mapping rules:
+	 * - microdata or survey -> search for both microdata and survey
+	 * - timeseries or indicator -> search for both indicator and timeseries
+	 * - timeseries-db or indicator-db -> search for indicator-db (and timeseries-db for backward compatibility)
+	 * 
+	 * @param array $type_filters Array of type filter values
+	 * @return array Expanded array of type values to search for
+	 */
+	private function expand_type_filters($type_filters)
+	{
+		$expanded = array();
+		
+		foreach ($type_filters as $type) {
+			$type = trim($type);
+			
+			// microdata or survey -> search for both microdata and survey
+			if ($type === 'microdata' || $type === 'survey') {
+				$expanded[] = 'microdata';
+				$expanded[] = 'survey';
+			}
+			// timeseries -> search for both indicator and timeseries
+			elseif ($type === 'timeseries' || $type === 'indicator') {
+				$expanded[] = 'indicator';
+				$expanded[] = 'timeseries';
+			}
+			// timeseries-db -> search for indicator-db
+			elseif ($type === 'timeseries-db' || $type === 'indicator-db') {
+				$expanded[] = 'indicator-db';
+				$expanded[] = 'timeseries-db';
+			}			
+		}
+		
+		// Remove duplicates while preserving order
+		return array_values(array_unique($expanded));
 	}
 
 	function get_facets($user_id=null, $options=array())
