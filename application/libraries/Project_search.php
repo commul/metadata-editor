@@ -323,8 +323,11 @@ class Project_search
 		
 		if ($data_type_filters){		
 			$expanded_types = $this->expand_type_filters($data_type_filters);
-			$this->ci->db->where_in('type',$expanded_types);
-			$applied_filters['type']=$data_type_filters;
+			// Only apply filter if we have valid types (prevents IN() SQL error)
+			if (!empty($expanded_types)) {
+				$this->ci->db->where_in('type',$expanded_types);
+				$applied_filters['type']=$data_type_filters;
+			}
 		}
 
 		//keywords
@@ -435,6 +438,11 @@ class Project_search
 		foreach ($type_filters as $type) {
 			$type = trim($type);
 			
+			// Skip empty types
+			if (empty($type)) {
+				continue;
+			}
+			
 			// microdata or survey -> search for both microdata and survey
 			if ($type === 'microdata' || $type === 'survey') {
 				$expanded[] = 'microdata';
@@ -449,7 +457,11 @@ class Project_search
 			elseif ($type === 'timeseries-db' || $type === 'indicator-db') {
 				$expanded[] = 'indicator-db';
 				$expanded[] = 'timeseries-db';
-			}			
+			}
+			// For types that don't match expansion rules, include them as-is
+			else {
+				$expanded[] = $type;
+			}
 		}
 		
 		// Remove duplicates while preserving order
