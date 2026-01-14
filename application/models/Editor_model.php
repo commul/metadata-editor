@@ -2137,8 +2137,8 @@ class Editor_model extends CI_Model {
 		foreach ($refreshable_fields as $db_field => $extraction_field) {
 			$value=$this->get_project_metadata_field($type, $extraction_field, $metadata);
 			
-			// Only update if value is not false (false means not found or empty)
-			// For attributes, false means no attributes found, so we might want to set to NULL
+			// Only update if value is not false
+			// For attributes, false means no attributes found
 			if ($value !== false) {
 				$updates[$db_field]=$value;
 			} elseif ($db_field === 'attributes') {
