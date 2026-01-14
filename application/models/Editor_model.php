@@ -336,23 +336,38 @@ class Editor_model extends CI_Model {
 	/**
 	 * 
 	 * Check project ID exists
+	 * 
+	 * @param int $sid - Project ID
+	 * @param string|null $type - Optional project type to validate (supports legacy type mappings)
+	 * @return bool - True if project exists (and matches type if provided)
 	 */
     function check_id_exists($sid,$type=null)
     {
+		// Legacy type mappings for backward compatibility
+		$legacy_types_mappings = array(
+			'survey' => 'microdata',
+			'microdata' => 'survey',
+			'timeseries' => 'indicator',
+			'indicator' => 'timeseries',
+			'timeseries-db' => 'indicator-db',
+			'indicator-db' => 'timeseries-db'
+		);
+
 		$this->db->select("id,type");
-		$this->db->where("id",$sid);
+		$this->db->where("id", $sid);
 
-		if ($type){
-			$this->db->where("type",$type);
+		// Check for type, if provided
+		if ($type) {
+			$types = array($type);
+			if (isset($legacy_types_mappings[$type])) {
+				$types[] = $legacy_types_mappings[$type];
+			}
+			$this->db->where_in("type", $types);
 		}
+				
+		$result = $this->db->get("editor_projects")->row_array();
 		
-		$survey=$this->db->get("editor_projects")->row_array();
-		
-		if($survey){
-			return true;
-		}
-
-        return false;
+		return !empty($result);
 	}
 
 
