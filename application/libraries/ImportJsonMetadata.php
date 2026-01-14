@@ -1016,10 +1016,10 @@ class ImportJsonMetadata
      */
     function process_project_metadata($type, $sid, $options, $validate=true, $import_options=array())
     {
-        // Resolve canonical type (e.g., "timeseries" -> "indicator")
         $resolved_type = $this->ci->Editor_model->resolve_canonical_type($type);
-        if ($resolved_type === false) {
-            throw new Exception("INVALID_TYPE: ".$type);
+
+        if (!$resolved_type) {
+            throw new Exception("INVALID_TYPE: Type cannot be empty");
         }
         $type = $resolved_type;
         

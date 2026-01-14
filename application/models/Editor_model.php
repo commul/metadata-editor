@@ -336,14 +336,40 @@ class Editor_model extends CI_Model {
 	/**
 	 * 
 	 * Check project ID exists
+	 * 
 	 */
     function check_id_exists($sid,$type=null)
-    {
+    {		
 		$this->db->select("id,type");
 		$this->db->where("id",$sid);
 
+		$resolved_type = null;
 		if ($type){
-			$this->db->where("type",$type);
+			// Resolve canonical type to get both old and new type names
+			$resolved_type = $this->resolve_canonical_type($type);
+			
+			// Build list of types to check (both original and resolved)
+			$types_to_check = array($type);
+			if ($resolved_type && $resolved_type !== $type) {
+				$types_to_check[] = $resolved_type;
+			}
+			
+			// Also check reverse mapping
+			$legacy_type_map = array(
+				'survey' => 'microdata',
+				'timeseries' => 'indicator',
+				'timeseries-db' => 'indicator-db'
+			);
+			
+			// If type is a canonical type, also check for its legacy equivalent
+			foreach ($legacy_type_map as $legacy => $canonical) {
+				if ($type === $canonical && !in_array($legacy, $types_to_check)) {
+					$types_to_check[] = $legacy;
+				}
+			}
+			
+			// Check if project exists with any of the valid type names
+			$this->db->where_in("type", $types_to_check);
 		}
 		
 		$survey=$this->db->get("editor_projects")->row_array();
@@ -366,8 +392,8 @@ class Editor_model extends CI_Model {
 	function create_project($type,$options=array())
 	{
 		$type = $this->resolve_canonical_type($type);
-		if ($type===false){
-			throw new Exception("INVALID_TYPE: ".$type);
+		if (!$type){
+			throw new Exception("INVALID_TYPE: Type cannot be empty");
 		}
 
 		$template_uid=isset($options['template_uid']) ? $options['template_uid'] : null;
@@ -458,8 +484,8 @@ class Editor_model extends CI_Model {
 	function update_project($type,$id,$options=array(),$validate=false)
 	{
 		$type = $this->resolve_canonical_type($type);
-		if ($type===false){
-			throw new Exception("INVALID_TYPE: ".$type);
+		if (!$type){
+			throw new Exception("INVALID_TYPE: Type cannot be empty");
 		}
 
 		$this->check_project_editable($id);
@@ -587,8 +613,8 @@ class Editor_model extends CI_Model {
 	function patch_project($type,$id,$options=array(), $validate=true)
 	{
 		$type = $this->resolve_canonical_type($type);
-		if ($type===false){
-			throw new Exception("INVALID_TYPE: ".$type);
+		if (!$type){
+			throw new Exception("INVALID_TYPE: Type cannot be empty");
 		}
 
 		$this->check_project_editable($id);
@@ -652,8 +678,8 @@ class Editor_model extends CI_Model {
 		}
 
 		$type = $this->resolve_canonical_type($type);
-		if ($type===false){
-			throw new Exception("INVALID_TYPE: ".$type);
+		if (!$type){
+			throw new Exception("INVALID_TYPE: Type cannot be empty");
 		}
 
 		if ($template_data_type!=$type){
@@ -1130,7 +1156,7 @@ class Editor_model extends CI_Model {
 	/**
 	 * Resolve a provided type or alias to a canonical schema uid if available.
 	 * Falls back to legacy known types.
-	 * Returns canonical uid string, or false if not found.
+	 * Returns canonical uid string, or the original type if not found (for custom/unknown types).
 	 */
 	public function resolve_canonical_type($type)
 	{
@@ -1186,7 +1212,9 @@ class Editor_model extends CI_Model {
 			return $type;
 		}
 
-		return false;
+		// Return type as-is if not found (supports custom types and unknown but valid types)
+		// Types like 'geospatial', 'image', 'custom' should be found by schema registry lookup above
+		return $type;
 	}
 
 

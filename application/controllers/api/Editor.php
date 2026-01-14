@@ -226,8 +226,8 @@ class Editor extends MY_REST_Controller
 		}
 		
 		$resolved_type = $this->Editor_model->resolve_canonical_type($type);
-		if ($resolved_type === false) {
-			throw new Exception("INVALID_TYPE: ".$type);
+		if (!$resolved_type) {
+			throw new Exception("INVALID_TYPE: Type cannot be empty");
 		}
 		$type = $resolved_type;
 		
@@ -272,6 +272,13 @@ class Editor extends MY_REST_Controller
 		try{
 			$user_id=$this->get_api_user_id();
 			$project_options=$this->raw_json_input();
+
+			// Resolve canonical type early for consistency
+			$resolved_type = $this->Editor_model->resolve_canonical_type($type);
+			if (!$resolved_type) {
+				throw new Exception("INVALID_TYPE: Type cannot be empty");
+			}
+			$type = $resolved_type;
 
 			$idno='';
 			if (isset($project_options['idno'])){
@@ -412,8 +419,14 @@ class Editor extends MY_REST_Controller
 			$user=$this->api_user();
 			$user_id=$this->get_api_user_id();
 			$id=$this->get_sid($id);			
+			
+			$resolved_type = $this->Editor_model->resolve_canonical_type($type);
 
-			//check project exists and is of correct type
+			if (!$resolved_type) {
+				throw new Exception("INVALID_TYPE: Type cannot be empty");
+			}
+			
+			$type = $resolved_type;			
 			$exists=$this->Editor_model->check_id_exists($id,$type);
 
 			if(!$exists){
