@@ -996,6 +996,52 @@ class ImportJsonMetadata
         $this->ci->Editor_model->update_project($type,$sid,$json_data,$validate);
     }
     
+    /**
+     * 
+     * Process project metadata with type-specific handling
+     * 
+     * Extracts and processes special fields (data_files, variables, featureType) based on project type.
+     * This method routes to the appropriate handler:
+     * - Microdata/Survey: Extracts data_files, variables, variable_groups and processes them
+     * - Geospatial: Extracts featureType from feature_catalogue and processes it
+     * - Other types: Updates metadata normally
+     * 
+     * @param string $type - Project type (will be resolved to canonical type)
+     * @param int $sid - Project ID
+     * @param array $options - Project metadata (may contain special fields)
+     * @param bool $validate - Whether to validate schema
+     * @param array $import_options - Additional options (user_id, created_by, etc.)
+     * @return void
+     * 
+     */
+    function process_project_metadata($type, $sid, $options, $validate=true, $import_options=array())
+    {
+        // Resolve canonical type (e.g., "timeseries" -> "indicator")
+        $resolved_type = $this->ci->Editor_model->resolve_canonical_type($type);
+        if ($resolved_type === false) {
+            throw new Exception("INVALID_TYPE: ".$type);
+        }
+        $type = $resolved_type;
+        
+        // Merge import_options into options for geospatial (needs user_id)
+        if (!empty($import_options)) {
+            $options = array_merge($options, $import_options);
+        }
+        
+        // Route to type-specific handler
+        if ($type === 'microdata' || $type === 'survey') {
+            // For microdata/survey: extract and process data_files, variables, variable_groups
+            $this->import_microdata_project($type, $sid, $options, $validate);
+        }
+        else if ($type === 'geospatial') {
+            // For geospatial: extract and process featureType
+            $this->import_geospatial_project($type, $sid, $options, $validate, $import_options);
+        }
+        else {
+            // For other types: update metadata normally
+            $this->import_project_metadata($type, $sid, $options, $validate);
+        }
+    }
 
     /**
      * 

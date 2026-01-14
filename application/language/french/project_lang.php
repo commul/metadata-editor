@@ -497,5 +497,11 @@ $lang['deletions'] = "Suppressions";
 $lang['additions'] = "Ajouts";
 $lang['project_validation_failed'] = "Échec de la validation du projet";
 
+// Large number of categories translations
+$lang['large_number_of_categories'] = "Grand Nombre de Catégories";
+$lang['too_many_categories_message'] = "Cette variable contient un grand nombre de catégories et ne peut pas être affichée. Consultez les catégories en utilisant l'onglet JSON. Vous pouvez supprimer les catégories en utilisant le bouton ci-dessous.";
+$lang['confirm_delete_all_categories'] = "Êtes-vous sûr de vouloir supprimer toutes les {count} catégories ? Cette action ne peut pas être annulée.";
+$lang['all_categories_deleted'] = "Toutes les {count} catégories ont été supprimées.";
+
 /* End of file project_lang.php */
 /* Location: ./application/language/french/project_lang.php */

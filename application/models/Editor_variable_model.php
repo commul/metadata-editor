@@ -725,7 +725,7 @@ class Editor_variable_model extends ci_model {
             'fid'=>$variable['fid'],
             'vid'=>$variable['vid'],
             'name'=>$variable['name'],
-            'labl'=>$variable['labl'],
+            'labl'=>isset($variable['labl']) ? $variable['labl'] : '',
             'user_missings'=>$missings,
             'is_weight'=> isset($variable['var_wgt']) ? (int)$variable['var_wgt'] : 0,
             'is_key'=> isset($variable['is_key']) ? (int)$variable['is_key'] : 0,

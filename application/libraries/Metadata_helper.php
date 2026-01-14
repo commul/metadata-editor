@@ -63,7 +63,7 @@ class Metadata_helper
 	 */
 	function extract_attributes($type, $metadata, $encoded=false)
 	{
-		if ($type=='timeseries'){
+		if ($type=='timeseries' || $type=='indicator'){
 			$database_id=get_array_nested_value($metadata,'series_description/database_id');
 			
 			$output=array(

@@ -559,5 +559,11 @@ $lang['failed_to_spread_metadata'] = "Failed to spread metadata";
 $lang['source_variable_not_found'] = "Source variable not found";
 $lang['discrete'] = "Discrete";
 
+// Large number of categories translations
+$lang['large_number_of_categories'] = "Large Number of Categories";
+$lang['too_many_categories_message'] = "This variable contains large number of categories and cannot be displayed. Review the categories using the JSON tab. You can delete the categories using the button below.";
+$lang['confirm_delete_all_categories'] = "Are you sure you want to delete all {count} categories? This action cannot be undone.";
+$lang['all_categories_deleted'] = "All {count} categories have been deleted.";
+
 /* End of file project_lang.php */
 /* Location: ./application/language/english/project_lang.php */

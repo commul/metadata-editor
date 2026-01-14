@@ -630,6 +630,10 @@ class Editor_model extends CI_Model {
 			'changed_by'=>isset($options['changed_by']) ? $options['changed_by'] : '',			
 			'study_idno'=>$this->get_project_metadata_field($type,'idno',$metadata),
 			'title'=>$this->get_project_metadata_field($type,'title',$metadata),
+			'nation'=>$this->get_project_metadata_field($type,'country',$metadata),
+			'year_start'=>$this->get_project_metadata_field($type,'year_start',$metadata),
+			'year_end'=>$this->get_project_metadata_field($type,'year_end',$metadata),
+			'attributes'=>$this->get_project_metadata_field($type,'attributes',$metadata),
 			'metadata'=>$this->encode_metadata($metadata_only)
 		);
 
@@ -1164,7 +1168,22 @@ class Editor_model extends CI_Model {
 				}
 			}
 		}catch(Exception $e){
-			// ignore and fall through
+			// ignore and fall through to legacy mappings
+		}
+
+		$legacy_type_map = array(
+			'survey' => 'microdata',
+			'timeseries' => 'indicator',
+			'timeseries-db' => 'indicator-db'
+		);
+		
+		if (isset($legacy_type_map[$type])) {
+			return $legacy_type_map[$type];
+		}
+		
+		$canonical_types = array('microdata', 'indicator', 'indicator-db');
+		if (in_array($type, $canonical_types)) {
+			return $type;
 		}
 
 		return false;
@@ -2056,6 +2075,88 @@ class Editor_model extends CI_Model {
 		}
 
 		return $version_notes;
+	}
+
+	/**
+	 * 
+	 * Refresh core metadata fields from metadata JSON
+	 * 
+	 * Extracts and updates core fields (title, nation, year_start, year_end, attributes, study_idno)
+	 * from the metadata field without modifying the metadata itself or changed/changed_by timestamps
+	 * 
+	 * @param int $id - Project ID
+	 * @param array $fields - Optional array of field names to refresh. If null, refreshes all fields.
+	 *   Valid field names: 'title', 'nation', 'year_start', 'year_end', 'attributes', 'study_idno'
+	 * @return array|false - Array of updated fields and their values, or false if no updates or project not found
+	 * 
+	 */
+	function refresh_core_metadata_fields($id, $fields=null, $options=array())
+	{
+		// Get project
+		$project=$this->get_row($id);
+		
+		if (!$project){
+			return false;
+		}
+		
+		// Check if project is locked
+		if ($this->is_project_locked($id)) {
+			throw new Exception("PROJECT_IS_LOCKED: This project is locked and cannot be edited.");
+		}
+		
+		// Get metadata
+		$metadata=$project['metadata'];
+		
+		if (!$metadata || !is_array($metadata)){
+			return false;
+		}
+		
+		// Define all refreshable fields and their database column mappings
+		$refreshable_fields=array(
+			'study_idno'=>'idno',      // Maps to 'idno' field extraction
+			'title'=>'title',
+			'nation'=>'country',        // Maps to 'country' field extraction
+			'year_start'=>'year_start',
+			'year_end'=>'year_end',
+			'attributes'=>'attributes'
+		);
+		
+		// If specific fields requested, filter to only those
+		if ($fields && is_array($fields)){
+			$refreshable_fields=array_intersect_key($refreshable_fields, array_flip($fields));
+		}
+		
+		if (empty($refreshable_fields)){
+			return false;
+		}
+		
+		// Extract each field from metadata
+		$updates=array();
+		$type=$project['type'];
+		
+		foreach ($refreshable_fields as $db_field => $extraction_field) {
+			$value=$this->get_project_metadata_field($type, $extraction_field, $metadata);
+			
+			// Only update if value is not false (false means not found or empty)
+			// For attributes, false means no attributes found, so we might want to set to NULL
+			if ($value !== false) {
+				$updates[$db_field]=$value;
+			} elseif ($db_field === 'attributes') {
+				// For attributes, explicitly set to NULL if not found
+				$updates[$db_field]=null;
+			}
+		}
+		
+		// Only update if there are changes
+		if (empty($updates)){
+			return false;
+		}
+		
+		// Update database - explicitly do NOT update changed or changed_by
+		$this->db->where('id', $id);
+		$this->db->update('editor_projects', $updates);
+		
+		return $updates;
 	}
 
 	

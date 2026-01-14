@@ -559,6 +559,12 @@ $lang['failed_to_spread_metadata'] = "Metadata'ni tarqatishda xatolik";
 $lang['source_variable_not_found'] = "Manba o'zgaruvchisi topilmadi";
 $lang['discrete'] = "Diskret";
 
+// Large number of categories translations
+$lang['large_number_of_categories'] = "Ko'p Sonli Kategoriyalar";
+$lang['too_many_categories_message'] = "Bu o'zgaruvchi juda ko'p kategoriyalarni o'z ichiga oladi va ko'rsatib bo'lmaydi. Kategoriyalarni JSON yorlig'i yordamida ko'rib chiqing. Quyidagi tugma yordamida kategoriyalarni o'chirishingiz mumkin.";
+$lang['confirm_delete_all_categories'] = "Barcha {count} kategoriyalarni o'chirishni xohlaysizmi? Bu amalni bekor qilib bo'lmaydi.";
+$lang['all_categories_deleted'] = "Barcha {count} kategoriyalar o'chirildi.";
+
 /* End of file project_lang.php */
 /* Location: ./application/language/uzbek/project_lang.php */
 

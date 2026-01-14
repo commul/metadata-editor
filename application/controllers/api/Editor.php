@@ -204,29 +204,56 @@ class Editor extends MY_REST_Controller
 
 
 
-	private function get_collection_options(&$options)
+	/**
+	 * 
+	 * Update project metadata
+	 * 
+	 * @param string $type - Project type (survey, timeseries, geospatial)
+	 * @param int $id - Project ID
+	 * @param array $options - Project options/metadata
+	 * @param bool $validate - Whether to validate schema
+	 * @param object $user - User object for ACL checks
+	 * @param int $user_id - User ID
+	 * 
+	 */
+	private function _update_project_metadata($type, $id, $options, $validate=false, $user=null, $user_id=null)
 	{
-		$collections=array();
-		if (isset($options['collection_ids'])){
-			//$collections['id_list']=$options['collection_ids'];
-			$id_list=$options['collection_ids'];
-			unset($options['collection_ids']);
-			return $id_list;			
+		if ($user === null) {
+			$user = $this->api_user();
 		}
-		if (isset($options['collection_names'])){
-			//$collections['names']=$options['collection_names'];
-			$names=$options['collection_names'];
-			unset($options['collection_names']);
-
-			foreach($names as $collection_name){
-				$collection_id=$this->Collection_model->get_collection_id_by_name($collection_name);
-				if ($collection_id){
-					$collections[]=$collection_id;
-				}
-			}
-			
+		if ($user_id === null) {
+			$user_id = $this->get_api_user_id();
 		}
-		return $collections;
+		
+		$resolved_type = $this->Editor_model->resolve_canonical_type($type);
+		if ($resolved_type === false) {
+			throw new Exception("INVALID_TYPE: ".$type);
+		}
+		$type = $resolved_type;
+		
+		$id = $this->get_sid($id);		
+		$exists = $this->Editor_model->check_id_exists($id, $type);
+		
+		if (!$exists) {
+			throw new Exception("Project with the type [".$type ."] not found");
+		}
+		
+		$this->editor_acl->user_has_project_access($id, $permission='edit', $user);
+		
+		$options['changed_by'] = $user_id;
+		$options['changed'] = date("U");
+		
+		
+		$this->load->library('ImportJsonMetadata');
+		
+		$import_options = array(
+			'user_id' => $user_id,
+			'created_by' => $user_id
+		);
+		
+		// Process metadata import
+		$this->importjsonmetadata->process_project_metadata($type, $id, $options, $validate, $import_options);		
+		$this->Editor_model->create_project_folder($id);
 	}
 
 	
@@ -261,7 +288,15 @@ class Editor extends MY_REST_Controller
 				$sid=$this->Editor_model->get_project_id_by_idno($idno);				
 
 				if ($sid){
-					return $this->update_post($type,$sid);
+					// Use private method to update existing project
+					$this->_update_project_metadata($type, $sid, $project_options, false, $this->api_user(), $user_id);
+					
+					$response=array(
+						'status'=>'success',
+						'id'=>$sid
+					);
+					$this->set_response($response, REST_Controller::HTTP_OK);
+					return;
 				}
 			}
 			
@@ -289,7 +324,8 @@ class Editor extends MY_REST_Controller
 			
 			
 			if (!empty($project_options)){
-				$this->update_post($type,$dataset_id);
+				// Use private method to update project metadata
+				$this->_update_project_metadata($type, $dataset_id, $project_options, false, $this->api_user(), $user_id);
 			}
 
 			$this->audit_log->log_event($obj_type='project',$obj_id=$dataset_id,$action='create', $user_id);			
@@ -332,26 +368,9 @@ class Editor extends MY_REST_Controller
 	{
 		try{			
 			$options=$this->raw_json_input();
-			$user=$this->api_user();
-			$user_id=$this->get_api_user_id();
-			$id=$this->get_sid($id);
-			$collections=$this->get_collection_options($options);
-						
-			//check project exists and is of correct type
-			$exists=$this->Editor_model->check_id_exists($id,$type);
-
-			if(!$exists){
-				throw new Exception("Project with the type [".$type ."] not found");
-			}
-
-			$this->editor_acl->user_has_project_access($id,$permission='edit',$user);			
 			
-			$options['changed_by']=$user_id;
-			$options['changed']=date("U");
-
-			//validate & update project
-			$this->Editor_model->update_project($type,$id,$options,$validate);
-			$this->Editor_model->create_project_folder($id);
+			// Use private method to handle the update logic
+			$this->_update_project_metadata($type, $id, $options, $validate);
 
 			$response=array(
 				'status'=>'success'
@@ -1547,6 +1566,92 @@ class Editor extends MY_REST_Controller
 				'status'=>'success',
 				'version_notes'=>$version_notes
 			);
+			$this->set_response($response, REST_Controller::HTTP_OK);
+		}
+		catch(Exception $e){
+			$error_output=array(
+				'status'=>'failed',
+				'message'=>$e->getMessage()
+			);
+			$this->set_response($error_output, REST_Controller::HTTP_BAD_REQUEST);
+		}
+	}
+
+	/**
+	 * 
+	 * Refresh core metadata fields from metadata field
+	 * 
+	 * Refreshes extracted fields (title, nation, year_start, year_end, attributes, study_idno)
+	 * from the metadata JSON without modifying the metadata field
+	 * 
+	 * Body parameters:
+	 * - projects: array of project IDs (required)
+	 * - fields: array of field names to refresh (optional, defaults to all)
+	 *   Valid fields: 'title', 'nation', 'year_start', 'year_end', 'attributes', 'study_idno'
+	 * 
+	 * Example:
+	 * POST /api/editor/refresh_metadata
+	 * Body: {
+	 *   "projects": [24406, 24407],
+	 *   "fields": ["attributes", "title"]
+	 * }
+	 * 
+	 */
+	function refresh_metadata_post()
+	{
+		try{
+			$user_id=$this->get_api_user_id();
+			$user=$this->api_user();
+			$options=$this->raw_json_input();
+			
+			if (!isset($options['projects']) || !is_array($options['projects']) || count($options['projects'])==0){
+				throw new Exception("Parameter `projects` is required");
+			}
+			
+			$fields=isset($options['fields']) ? $options['fields'] : null;
+			
+			$result=array(
+				'updated'=>array(),
+				'skipped'=>array(),
+				'errors'=>array()
+			);
+			
+			foreach($options['projects'] as $project_id){
+				$sid=$this->get_sid($project_id);
+				
+				try{
+					$this->editor_acl->user_has_project_access($sid,$permission='edit',$user);
+					
+					$refresh_result=$this->Editor_model->refresh_core_metadata_fields($sid, $fields);
+					
+					if ($refresh_result){
+						$result['updated'][]=array(
+							'id'=>$sid,
+							'fields'=>array_keys($refresh_result)
+						);
+					} else {
+						$result['skipped'][]=array(
+							'id'=>$sid,
+							'reason'=>'NO_CHANGES'
+						);
+					}
+				}
+				catch(Exception $e){
+					$result['errors'][]=array(
+						'id'=>$sid,
+						'error'=>$e->getMessage()
+					);
+				}
+			}
+
+			$response=array(
+				'status'=>'success',
+				'updated'=>count($result['updated']),
+				'skipped'=>count($result['skipped']),
+				'errors'=>count($result['errors']),
+				'result'=>$result
+			);
+
 			$this->set_response($response, REST_Controller::HTTP_OK);
 		}
 		catch(Exception $e){
