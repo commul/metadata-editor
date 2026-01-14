@@ -50,19 +50,9 @@ ALTER TABLE `editor_templates`
 ADD COLUMN `is_published` INT NULL;
 
 ALTER TABLE `editor_templates`
-ADD COLUMN `template_type` VARCHAR(20) NOT NULL DEFAULT 'custom' AFTER `lang`;
-
-ALTER TABLE `editor_templates`
 ADD COLUMN `is_deleted` INT NULL AFTER `is_published`,
 ADD COLUMN `deleted_by` INT NULL AFTER `is_deleted`,
 ADD COLUMN `deleted_at` INT NULL AFTER `deleted_by`;
-
-UPDATE `editor_templates`
-SET `template_type` = CASE
-    WHEN `uid` LIKE '%__core' THEN 'generated'
-    ELSE 'custom'
-END;
-
 
 update editor_templates set created_by=1 where created_by is null;
 update editor_templates set owner_id=created_by where owner_id is null;
@@ -478,3 +468,14 @@ CREATE TABLE `job_queue` (
   KEY `idx_user_id` (`user_id`),
   KEY `idx_worker` (`worker_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+
+-- 2025/12/12
+ALTER TABLE `editor_templates`
+ADD COLUMN `template_type` VARCHAR(20) NOT NULL DEFAULT 'custom' AFTER `lang`;
+
+UPDATE `editor_templates`
+SET `template_type` = CASE
+    WHEN `uid` LIKE '%__core' THEN 'generated'
+    ELSE 'custom'
+END;
