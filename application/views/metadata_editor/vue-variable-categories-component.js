@@ -39,6 +39,21 @@ Vue.component('variable-categories', {
                 this.variable.var_catgry_labels=[];
             }
         },
+        deleteAllCategories: function() {
+            if (!confirm(this.deleteConfirmMessage)) {
+                return;
+            }
+            
+            // Clear categories arrays
+            Vue.set(this.variable, 'var_catgry', []);
+            Vue.set(this.variable, 'var_catgry_labels', []);
+            
+            // Emit update event
+            this.$emit('update:value', this.variable);
+            
+            // Show success message
+            EventBus.$emit('onSuccess', this.deleteSuccessMessage);
+        },
         refreshCategories: function(){
             if (!confirm(this.$t("confirm_reload_categories"))){
                 return;
@@ -111,6 +126,29 @@ Vue.component('variable-categories', {
             let items=this.$store.state.formTemplate.template.items;
             let item=this.FindTemplateByItemKey(items,'variable');
             return item;        
+        },
+        // Check if variable has more than 1000 categories
+        hasTooManyCategories: function() {
+            const categoriesCount = this.categoriesCount;
+            return categoriesCount > 1000;
+        },
+        // Get categories count (check both var_catgry and var_catgry_labels)
+        categoriesCount: function() {
+            if (!this.variable) return 0;
+            // Use var_catgry_labels if available, otherwise var_catgry
+            if (this.variable.var_catgry_labels && this.variable.var_catgry_labels.length > 0) {
+                return this.variable.var_catgry_labels.length;
+            }
+            if (this.variable.var_catgry && this.variable.var_catgry.length > 0) {
+                return this.variable.var_catgry.length;
+            }
+            return 0;
+        },        
+        deleteConfirmMessage: function() {
+            return this.$t('confirm_delete_all_categories', { count: this.categoriesCount });
+        },
+        deleteSuccessMessage: function() {
+            return this.$t('all_categories_deleted', { count: this.categoriesCount });
         }
     },
     /*methods: {
@@ -136,9 +174,29 @@ Vue.component('variable-categories', {
                     </div>
                 </div>
                 <div class="section-list-body">
-                    <div v-if="variable.var_intrvl=='discrete'" class="section-rows">                        
-
+                    <div v-if="variable.var_intrvl=='discrete'" class="section-rows">
+                        
+                        <!-- too many categories -->
+                        <div v-if="hasTooManyCategories" class="alert alert-warning m-3">
+                            <h6><strong>
+                            <v-icon aria-hidden="false" x-large class="var-icon">mdi-alert-box</v-icon> {{$t('large_number_of_categories')}}</strong></h6>
+                            <p>
+                                {{$t('too_many_categories_message')}}
+                            </p>
+                            <v-btn
+                                color="red"
+                                small
+                                outlined
+                                @click="deleteAllCategories"
+                                type="button">
+                                <v-icon small class="mr-1">mdi-delete</v-icon>
+                                {{$t('delete')}} ({{categoriesCount}})
+                            </v-btn>
+                        </div>
+                        
+                        <!-- if categories count is <= 1000 -->
                         <table-grid-component 
+                            v-else
                             v-model="variable.var_catgry_labels" 
                             :columns="catgry_columns" 
                             class="border elevation-1 m-2 pb-2"

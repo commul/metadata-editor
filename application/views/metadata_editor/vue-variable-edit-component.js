@@ -124,6 +124,12 @@ Vue.component('variable-edit', {
         //combine categories and frequencies values
         variableCategoriesAndFrequencies()
         {
+            // skip processing if too many categories
+            const categoriesCount = this.Variable.var_catgry ? this.Variable.var_catgry.length : 0;
+            if (categoriesCount > 1000) {
+                return [];
+            }
+            
             let categories=JSON.parse(JSON.stringify(this.Variable.var_catgry));
 
             if (!this.Variable.var_catgry_labels){
@@ -153,6 +159,20 @@ Vue.component('variable-edit', {
             }
 
             return categories;
+        },
+        // Check if variable has more than 1000 categories
+        hasTooManyCategories: function() {
+            const categoriesCount = this.variable.var_catgry ? this.variable.var_catgry.length : 0;
+            return categoriesCount > 1000;
+        },
+        categoriesCount: function() {
+            return this.variable.var_catgry ? this.variable.var_catgry.length : 0;
+        },
+        deleteConfirmMessage: function() {
+            return this.$t('confirm_delete_all_categories', { count: this.categoriesCount });
+        },
+        deleteSuccessMessage: function() {
+            return this.$t('all_categories_deleted', { count: this.categoriesCount });
         },
         isWeighted(){
             if (this.Variable['var_wgt_id']){
@@ -415,6 +435,20 @@ Vue.component('variable-edit', {
             
             // Mark variable as needing update
             Vue.set(this.variable, 'update_required', true);
+        },
+        deleteAllCategories: function() {
+            if (!confirm(this.deleteConfirmMessage)) {
+                return;
+            }
+            
+            Vue.set(this.variable, 'var_catgry', []);
+
+            if (this.variable.var_catgry_labels) {
+                Vue.set(this.variable, 'var_catgry_labels', []);
+            }
+            
+            Vue.set(this.variable, 'update_required', true);
+            EventBus.$emit('onSuccess', this.deleteSuccessMessage);
         }
 
     },
@@ -452,7 +486,26 @@ Vue.component('variable-edit', {
                             <div v-if="variable.var_catgry && variable.var_catgry.length>0 && Variable.sum_stats_options && Variable.sum_stats_options.freq==true">
                             <h5>{{$t('frequencies')}}</h5>
                             
-                            <table class="table table-sm variable-frequencies">
+                            <!-- Show alert if too many categories -->
+                            <div v-if="hasTooManyCategories" class="alert alert-warning mt-3 mb-3">
+                                <h6><strong>
+                                <v-icon aria-hidden="false" x-large class="var-icon">mdi-alert-box</v-icon> {{$t('large_number_of_categories')}}</strong></h6>
+                                <p>
+                                    {{$t('too_many_categories_message')}}
+                                </p>
+                                <v-btn
+                                    color="red"
+                                    small
+                                    outlined
+                                    @click="deleteAllCategories"
+                                    type="button">
+                                    <v-icon small class="mr-1">mdi-delete</v-icon>
+                                    {{$t('delete')}} ({{categoriesCount}})
+                                </v-btn>
+                            </div>
+                            
+                            <!-- Only show table if categories count is <= 1000 -->
+                            <table v-else class="table table-sm variable-frequencies">
                                 <tr>
                                     <th>{{$t('value')}}</th>
                                     <th>{{$t('label')}}</th>
