@@ -671,7 +671,12 @@ class Editor_model extends CI_Model {
 			throw new Exception("INVALID_TYPE: ".$type);
 		}
 
-		if ($template_data_type!=$type){
+		$template_data_type_canonical = $this->resolve_canonical_type($template_data_type);
+		if ($template_data_type_canonical === false) {
+			$template_data_type_canonical = $template_data_type;
+		}
+
+		if ($template_data_type_canonical!=$type){
 			throw new Exception("TEMPLATE_TYPE_MISMATCHED: ".$template_data_type . '!='. $type);
 		}
 
@@ -700,7 +705,17 @@ class Editor_model extends CI_Model {
 			throw new Exception("TEMPLATE_NOT_FOUND: ".$template_uid);
 		}
 
-		if ($project['type']!=$template['data_type']){
+		$project_type_canonical = $this->resolve_canonical_type($project['type']);
+		if ($project_type_canonical === false) {
+			$project_type_canonical = $project['type'];
+		}
+
+		$template_data_type_canonical = $this->resolve_canonical_type($template['data_type']);
+		if ($template_data_type_canonical === false) {
+			$template_data_type_canonical = $template['data_type'];
+		}
+
+		if ($project_type_canonical!=$template_data_type_canonical){
 			throw new Exception("TEMPLATE_TYPE_MISMATCHED: ".$template['data_type'] . '!='. $project['type']);
 		}
 
