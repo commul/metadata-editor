@@ -868,6 +868,12 @@ class Editor_acl
 			throw new Exception("User not set");
 		}
 
+		// Check collection exists
+		$this->ci->load->model("Collection_model");
+		if (!$this->ci->Collection_model->collection_id_exists($collection_id)){
+			throw new Exception("Collection not found: " . $collection_id);
+		}
+
 		//global admin role - check first for performance and security
 		if ($this->user_is_admin($user)){
 			// Debug: Log that admin access was granted

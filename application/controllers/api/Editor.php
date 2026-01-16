@@ -279,6 +279,15 @@ class Editor extends MY_REST_Controller
 			}else{
 				$idno=$this->Editor_model->generate_uuid();
 			}
+			
+			//collection IDs
+			$collection_ids = null;
+			if (isset($project_options['collection_ids'])) {
+				$collection_ids = $project_options['collection_ids'];
+				unset($project_options['collection_ids']);
+			}
+
+			$this->_batch_validate_collection_access($collection_ids);
 
 			//overwrite
 			if (isset($project_options['overwrite']) 
@@ -287,9 +296,9 @@ class Editor extends MY_REST_Controller
 
 				$sid=$this->Editor_model->get_project_id_by_idno($idno);				
 
-				if ($sid){
-					// Use private method to update existing project
-					$this->_update_project_metadata($type, $sid, $project_options, false, $this->api_user(), $user_id);
+				if ($sid){															
+					$this->_update_project_metadata($type, $sid, $project_options, false, $this->api_user(), $user_id);				
+					$this->_add_project_to_collections($sid, $collection_ids, $user_id);
 					
 					$response=array(
 						'status'=>'success',
@@ -301,6 +310,15 @@ class Editor extends MY_REST_Controller
 			}
 			
 			$this->validate_project_idno($idno);
+			
+			$collection_ids = null;
+
+			if (isset($project_options['collection_ids'])) {
+				$collection_ids = $project_options['collection_ids'];
+				unset($project_options['collection_ids']);
+			}
+			
+			$this->_batch_validate_collection_access($collection_ids);
 			
 			$options=array(
 				'title'=> 'untitled',
@@ -324,12 +342,12 @@ class Editor extends MY_REST_Controller
 			
 			
 			if (!empty($project_options)){
-				// Use private method to update project metadata
 				$this->_update_project_metadata($type, $dataset_id, $project_options, false, $this->api_user(), $user_id);
 			}
 
-			$this->audit_log->log_event($obj_type='project',$obj_id=$dataset_id,$action='create', $user_id);			
-
+			$this->audit_log->log_event($obj_type='project',$obj_id=$dataset_id,$action='create', $user_id);						
+			$this->_add_project_to_collections($dataset_id, $collection_ids, $user_id);
+			
 			$response=array(
 				'status'=>'success',
 				'id'=>$dataset_id
@@ -368,9 +386,18 @@ class Editor extends MY_REST_Controller
 	{
 		try{			
 			$options=$this->raw_json_input();
+			$user_id=$this->get_api_user_id();
+			$sid=$this->get_sid($id);
 			
-			// Use private method to handle the update logic
-			$this->_update_project_metadata($type, $id, $options, $validate);
+			$collection_ids = null;
+			if (isset($options['collection_ids'])) {
+				$collection_ids = $options['collection_ids'];
+				unset($options['collection_ids']);
+			}
+			
+			$this->_batch_validate_collection_access($collection_ids);
+			$this->_update_project_metadata($type, $sid, $options, $validate);
+			$this->_add_project_to_collections($sid, $collection_ids, $user_id);
 
 			$response=array(
 				'status'=>'success'
@@ -1663,4 +1690,60 @@ class Editor extends MY_REST_Controller
 		}
 	}
 
+
+	/**
+	 * 
+	 * Validate user has edit access to all collections
+	 * Throws exception if validation fails
+	 * 
+	 * @param array $collection_ids - Array of collection IDs to validate
+	 * @param object $user - User object (optional, defaults to current API user)
+	 * @throws Exception - If user doesn't have edit access to any collection
+	 * 
+	 */
+	private function _batch_validate_collection_access($collection_ids, $user=null)
+	{		
+		if (!$collection_ids || !is_array($collection_ids) || empty($collection_ids)) {
+			var_dump("no collection ids");
+			return;
+		}
+
+		if ($user === null) {
+			$user = $this->api_user();
+		}
+
+		foreach($collection_ids as $collection_id){
+			//throw exception if user doesn't have edit access to collection
+			$this->editor_acl->user_has_collection_acl_access($collection_id, 'edit', $user);
+		}
+	}
+
+	/**
+	 * 
+	 * Add project to collections and log audit events
+	 * 
+	 * @param int $project_id - Project ID to add
+	 * @param array $collection_ids - Array of collection IDs
+	 * @param int $user_id - User ID for audit logging
+	 * 
+	 */
+	private function _add_project_to_collections($project_id, $collection_ids, $user_id)
+	{
+		if (!$collection_ids || !is_array($collection_ids) || empty($collection_ids)) {
+			return;
+		}
+
+		$this->Collection_model->add_batch_projects($collection_ids, array($project_id));
+		
+		foreach($collection_ids as $collection_id){
+			$this->audit_log->log_event(
+				$obj_type='collection',
+				$obj_id=$collection_id,
+				$action='add-project', 
+				$metadata=array(
+					'project'=>$project_id
+				),
+				$user_id);
+		}
+	}
 }
