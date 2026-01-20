@@ -930,8 +930,6 @@ class Collections extends MY_REST_Controller
 	function template_post()
 	{
 		try{
-			$this->has_dataset_access('edit');
-
 			$options=$this->raw_json_input();
 
 			$required_fields=array('collection_id','project_type','template_uid');
@@ -950,8 +948,8 @@ class Collections extends MY_REST_Controller
 			$user=$this->api_user();
 			$user_id=$this->get_api_user_id();
 
-			// Check user has edit access to this specific collection
-			$this->editor_acl->user_has_collection_acl_access($collection_id, 'edit', $this->api_user);
+			// ADMIN access is required to set project template
+			$this->editor_acl->user_has_collection_acl_access($collection_id, 'admin', $this->api_user);
 
 			//get collection by id
 			$collection=$this->Collection_model->select_single($collection_id);
@@ -979,7 +977,20 @@ class Collections extends MY_REST_Controller
 					continue;
 				}
 
-				$sid=$project['sid'];				
+				$sid=$project['sid'];
+				
+				// Verify user has admin access to this specific project (via collection or direct)
+				try {
+					$this->editor_acl->user_has_project_access($sid, $permission='admin', $user);
+				} catch(Exception $e) {
+					$result['skipped'][]=array(
+						'id'=>$sid,
+						'type'=>$project['type'],
+						'reason'=>'No admin access to project'
+					);
+					continue;
+				}
+				
 				$this->Editor_model->set_project_template($sid,$template_uid);
 
 				$result['updated'][]=array(

@@ -506,8 +506,6 @@ class Editor extends MY_REST_Controller
 	function options_post($sid=null)
 	{
 		try{
-			$this->has_dataset_access('edit');
-
 			$options=$this->raw_json_input();
 			$user_id=$this->get_api_user_id();
 			$sid=$this->get_sid($sid);
@@ -516,7 +514,9 @@ class Editor extends MY_REST_Controller
 			$options['changed_by']=$user_id;
 			$options['sid']=$sid;
 
-			$this->editor_acl->user_has_project_access($sid,$permission='edit', $this->api_user());
+			// ADMIN access is required to set project template, other options require edit access
+			$required_permission = (isset($options['template_uid'])) ? 'admin' : 'edit';
+			$this->editor_acl->user_has_project_access($sid,$permission=$required_permission, $this->api_user());
 			$this->Editor_model->set_project_options($sid,$options);
 			$this->audit_log->log_event(
 				$obj_type='project',
@@ -559,8 +559,6 @@ class Editor extends MY_REST_Controller
 	function template_post($sid=null,$template_uid=null)
 	{
 		try{
-			$this->has_dataset_access('edit');
-
 			$options=$this->raw_json_input();
 			$user=$this->api_user();
 			$user_id=$this->get_api_user_id();
@@ -570,7 +568,8 @@ class Editor extends MY_REST_Controller
 				throw new Exception("Template UID is required");
 			}
 
-			$this->editor_acl->user_has_project_access($sid,$permission='edit',$user);			
+			// Template changes require ADMIN access
+			$this->editor_acl->user_has_project_access($sid,$permission='admin',$user);			
 			$this->Editor_model->set_project_template($sid,$template_uid);
 
 			$response=array(
