@@ -85,7 +85,7 @@ class PDF_Report{
 			throw new Exception("Project not initialized");
 		}
 
-		if ($this->project['type']=='timeseries'){
+		if ($this->project['type']=='timeseries' || $this->project['type']=='indicator'){
 			$latex_elements=$this->ci->latex_processor->get_latex_elements($this->project['metadata']);
 			
 			if (count($latex_elements)>0){
@@ -122,7 +122,7 @@ class PDF_Report{
 		unset($project_metadata_html);
 
 
-		if ($this->project['type']=='survey'){
+		if ($this->project['type']=='survey' || $this->project['type']=='microdata'){
 			$sid=$this->project['id'];
 			$data_files=$this->ci->Editor_datafile_model->select_all($sid, $include_file_info=false);
 					

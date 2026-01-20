@@ -1704,7 +1704,6 @@ class Editor extends MY_REST_Controller
 	private function _batch_validate_collection_access($collection_ids, $user=null)
 	{		
 		if (!$collection_ids || !is_array($collection_ids) || empty($collection_ids)) {
-			var_dump("no collection ids");
 			return;
 		}
 
