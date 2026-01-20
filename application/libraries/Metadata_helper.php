@@ -13,7 +13,7 @@ class Metadata_helper
 
 	function extract_country_names_str($type, $metadata)
 	{
-		if ($type=='survey'){
+		if ($type=='survey' || $type=='microdata'){
 			$nations=(array)get_array_nested_value($metadata,'study_desc/study_info/nation');
         	$nations=$this->get_array_column_values($nations, 'name');
 			return $this->get_array_to_string($nations, 3);
@@ -39,11 +39,11 @@ class Metadata_helper
 
 	function extract_years($type, $metadata)
 	{
-		if ($type=='survey'){
+		if ($type=='survey' || $type=='microdata'){
 			$years=$this->get_data_collection_years($type,$metadata);
 			return $years;
 		}
-		else if ($type=='timeseries')
+		else if ($type=='timeseries' || $type=='indicator')
 		{
 			$years=$this->get_data_collection_years($type,$metadata);
 			return $years;
@@ -88,10 +88,10 @@ class Metadata_helper
 	{
 		$years=array();
 
-		if ($type=='survey'){
+		if ($type=='survey' || $type=='microdata'){
         	$data_coll=get_array_nested_value($options,'study_desc/study_info/coll_dates');
 		}
-		else if ($type=='timeseries'){
+		else if ($type=='timeseries' || $type=='indicator'){
 			$data_coll=get_array_nested_value($options,'series_description/time_periods');
 		}
 		else{

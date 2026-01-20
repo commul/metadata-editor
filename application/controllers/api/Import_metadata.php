@@ -59,7 +59,7 @@ class Import_metadata extends MY_REST_Controller
 			$result=$file_info;
 
 			if ($file_ext=='xml'){
-				if ($project['type']=='survey'){
+				if ($project['type']=='survey' || $project['type']=='microdata'){
 					$this->load->library("Editor_partial_import");
 					$import_options=$this->input->post("options");
 					$import_options=explode(",",$import_options);
