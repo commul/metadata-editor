@@ -500,6 +500,7 @@ $lang['project_validation_failed'] = "Falló la validación del proyecto";
 // Large number of categories translations
 $lang['large_number_of_categories'] = "Gran Número de Categorías";
 $lang['too_many_categories_message'] = "Esta variable contiene un gran número de categorías y no puede mostrarse. Revise las categorías usando la pestaña JSON. Puede eliminar las categorías usando el botón a continuación.";
+$lang['too_many_categories_frequencies_message'] = "Esta variable tiene un gran número de categorías. Las frecuencias no se muestran por razones de rendimiento.";
 $lang['confirm_delete_all_categories'] = "¿Está seguro de que desea eliminar todas las {count} categorías? Esta acción no se puede deshacer.";
 $lang['all_categories_deleted'] = "Se han eliminado todas las {count} categorías.";
 

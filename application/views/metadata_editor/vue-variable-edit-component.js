@@ -6,6 +6,7 @@ Vue.component('variable-edit', {
             drawer: true,       
             drawer_mini: true,
             form_local:{},
+            maxCategories: 500, // Maximum number of categories to display in frequencies table
             sum_stats_options:
             {
                 'wgt':true,
@@ -124,55 +125,88 @@ Vue.component('variable-edit', {
         //combine categories and frequencies values
         variableCategoriesAndFrequencies()
         {
-            // skip processing if too many categories
-            const categoriesCount = this.Variable.var_catgry ? this.Variable.var_catgry.length : 0;
-            if (categoriesCount > 1000) {
+            const allCategories = this.Variable.var_catgry || [];
+            const maxCategories = this.maxCategories;
+            
+            // Early exit if no categories
+            if (allCategories.length === 0) {
                 return [];
             }
-            
-            let categories=JSON.parse(JSON.stringify(this.Variable.var_catgry));
 
-            if (!this.Variable.var_catgry_labels){
+            // Limit to first 500 categories
+            const limitedCount = Math.min(allCategories.length, maxCategories);
+            const categoryValueSet = new Set();
+            const categories = [];
+            
+            // Process first 500 categories and build value set
+            for (var i = 0; i < limitedCount; i++) {
+                const cat = allCategories[i];
+                const value = cat.value;
+                categoryValueSet.add(String(value));
+
+                categories.push({
+                    value: value,
+                    labl: cat.labl || null,
+                    stats: cat.stats || null,
+                    is_missing: cat.is_missing || null
+                });
+            }
+
+            // If no labels, return early
+            const allLabels = this.Variable.var_catgry_labels;
+            if (!allLabels || allLabels.length === 0) {
                 return categories;
             }
 
-            for (var i=0;i<categories.length;i++){
-                categories[i].labl=this.VariableLabelByValue(categories[i].value);
+            // Build label map
+            const labelMap = {};
+            const labelCount = allLabels.length;
+            
+            // Single pass through labels - only store labels that match our first 500 categories            
+            for (var i = 0; i < labelCount; i++) {
+                const label = allLabels[i];
+                const labelValueStr = String(label.value);
+
+                if (categoryValueSet.has(labelValueStr) && label.labl) {
+                    labelMap[label.value] = label.labl;
+                }
             }
 
-            //add categories that are not in the frequencies
-            for (var i=0;i<this.Variable.var_catgry_labels.length;i++){
-                let found=false;
-                for (var j=0;j<categories.length;j++){
-                    if (categories[j].value==this.Variable.var_catgry_labels[i].value){
-                        found=true;
-                        break;
-                    }
+            // Update labels in categories using the lookup map
+            for (var i = 0; i < categories.length; i++) {
+                const catValue = categories[i].value;
+                if (labelMap[catValue]) {
+                    categories[i].labl = labelMap[catValue];
                 }
+            }
 
-                if (!found){
-                    categories.push({
-                        value:this.Variable.var_catgry_labels[i].value,
-                        labl:this.Variable.var_catgry_labels[i].labl
-                    });
+            // Add categories from labels that are not in the frequencies (only until we reach 500 total)
+            if (categories.length < maxCategories) {
+                for (var i = 0; i < allLabels.length && categories.length < maxCategories; i++) {
+                    const label = allLabels[i];
+                    const labelValueStr = String(label.value);
+                    if (!categoryValueSet.has(labelValueStr)) {
+                        categories.push({
+                            value: label.value,
+                            labl: label.labl || null
+                        });
+                        categoryValueSet.add(labelValueStr);
+                    }
                 }
             }
 
             return categories;
         },
-        // Check if variable has more than 1000 categories
-        hasTooManyCategories: function() {
+        // Check if variable exceeds max categories (hide frequencies table)
+        exceedsMaxCategories: function() {
             const categoriesCount = this.variable.var_catgry ? this.variable.var_catgry.length : 0;
-            return categoriesCount > 1000;
+            const labelsCount = this.variable.var_catgry_labels ? this.variable.var_catgry_labels.length : 0;
+            return categoriesCount + labelsCount > this.maxCategories;
         },
         categoriesCount: function() {
-            return this.variable.var_catgry ? this.variable.var_catgry.length : 0;
-        },
-        deleteConfirmMessage: function() {
-            return this.$t('confirm_delete_all_categories', { count: this.categoriesCount });
-        },
-        deleteSuccessMessage: function() {
-            return this.$t('all_categories_deleted', { count: this.categoriesCount });
+            const categoriesCount = this.variable.var_catgry ? this.variable.var_catgry.length : 0;
+            const labelsCount = this.variable.var_catgry_labels ? this.variable.var_catgry_labels.length : 0;
+            return categoriesCount + labelsCount;
         },
         isWeighted(){
             if (this.Variable['var_wgt_id']){
@@ -435,20 +469,6 @@ Vue.component('variable-edit', {
             
             // Mark variable as needing update
             Vue.set(this.variable, 'update_required', true);
-        },
-        deleteAllCategories: function() {
-            if (!confirm(this.deleteConfirmMessage)) {
-                return;
-            }
-            
-            Vue.set(this.variable, 'var_catgry', []);
-
-            if (this.variable.var_catgry_labels) {
-                Vue.set(this.variable, 'var_catgry_labels', []);
-            }
-            
-            Vue.set(this.variable, 'update_required', true);
-            EventBus.$emit('onSuccess', this.deleteSuccessMessage);
         }
 
     },
@@ -486,25 +506,19 @@ Vue.component('variable-edit', {
                             <div v-if="variable.var_catgry && variable.var_catgry.length>0 && Variable.sum_stats_options && Variable.sum_stats_options.freq==true">
                             <h5>{{$t('frequencies')}}</h5>
                             
-                            <!-- Show alert if too many categories -->
-                            <div v-if="hasTooManyCategories" class="alert alert-warning mt-3 mb-3">
-                                <h6><strong>
-                                <v-icon aria-hidden="false" x-large class="var-icon">mdi-alert-box</v-icon> {{$t('large_number_of_categories')}}</strong></h6>
-                                <p>
-                                    {{$t('too_many_categories_message')}}
-                                </p>
-                                <v-btn
-                                    color="red"
-                                    small
-                                    outlined
-                                    @click="deleteAllCategories"
-                                    type="button">
-                                    <v-icon small class="mr-1">mdi-delete</v-icon>
-                                    {{$t('delete')}} ({{categoriesCount}})
-                                </v-btn>
+                            <!-- Show message if exceeds max categories (hide table) -->
+                            <div v-if="exceedsMaxCategories" class="alert alert-warning mt-3 mb-3">
+                                <div class="row no-gutters align-items-center">
+                                    <div class="col-auto pr-3">
+                                        <v-icon x-large aria-hidden="false" class="var-icon" style="color:orange">mdi-alert</v-icon>
+                                    </div>
+                                    <div class="col">
+                                        <span style="font-size:1.2em;">{{$t('too_many_categories_frequencies_message')}}</span>
+                                    </div>
+                                </div>
                             </div>
                             
-                            <!-- Only show table if categories count is <= 1000 -->
+                            <!-- Show table only if 500 or fewer categories -->
                             <table v-else class="table table-sm variable-frequencies">
                                 <tr>
                                     <th>{{$t('value')}}</th>

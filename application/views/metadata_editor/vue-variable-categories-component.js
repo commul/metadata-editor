@@ -127,10 +127,10 @@ Vue.component('variable-categories', {
             let item=this.FindTemplateByItemKey(items,'variable');
             return item;        
         },
-        // Check if variable has more than 1000 categories
+        // Check if variable has more than 5000 categories
         hasTooManyCategories: function() {
             const categoriesCount = this.categoriesCount;
-            return categoriesCount > 1000;
+            return categoriesCount > 5000;
         },
         // Get categories count (check both var_catgry and var_catgry_labels)
         categoriesCount: function() {

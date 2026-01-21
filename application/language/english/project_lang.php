@@ -562,6 +562,7 @@ $lang['discrete'] = "Discrete";
 // Large number of categories translations
 $lang['large_number_of_categories'] = "Large Number of Categories";
 $lang['too_many_categories_message'] = "This variable contains large number of categories and cannot be displayed. Review the categories using the JSON tab. You can delete the categories using the button below.";
+$lang['too_many_categories_frequencies_message'] = "This variable has a large number of categories. Frequencies are not displayed for performance reasons.";
 $lang['confirm_delete_all_categories'] = "Are you sure you want to delete all {count} categories? This action cannot be undone.";
 $lang['all_categories_deleted'] = "All {count} categories have been deleted.";
 
