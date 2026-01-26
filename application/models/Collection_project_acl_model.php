@@ -25,7 +25,7 @@ class Collection_project_acl_model extends CI_Model {
         'permissions'
     );
 
-    private $permissions=array(
+    public $permissions=array(
         'view'=>'View',
         'edit'=>'Edit',
         //'delete'=>'Delete',

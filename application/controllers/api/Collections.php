@@ -481,7 +481,21 @@ class Collections extends MY_REST_Controller
 			// Check user has access to this specific collection
 			$this->editor_acl->user_has_collection_acl_access($options['collection_id'], 'edit', $this->api_user);
 
-			$result=$this->Collection_project_acl_model->upsert($options);
+			$permissions=(array)$options['permissions'];
+			foreach($permissions as $permission){
+				if(!in_array($permission,array_keys($this->Collection_project_acl_model->permissions))){
+					throw new Exception("Invalid permission: " . $permission);
+				}
+			}
+
+			foreach($permissions as $permission){
+				$data=array(
+					'collection_id'=>$options['collection_id'],
+					'user_id'=>$options['user_id'],
+					'permissions'=>$permission
+				);
+				$result=$this->Collection_project_acl_model->upsert($data);
+			}
 
 			//audit log
 			$this->audit_log->log_event(
