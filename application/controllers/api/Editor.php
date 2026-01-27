@@ -279,7 +279,14 @@ class Editor extends MY_REST_Controller
 			}else{
 				$idno=$this->Editor_model->generate_uuid();
 			}
+
+			// check if project already exists
+			$sid=$this->Editor_model->get_project_id_by_idno($idno);
 			
+			if ($sid){
+				throw new Exception("Project with this IDNO already exists: ".$idno);
+			}
+
 			//collection IDs
 			$collection_ids = null;
 			if (isset($project_options['collection_ids'])) {
@@ -288,38 +295,8 @@ class Editor extends MY_REST_Controller
 			}
 
 			$this->_batch_validate_collection_access($collection_ids);
-
-			//overwrite
-			if (isset($project_options['overwrite']) 
-				&& ($project_options['overwrite']==1 
-				|| strtolower($project_options['overwrite'])=='true')){
-
-				$sid=$this->Editor_model->get_project_id_by_idno($idno);				
-
-				if ($sid){															
-					$this->_update_project_metadata($type, $sid, $project_options, false, $this->api_user(), $user_id);				
-					$this->_add_project_to_collections($sid, $collection_ids, $user_id);
-					
-					$response=array(
-						'status'=>'success',
-						'id'=>$sid
-					);
-					$this->set_response($response, REST_Controller::HTTP_OK);
-					return;
-				}
-			}
-			
 			$this->validate_project_idno($idno);
-			
-			$collection_ids = null;
-
-			if (isset($project_options['collection_ids'])) {
-				$collection_ids = $project_options['collection_ids'];
-				unset($project_options['collection_ids']);
-			}
-			
-			$this->_batch_validate_collection_access($collection_ids);
-			
+						
 			$options=array(
 				'title'=> 'untitled',
 				'type'=> $type,
@@ -338,8 +315,7 @@ class Editor extends MY_REST_Controller
 				throw new Exception("FAILED_TO_CREATE_DATASET");
 			}
 
-			$this->Editor_model->create_project_folder($dataset_id);			
-			
+			$this->Editor_model->create_project_folder($dataset_id);
 			
 			if (!empty($project_options)){
 				$this->_update_project_metadata($type, $dataset_id, $project_options, false, $this->api_user(), $user_id);

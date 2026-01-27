@@ -24,15 +24,5 @@
       "type": "string",
       "title": "Template UID (Unique Identifier)",
       "description": "Template to be used for the project. If not provided, the default template will be used."
-    },
-    "overwrite": {
-      "type": "string",
-      "description": "Overwrite project if already exists?",
-      "enum": [
-        "yes",
-        "no"
-      ],
-      "default": "no"
-    }
-  }
+    }  }
 }
