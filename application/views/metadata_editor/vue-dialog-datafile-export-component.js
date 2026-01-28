@@ -81,6 +81,11 @@ Vue.component('dialog-datafile-export', {
                 console.log("failed", e);
                 this.export_dialog.is_loading = false;
                 this.export_dialog.message_error = this.$t("failed") + ": " + e.response.data.message;
+
+                //check if detail is present
+                if (e.response.data.detail) {
+                    this.export_dialog.message_error += "\n\n" + e.response.data.detail;
+                }
             }
         },
         
@@ -115,6 +120,11 @@ Vue.component('dialog-datafile-export', {
                 console.log("failed", e);
                 this.export_dialog.is_loading = false;
                 this.export_dialog.message_error = this.$t("failed") + ": " + e.response.data.message;
+
+                //check if detail is present
+                if (e.response.data.detail) {
+                    this.export_dialog.message_error += "\n\n" + e.response.data.detail;
+                }
             }
         },
         
@@ -155,6 +165,11 @@ Vue.component('dialog-datafile-export', {
                 console.log("failed", e);
                 this.export_dialog.is_loading = false;
                 this.export_dialog.message_error = this.$t("failed") + ": " + e.response.data.message;
+
+                //check if detail is present
+                if (e.response.data.detail) {
+                    this.export_dialog.message_error += "\n\n" + e.response.data.detail;
+                }
             }
         },
         
