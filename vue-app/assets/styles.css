@@ -577,9 +577,24 @@ html {
      font-weight: normal;
  }
 
- .activeRow .mdi {
-     color: white;
- }
+.activeRow .mdi {
+    color: white;
+}
+
+/* Vuetify list item active row styling */
+.v-list-item.activeRow {
+    background-color: #1f2d3d !important;
+    color: white !important;
+}
+
+.v-list-item.activeRow .v-list-item__title,
+.v-list-item.activeRow .v-list-item__subtitle {
+    color: white !important;
+}
+
+.v-list-item.activeRow .v-icon {
+    color: white !important;
+}
 
  /* remove extra padding and spacing from vuetify  checkbox */
  .v-checkbox-rm-styles .v-input--selection-controls {
