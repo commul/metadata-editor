@@ -271,9 +271,10 @@ class Geospatial_processor {
      * 
      * @param array $uploaded_files Array of uploaded file information
      * @param string $project_folder Project folder path
+     * @param bool $keep_files Whether to keep files after extraction (default: false)
      * @return array Processing result
      */
-    public function process_uploaded_files($uploaded_files, $project_folder)
+    public function process_uploaded_files($uploaded_files, $project_folder, $keep_files = false)
     {
         $result = array(
             'success' => false,
@@ -325,8 +326,8 @@ class Geospatial_processor {
                     continue;
                 }
 
-                // Delete original archive file after successful extraction
-                unlink($file_path);
+                // Delete files after extraction                
+                unlink($file_path);                
                 
                 // Add extracted files to result (filter out non-primary geospatial files)
                 foreach ($extraction['extracted_files'] as $extracted_file) {
@@ -347,7 +348,8 @@ class Geospatial_processor {
                     $result['extracted_files'][] = array(
                         'original_zip' => $file_name,
                         'extracted_file' => $extracted_file,
-                        'path' => $absolute_path
+                        'path' => $absolute_path,
+                        'keep_files' => $keep_files
                     );
                 }
 
@@ -378,7 +380,8 @@ class Geospatial_processor {
                     
                     $result['processed_files'][] = array(
                         'original_name' => $file_name,
-                        'path' => $absolute_path
+                        'path' => $absolute_path,
+                        'keep_files' => $keep_files
                     );
                 } else {
                     $result['errors'][] = "Failed to move file '{$file_name}' to project folder";
@@ -387,7 +390,92 @@ class Geospatial_processor {
         }
 
         $result['success'] = empty($result['errors']);
+        $result['keep_files'] = $keep_files; // Store preference for later use
         return $result;
+    }
+
+    /**
+     * Delete files after metadata extraction if keep_files is false
+     * 
+     * @param array $files Array of file paths to potentially delete
+     * @param bool $keep_files Whether to keep files
+     * @return array Result with deletion status
+     */
+    public function cleanup_files_after_extraction($files, $keep_files = false)
+    {
+        $result = array(
+            'deleted' => array(),
+            'kept' => array(),
+            'errors' => array()
+        );
+        
+        if ($keep_files) {
+            // Files should be kept
+            foreach ($files as $file_path) {
+                $result['kept'][] = $file_path;
+            }
+            return $result;
+        }
+        
+        // Delete files and related files
+        foreach ($files as $file_path) {
+            if (!file_exists($file_path)) {
+                continue;
+            }
+            
+            $file_name = basename($file_path);
+            $folder_path = dirname($file_path);
+            
+            // Delete main file
+            if (unlink($file_path)) {
+                $result['deleted'][] = $file_path;
+                log_message('info', "Deleted file after extraction: {$file_path}");
+            } else {
+                $result['errors'][] = "Failed to delete file: {$file_path}";
+            }
+            
+            // Delete related files (for any file type)
+            $this->delete_related_files_for_any_type($folder_path, $file_name);
+        }
+        
+        return $result;
+    }
+
+    /**
+     * Delete related files for any file type (not just shapefiles)
+     * 
+     * @param string $folder_path Folder containing the files
+     * @param string $file_name File name
+     */
+    private function delete_related_files_for_any_type($folder_path, $file_name)
+    {
+        try {
+            $base_name = pathinfo($file_name, PATHINFO_FILENAME);
+            
+            // Find all files with the same base name
+            $pattern = $folder_path . '/' . $base_name . '.*';
+            $related_files = glob($pattern);
+            
+            foreach ($related_files as $related_file) {
+                // Skip the main file itself (already deleted)
+                if (basename($related_file) === $file_name) {
+                    continue;
+                }
+                
+                // Skip if file doesn't exist
+                if (!file_exists($related_file)) {
+                    continue;
+                }
+                
+                // Delete related file
+                if (unlink($related_file)) {
+                    log_message('info', "Deleted related file: {$related_file}");
+                }
+            }
+            
+        } catch (Exception $e) {
+            log_message('error', "Error deleting related files for {$file_name}: " . $e->getMessage());
+        }
     }
 
     /**

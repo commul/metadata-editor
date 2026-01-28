@@ -547,6 +547,7 @@ class Geospatial_features_model extends CI_Model {
 
     /**
      * Delete related files (e.g., shapefile components)
+     * Checks for related files for any file type, not just shapefiles
      * 
      * @param string $folder_path Folder containing the files
      * @param string $file_name Base file name without extension
@@ -557,7 +558,7 @@ class Geospatial_features_model extends CI_Model {
             $file_extension = strtolower(pathinfo($file_name, PATHINFO_EXTENSION));
             $base_name = pathinfo($file_name, PATHINFO_FILENAME);
             
-            // For shapefiles, delete related components
+            // For shapefiles, delete known related components
             if ($file_extension === 'shp') {
                 $related_extensions = array('shx', 'dbf', 'prj', 'cpg', 'sbn', 'sbx', 'shp.xml');
                 
@@ -570,8 +571,27 @@ class Geospatial_features_model extends CI_Model {
                 }
             }
             
-            // For other file types, check if there are any related files
-            // (This can be extended for other formats as needed)
+            // For ANY file type, check for files with same base name
+            // This handles cases where related files might exist for other formats
+            $pattern = $folder_path . '/' . $base_name . '.*';
+            $related_files = glob($pattern);
+            
+            foreach ($related_files as $related_file) {
+                // Skip the main file itself (already deleted or being deleted)
+                if (basename($related_file) === $file_name) {
+                    continue;
+                }
+                
+                // Skip if already deleted (shapefile case above)
+                if (!file_exists($related_file)) {
+                    continue;
+                }
+                
+                // Delete related file
+                if (unlink($related_file)) {
+                    log_message('info', "Deleted related file: {$related_file}");
+                }
+            }
             
         } catch (Exception $e) {
             log_message('error', "Error deleting related files for {$file_name}: " . $e->getMessage());
@@ -723,6 +743,21 @@ class Geospatial_features_model extends CI_Model {
 
             // Process feature characteristics (only for vector files)
             $characteristics_created = $this->create_feature_characteristics($sid, $feature_id, $analytics, $file_type, $user_id);
+
+            // Cleanup files after metadata extraction if keep_files is false (default behavior)
+            // Check if keep_files preference is stored in metadata
+            // Default to false (delete files) if not specified
+            $metadata_array = json_decode($feature_data['metadata'], true);
+            $keep_files = isset($metadata_array['keep_files']) && $metadata_array['keep_files'] === true;
+            
+            if (!$keep_files && !empty($file_path) && file_exists($file_path)) {
+                // Delete file and related files after successful metadata extraction
+                // Note: delete_associated_file_if_unused checks if other features use the file
+                $this->delete_associated_file_if_unused($sid, $file_name, $feature_id);
+                log_message('info', "Deleted file after metadata extraction: {$file_path} (keep_files=false, default)");
+            } else if ($keep_files) {
+                log_message('info', "Kept file after metadata extraction: {$file_path} (keep_files=true)");
+            }
 
             return array(
                 'feature_id' => $feature_id,

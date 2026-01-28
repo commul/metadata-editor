@@ -592,7 +592,7 @@ class Geospatial_features extends MY_REST_Controller
 			$options = $this->raw_json_input();
 			$file_path = isset($options['file_path']) ? $options['file_path'] : null;
 			$layer_name = isset($options['layer_name']) ? $options['layer_name'] : null;
-			
+
 			if (!$file_path) {
 				throw new Exception("Missing parameter: file_path");
 			}
@@ -1524,6 +1524,9 @@ class Geospatial_features extends MY_REST_Controller
 			$this->load->library('Geospatial_processor');
 			$processor = $this->geospatial_processor;
 
+			// Get keep_files preference (default: false/delete)
+			$keep_files = $this->input->post('keep_files') === '1' || $this->input->post('keep_files') === true;
+
 			// upload geospatial files
 			$result=$this->Editor_resource_model->upload_file($sid,'data',$file_field_name='file', $remove_spaces=false);
 			$uploaded_file_name=$result['file_name'];
@@ -1546,7 +1549,7 @@ class Geospatial_features extends MY_REST_Controller
 
 			// Process uploaded files (validate ZIP, extract if needed)
 			try {
-				$processing_result = $processor->process_uploaded_files($uploaded_files, $project_folder);
+				$processing_result = $processor->process_uploaded_files($uploaded_files, $project_folder, $keep_files);
 
 				if (!$processing_result['success']) {
 					throw new Exception("File processing failed: " . implode(', ', $processing_result['errors']));
@@ -1561,6 +1564,7 @@ class Geospatial_features extends MY_REST_Controller
 				'uploaded_file_name' => $uploaded_file_name,
 				'processed_files' => $processing_result['processed_files'],
 				'extracted_files' => $processing_result['extracted_files'],
+				'keep_files' => $keep_files,  // Include preference in response
 				'message' => 'Files processed successfully'
 			);
 

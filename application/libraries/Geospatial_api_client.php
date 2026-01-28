@@ -120,12 +120,14 @@ class Geospatial_api_client {
                 $result['errors'] = $response['errors'];
                 $result['status'] = 'failed';
                 $result['message'] = 'Failed to start metadata extraction job';
+                $result['payload'] = $payload;
             }
 
         } catch (Exception $e) {
             $result['errors'][] = $e->getMessage();
             $result['status'] = 'error';
             $result['message'] = 'API request failed';
+            $result['payload'] = $payload;
         }
 
         return $result;

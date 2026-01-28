@@ -11,7 +11,8 @@ Vue.component('geospatial-feature-import', {
             has_partial_success: false,
             dialog_process: false,
             upload_report: [],
-            supported_formats: ['geojson', 'shp', 'tiff', 'geotiff', 'tif', 'kml', 'kmz', 'gpx', 'csv', 'json', 'zip', 'gpkg', 'nc', 'hdf', 'hdf5', 'grib', 'grb', 'jpg', 'jpeg', 'png', 'img', 'ecw', 'sid', 'jp2', 'asc', 'dem', 'bil', 'bip', 'bsq', 'dt0', 'dt1', 'dt2'],
+            //supported_formats: ['geojson', 'shp', 'tiff', 'geotiff', 'tif', 'kml', 'kmz', 'gpx', 'csv', 'json', 'zip', 'gpkg', 'nc', 'hdf', 'hdf5', 'grib', 'grb', 'jpg', 'jpeg', 'png', 'img', 'ecw', 'sid', 'jp2', 'asc', 'dem', 'bil', 'bip', 'bsq', 'dt0', 'dt1', 'dt2'],
+            supported_formats: ['geojson', 'shp', 'tiff', 'geotiff', 'tif', 'kml', 'kmz', 'zip', 'gpkg', 'nc', 'hdf', 'hdf5'],
             project_id: null,
             show_layer_dialog: false,
             pendingLayerData: null,
@@ -631,9 +632,10 @@ Vue.component('geospatial-feature-import', {
             return new Promise((resolve, reject) => {
                 const formData = new FormData();
                 formData.append('file', file);
-                
+                formData.append('keep_files', '0');
+
                 const url = CI.base_url + '/api/geospatial_features/upload/' + this.project_id;
-                
+
                 axios.post(url, formData, {
                     headers: {
                         'Content-Type': 'multipart/form-data'
@@ -804,10 +806,15 @@ Vue.component('geospatial-feature-import', {
                 this.update_status = `Processing layer ${i + 1}/${layers.length}: ${layerName}...`;
                 
                 try {
-                    // Start metadata extraction job for this layer
-                    // For raster files, layer.name might be a band index (number)
-                    // For vector files, layer.name is the layer name (string)
-                    const layerIdentifier = layer.name || layer.id || (i + 1);
+                    const fileName = layer.file_path ? layer.file_path.split('/').pop() : '';
+                    const isRaster = this.isRasterFile(fileName);
+                    let layerIdentifier;
+                    if (isRaster) {
+                        const bandFromLayer = layer.name != null ? parseInt(layer.name, 10) : (layer.id != null ? parseInt(layer.id, 10) : NaN);
+                        layerIdentifier = (Number.isInteger(bandFromLayer) && bandFromLayer >= 1) ? bandFromLayer : 1;
+                    } else {
+                        layerIdentifier = layer.name || layer.id || (i + 1);
+                    }
                     const jobResult = await this.startMetadataJob(layer.file_path, layerIdentifier);
                     
                     if (this.is_cancelled) {
@@ -1252,19 +1259,19 @@ Vue.component('geospatial-feature-import', {
                                                 </td>
                                                 <td>{{formatFileSize(file.size)}}</td>
                                                 <td>
-                                                    <v-chip v-if="file.status === 'pending'" color="grey" small>
+                                                    <v-chip v-if="file.status === 'pending'" color="grey" dark small>
                                                         <v-icon left small>mdi-clock-outline</v-icon>
                                                         {{$t("pending")}}
                                                     </v-chip>
-                                                    <v-chip v-else-if="file.status === 'processing'" color="blue" small>
+                                                    <v-chip v-else-if="file.status === 'processing'" color="info" dark small>
                                                         <v-icon left small>mdi-sync</v-icon>
                                                         {{$t("processing")}}
                                                     </v-chip>
-                                                    <v-chip v-else-if="file.status === 'completed'" color="success" small>
+                                                    <v-chip v-else-if="file.status === 'completed'" color="success" dark small>
                                                         <v-icon left small>mdi-check-circle</v-icon>
                                                         {{$t("completed")}}
                                                     </v-chip>
-                                                    <v-chip v-else-if="file.status === 'failed'" color="error" small>
+                                                    <v-chip v-else-if="file.status === 'failed'" color="error" dark small>
                                                         <v-icon left small>mdi-alert-circle</v-icon>
                                                         {{$t("failed")}}
                                                     </v-chip>
@@ -1310,7 +1317,7 @@ Vue.component('geospatial-feature-import', {
                             <!-- Success State -->
                             <v-row class="mt-3 text-center" v-if="update_status=='completed' && !has_errors">
                                 <v-col class="text-center">
-                                    <v-icon large color="success">mdi-check-circle</v-icon>
+                                    <v-icon large color="green">mdi-check-circle</v-icon>
                                     <div class="mt-2">{{$t("import_completed")}}</div>
                                 </v-col>
                             </v-row>
@@ -1370,14 +1377,13 @@ Vue.component('geospatial-feature-import', {
                                                         </v-icon>
                                                         <div>
                                                             <div class="font-weight-medium">{{report.file_name}}</div>
-                                                            <div v-if="report.layer_name" class="text-caption text-grey">
-                                                                Layer: {{report.layer_name}}
+                                                            <div v-if="report.layer_name" class="text-caption text-grey">                                                                
                                                             </div>
                                                         </div>
                                                     </div>
                                                 </td>
                                                 <td>
-                                                    <v-chip :color="report.status === 'success' ? 'success' : 'error'" small>
+                                                    <v-chip :color="report.status === 'success' ? 'success' : 'error'" dark small>
                                                         {{report.status}}
                                                     </v-chip>
                                                 </td>

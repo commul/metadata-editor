@@ -141,9 +141,7 @@ Vue.component('geospatial-features', {
                 if (response.data.status === 'success') {
                     // Refresh completed successfully
                     vm.refresh_dialog.is_refreshing = false;
-                    vm.refresh_dialog.status_message = vm.$t('Metadata refreshed successfully!') + ' ' + 
-                                                       vm.$t('characteristics_updated') + ': ' + 
-                                                       response.data.characteristics_updated;
+                    vm.refresh_dialog.status_message = vm.$t('Metadata refreshed successfully!')
                     
                     // Reload features list
                     vm.loadGeospatialFeatures();
@@ -601,8 +599,7 @@ Vue.component('geospatial-features', {
                                    type="success" 
                                    outlined 
                                    class="mt-3">
-                                <div class="d-flex align-center">
-                                    <v-icon left color="success" large>mdi-check-circle</v-icon>
+                                <div class="d-flex align-center">                                    
                                     <div>{{refresh_dialog.status_message}}</div>
                                 </div>
                             </v-alert>
@@ -612,8 +609,7 @@ Vue.component('geospatial-features', {
                                    type="error" 
                                    outlined 
                                    class="mt-3">
-                                <div class="d-flex align-center">
-                                    <v-icon left color="error" large>mdi-alert-circle</v-icon>
+                                <div class="d-flex align-center">                                    
                                     <div>
                                         <div class="text-h6">{{$t("error")}}</div>
                                         <div class="mt-2">{{refresh_dialog.error_message}}</div>
