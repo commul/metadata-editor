@@ -86,7 +86,12 @@ class Datafile_export
                             // For other formats, use original logic
                             if ($variable['field_dtype']!='character'){
                                 if (!$this->is_string_value($missing)){
-                                    $params['missings'][trim($variable['name'])][]=$missing+0;
+                                    // Convert to numeric if possible, otherwise keep as string
+                                    if (is_numeric($missing)) {
+                                        $params['missings'][trim($variable['name'])][]=$missing+0;
+                                    } else {
+                                        $params['missings'][trim($variable['name'])][]=$missing;
+                                    }
                                 }
                             }else{	
                                 $params['missings'][trim($variable['name'])][]=$missing;
@@ -133,7 +138,7 @@ class Datafile_export
 			}
 
 			//name/labels
-			$params['name_labels'][$variable['name']]=$variable['metadata']['labl'];
+			$params['name_labels'][$variable['name']]=$variable['metadata']['labl'] ?? '';
         }
 
         return $params;
