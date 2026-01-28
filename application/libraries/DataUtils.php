@@ -213,21 +213,33 @@ class DataUtils
 		];
 	}
 
-	//get summary stats queue job status
+	/**
+	 * get summary stats queue job status
+	 * 
+	 * @param string $job_id Job ID
+	 * @return array Job status and results
+	 * 
+	 * @uses http_errors => false so we get full response body on 4xx/5xx (no Guzzle truncation)
+	 */
 	public function get_job_status($job_id)
 	{
 		$client = new Client([
 			'base_uri' => $this->DataApiUrl.'jobs/'.$job_id
 		]);
-			
+
 		$api_response = $client->request('GET', '', [
-			['debug' => false]
+			'debug' => false,
+			'http_errors' => false
 		]);
 
-		$response=json_decode($api_response->getBody()->getContents(),true);
+		$body_raw = $api_response->getBody()->getContents();
+		$response = json_decode($body_raw, true);
+		if ($response === null && $body_raw !== '') {
+			$response = ['detail' => $body_raw];
+		}
 		return [
-			'response'=>$response,
-			'status_code'=>$api_response->getStatusCode() //e.g. 200
+			'response' => $response,
+			'status_code' => $api_response->getStatusCode()
 		];
 	}	
 

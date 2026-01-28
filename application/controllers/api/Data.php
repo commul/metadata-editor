@@ -629,37 +629,47 @@ class Data extends MY_REST_Controller
 
 
 	/**
-	 * 
-	 * 
-	 * Return Job status for a given job id
+	 * Return job status for a given job id.
+	 * On upstream errors (e.g. 400), returns structured response with details
 	 */
 	function job_status_get($job_id)
 	{
-		try{
-			$api_response=$this->datautils->get_job_status($job_id);
-
-			$api_http_status=isset($api_response['status_code']) ? $api_response['status_code'] : REST_Controller::HTTP_BAD_REQUEST;
-			$job_status=isset($api_response['response']['status']) ? $api_response['response']['status'] : '';
-
-			if (!$api_http_status==REST_Controller::HTTP_OK){
-				throw new Exception("Job failed");
-			}
-
-			$output=array(
-				'status'=>'success',
-				'api_response'=>$api_response,
-				'job_status'=>$job_status				
-			);
-						
-			$this->set_response($output, REST_Controller::HTTP_OK);			
+		try {
+			$api_response = $this->datautils->get_job_status($job_id);
+		} catch (Exception $e) {
+			$this->set_response([
+				'status' => 'failed',
+				'job_status' => 'failed',
+				'message' => 'Could not reach job service.',
+				'detail' => $e->getMessage()
+			], REST_Controller::HTTP_BAD_REQUEST);
+			return;
 		}
-		catch(Exception $e){
-			$response=array(
-				'status'=>'failed',
-				'message'=>$e->getMessage()
-			);
-			$this->set_response($response, REST_Controller::HTTP_BAD_REQUEST);
+
+		$api_http_status = isset($api_response['status_code']) ? $api_response['status_code'] : REST_Controller::HTTP_BAD_REQUEST;
+		$upstream = isset($api_response['response']) ? $api_response['response'] : [];
+		$job_status = isset($upstream['status']) ? $upstream['status'] : '';
+
+		if ($api_http_status === REST_Controller::HTTP_OK) {
+			$this->set_response([
+				'status' => 'success',
+				'api_response' => $api_response,
+				'job_status' => $job_status
+			], REST_Controller::HTTP_OK);
+			return;
 		}
+
+		// Upstream returned 4xx/5xx: return formatted error with details
+		$detail = isset($upstream['detail']) ? $upstream['detail'] : (isset($upstream['message']) ? $upstream['message'] : json_encode($upstream));
+		if (is_array($detail)) {
+			$detail = json_encode($detail);
+		}
+		$this->set_response([
+			'status' => 'failed',
+			'job_status' => $job_status ?: 'failed',
+			'message' => 'Export job failed.',
+			'detail' => $detail
+		], $api_http_status);
 	}
 
 
