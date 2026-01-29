@@ -151,6 +151,11 @@ $lang['external_resources']="External resources";
 $lang['publish_project']="Publish project";
 $lang['publish_thumbnail']="Publish thumbnail";
 $lang['published_project_link']="Published project link";
+$lang['study_in_catalog']="Study in catalog";
+$lang['study_not_found_in_catalog']="Study was not found in the catalog";
+$lang['select_catalog_to_load_study_info']="Select a catalog to load study info from NADA.";
+$lang['collections_linked']="Linked collections";
+$lang['select_collections_linked']="Select linked collections";
 
 
 $lang['download_pdf']="Download PDF";

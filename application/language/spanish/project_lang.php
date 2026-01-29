@@ -151,6 +151,11 @@ $lang['external_resources']="Recursos externos";
 $lang['publish_project']="Publicar proyecto";
 $lang['publish_thumbnail']="Publicar miniatura";
 $lang['published_project_link']="Enlace del proyecto publicado";
+$lang['study_in_catalog']="Estudio en el catálogo";
+$lang['study_not_found_in_catalog']="El estudio no se encontró en el catálogo";
+$lang['select_catalog_to_load_study_info']="Seleccione un catálogo para cargar la información del estudio desde NADA.";
+$lang['collections_linked']="Colecciones vinculadas";
+$lang['select_collections_linked']="Seleccionar colecciones vinculadas";
 
 
 $lang['download_pdf']="Descargar PDF";

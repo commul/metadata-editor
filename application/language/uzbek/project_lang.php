@@ -151,6 +151,11 @@ $lang['external_resources']="Tashqi resurslar";
 $lang['publish_project']="Loyihani nashr qilish";
 $lang['publish_thumbnail']="Kichik rasmini nashr qilish";
 $lang['published_project_link']="Nashr qilingan loyiha havolasi";
+$lang['study_in_catalog']="Katalogdagi tadqiqot";
+$lang['study_not_found_in_catalog']="Tadqiqot katalogda topilmadi";
+$lang['select_catalog_to_load_study_info']="NADA dan tadqiqot ma'lumotlarini yuklash uchun katalogni tanlang.";
+$lang['collections_linked']="Bog'langan to'plamlar";
+$lang['select_collections_linked']="Bog'langan to'plamlarni tanlash";
 
 
 $lang['download_pdf']="PDF yuklab olish";
