@@ -99,6 +99,37 @@ class Publish extends MY_REST_Controller
 	}
 
 	/**
+	 * Get catalog info from NADA (collections, data_access_codes) for the publish form.
+	 * GET /api/publish/catalog_info/{sid}/{catalog_connection_id}
+	 */
+	function catalog_info_get($sid = null, $catalog_connection_id = null)
+	{
+		try {
+			$user_id = $this->get_api_user_id();
+			if (!$user_id) {
+				throw new Exception("User-login-required");
+			}
+			if ($sid === null || $sid === '') {
+				throw new Exception("Project ID is required");
+			}
+			if ($catalog_connection_id === null || $catalog_connection_id === '') {
+				throw new Exception("Catalog connection ID is required");
+			}
+
+			$this->editor_acl->user_has_project_access($sid, $permission = 'view');
+
+			$response = $this->Editor_publish_model->get_catalog_info($user_id, $catalog_connection_id, $sid);
+			$this->set_response($response, REST_Controller::HTTP_OK);
+		} catch (Exception $e) {
+			$error_output = array(
+				'status' => 'failed',
+				'message' => $e->getMessage(),
+			);
+			$this->set_response($error_output, REST_Controller::HTTP_BAD_REQUEST);
+		}
+	}
+
+	/**
 	 * 
 	 * Publish to catalog
 	 * 
@@ -229,31 +260,7 @@ class Publish extends MY_REST_Controller
 			$this->set_response($error_output, REST_Controller::HTTP_BAD_REQUEST);
 		}
 
-	}
-
-	function external_resources_files_post($sid,$connection_id=null, $options=null)
-	{
-		try{
-			$this->editor_acl->user_has_project_access($sid,$permission='view');
-
-			$options=$this->raw_json_input();
-			$user_id=$this->get_api_user_id();
-
-			if (!$user_id){
-				throw new Exception("User-login-required");
-			}
-
-			$response=$this->Editor_publish_model->publish_external_resources_files($sid,$user_id,$connection_id,$options);			
-			$this->set_response($response, REST_Controller::HTTP_OK);
-		}
-		catch(Exception $e){
-			$error_output=array(
-				'status'=>'failed',
-				'message'=>$e->getMessage()
-			);
-			$this->set_response($error_output, REST_Controller::HTTP_BAD_REQUEST);
-		}
-	}
+	}	
 
 	function files_get($sid=null)
 	{		

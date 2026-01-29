@@ -70,8 +70,10 @@ Vue.component('publish-options', {
             is_publishing:false,
             is_publishing_completed:false,
             project_export_status:'',
-            collections:[],
+            collections_codes:[],
+            collections_linked:[],
             data_access_list:[],
+            study_info: null,
             publish_responses:{}//all publish responses                        
         }
     },
@@ -396,64 +398,79 @@ Vue.component('publish-options', {
         },
         onCatalogSelection: function(){
             this.getProjectBasicInfo();
-            this.getCollections();
-            this.getDataAccessList();
+            this.loadCatalogInfo();
         },
-        getCollections: function() {
-            vm=this;
-            this.collections=[];
-
-            if (this.catalog<0){
-                return;
-            }
-
-            let connection=this.getConnectionInfo(this.catalog);
-
-            if(!connection){
-                return;
-            }
-
-            let url=connection.url + '/index.php/api/catalog/collections';
-
-            axios.get(url)
-            .then(function (response) {
-                console.log("collections",response);
-                if(response.data.collections){
-                    vm.collections=response.data.collections;
-                }
-            })
-            .catch(function (error) {
-                console.log("failed loading collections", error);
+        enumToItems: function (enumObj) {
+            if (!enumObj || typeof enumObj !== 'object') return [];
+            return Object.keys(enumObj).map(function (k) {
+                return { text: enumObj[k], value: k };
             });
         },
-        getDataAccessList: function() {
-            console.log("getting data access list", this.catalog);
-            vm=this;
-            this.data_access_list=[];
+        /**
+         * Load collections and data_access_codes from NADA via backend (single endpoint).
+         */
+        loadCatalogInfo: function() {
+            var vm = this;
+            vm.collections_codes = [];
+            vm.collections_linked = [];
+            vm.data_access_list = [];
 
-            if (this.catalog<0){
+            if (vm.catalog === false || vm.catalog < 0){
                 return;
             }
 
-            let nada_catalog=this.getConnectionInfo(this.catalog);
-            
-            if(!nada_catalog){
+            var connection = vm.getConnectionInfo(vm.catalog);
+            if (!connection){
                 return;
             }
 
-            let url=nada_catalog.url + '/index.php/api/catalog/data_access_codes';
-
+            var url = CI.site_url + '/api/publish/catalog_info/' + vm.ProjectID + '/' + connection.id;
             axios.get(url)
-            .then(function (response) {
-                console.log("data_access",response);
-                if(response.data.codes){
-                    vm.data_access_list=response.data.codes;
-                }
-            })
-            .catch(function (error) {
-                console.log("failed loading data access codes", error);
-            });
-        }        
+                .then(function (response) {
+                    if (response.data.collections_codes){
+                        vm.collections_codes = response.data.collections_codes;
+                    }
+                    if (response.data.data_access_codes){
+                        vm.data_access_list = response.data.data_access_codes;
+                    }
+                    if (response.data.collections_linked) {
+                        var raw = (response.data.collections_linked.collections && Array.isArray(response.data.collections_linked.collections))
+                            ? response.data.collections_linked.collections
+                            : (Array.isArray(response.data.collections_linked) ? response.data.collections_linked : []);
+                        var arr = Array.isArray(raw) ? raw : (raw != null ? [raw] : []);
+                        vm.collections_linked = arr.map(function (r) { return r != null ? String(r) : ''; }).filter(Boolean);
+                    } else {
+                        vm.collections_linked = [];
+                    }
+                    vm.study_info = response.data.study_info || null;
+                    if (vm.catalog !== false && vm.catalog !== null) {
+                        vm.$nextTick(function () { vm.panels = [1, 2]; });
+                    }
+                    // Pre-populate project options from NADA study_info when study already exists in catalog
+                    var studyInfo = response.data.study_info;
+                    if (studyInfo && studyInfo.status !== 'failed' && studyInfo.status !== 'error') {
+                        if (studyInfo.published !== undefined && studyInfo.published !== null) {
+                            vm.publish_options.published.value = studyInfo.published;
+                        }
+                        if (studyInfo.data_access_type !== undefined && studyInfo.data_access_type !== null) {
+                            vm.publish_options.access_policy.value = studyInfo.data_access_type;
+                        }
+                        if (studyInfo.repositoryid !== undefined && studyInfo.repositoryid !== null) {
+                            vm.publish_options.repositoryid.value = studyInfo.repositoryid;
+                        }
+                        if (studyInfo.remote_data_url !== undefined && studyInfo.remote_data_url !== null) {
+                            vm.publish_options.data_remote_url.value = studyInfo.remote_data_url;
+                        }
+                        // Study exists in catalog: default overwrite to yes for re-publish
+                        vm.publish_options.overwrite.value = 'yes';
+                    } else {
+                        vm.publish_options.overwrite.value = 'no';
+                    }
+                })
+                .catch(function (error) {
+                    console.log("failed loading catalog info (collections, data access codes)", error);
+                });
+        }
     },
     
     computed: {        
@@ -478,6 +495,20 @@ Vue.component('publish-options', {
         ExternalResources()
         {
           return JSON.parse(JSON.stringify(this.$store.state.external_resources));
+        },
+        studyInfoJson(){
+            if (!this.study_info) return '';
+            try {
+                return JSON.stringify(this.study_info, null, 2);
+            } catch (e) {
+                return String(this.study_info);
+            }
+        },
+        studyCatalogErrorMessage(){
+            if (!this.study_info || !this.study_info.error) return this.$t('study_not_found_in_catalog');
+            var err = String(this.study_info.error);
+            if (err.indexOf('IDNO-NOT-FOUND') !== -1) return this.$t('study_not_found_in_catalog');
+            return err;
         },
         PublishOptions(){
             let items={};
@@ -507,6 +538,9 @@ Vue.component('publish-options', {
             }
 
             return nada_catalog.url + '/index.php/catalog/study/'+this.StudyIDNO;
+        },
+        catalogSelected(){
+            return this.catalog !== false && this.catalog !== null;
         }
     },  
     template: `
@@ -537,7 +571,26 @@ Vue.component('publish-options', {
                             </div>
                     </v-card>
 
-                    <v-expansion-panels multiple v-model="panels">
+                    <v-expansion-panels multiple v-model="panels" class="mt-3">
+                        <v-expansion-panel v-show="catalog !== false && catalog !== null">
+                            <v-expansion-panel-header>
+                            <div>
+                                <v-icon v-if="study_info && study_info.status !== 'failed' && study_info.status !== 'error'" color="success" class="mr-2">mdi-check-circle</v-icon>
+                                {{$t("study_in_catalog")}} (NADA)
+                                </div>
+                            </v-expansion-panel-header>
+                            <v-expansion-panel-content>
+                                <div v-if="study_info && study_info.status !== 'failed' && study_info.status !== 'error'" class="mb-3">
+                                    <pre class="pa-3 bg-light border rounded text-left" style="max-height:400px;overflow:auto;font-size:0.85em;"><code>{{ studyInfoJson }}</code></pre>
+                                </div>
+                                <div v-else class="text-muted pa-3">
+                                    <span v-if="study_info && (study_info.status === 'failed' || study_info.status === 'error')">
+                                    <span class="mdi mdi-alert text-danger"></span> {{ studyCatalogErrorMessage }}
+                                     </span>
+                                    <span v-else-if="study_info === null">{{ $t("loading") }}...</span>
+                                </div>
+                            </v-expansion-panel-content>
+                        </v-expansion-panel>
                         <v-expansion-panel>
                             <v-expansion-panel-header>
                                 {{$t("project_options")}}
@@ -557,44 +610,89 @@ Vue.component('publish-options', {
                                             {{kv.title}}                                        
                                         </td>
                                         <td>
-                                            <input v-if="!kv.enum" type="text" class="form-control" v-model="kv.value"/>
-                                            <select v-if="kv.enum" class="form-control" v-model="kv.value">
-                                                <option v-for="(enum_val,enum_key) in kv.enum" v-bind:value="enum_key">
-                                                    {{ enum_val }}
-                                                </option>
-                                            </select>
+                                            <input v-if="!kv.enum" type="text" class="form-control" v-model="kv.value" :disabled="!catalogSelected"/>
+                                            <v-select
+                                                v-else
+                                                v-model="kv.value"
+                                                :items="enumToItems(kv.enum)"
+                                                item-text="text"
+                                                item-value="value"
+                                                :disabled="!catalogSelected"
+                                                outlined
+                                                dense
+                                                hide-details
+                                                :placeholder="kv.title"
+                                            ></v-select>
                                         </td>
                                     </tr>                                            
                                     </template>
                                     <tr>
-                                        <td>{{$t("data_access")}} <v-icon @click="onCatalogSelection">mdi-reload</v-icon></td>
+                                        <td>{{$t("data_access")}}</td>
                                         <td>
-                                            <select v-if="data_access_list" class="form-control" v-model="publish_options.access_policy.value">
-                                                <option value="">N/A</option>
-                                                <option v-for="(data_access,da_index) in data_access_list" v-bind:value="data_access.type">
-                                                    {{ data_access.title }} - [{{ data_access.type }}]
-                                                </option>
-                                            </select>
+                                            <v-select
+                                                v-model="publish_options.access_policy.value"
+                                                :items="data_access_list"
+                                                item-text="title"
+                                                item-value="type"
+                                                :disabled="!catalogSelected"
+                                                clearable
+                                                outlined
+                                                dense
+                                                hide-details
+                                                :placeholder="$t('data_access')"
+                                            ></v-select>
 
-                                            <div v-if="publish_options.access_policy.value=='remote'" class="p-2">
+                                            <div v-if="publish_options.access_policy.value=='remote'" class="mt-2">
                                                 <label>{{$t("Link to remote repository")}}</label>
-                                                <input class="form-control" type="text" v-model="publish_options.data_remote_url.value">
+                                                <v-text-field
+                                                    v-model="publish_options.data_remote_url.value"
+                                                    :disabled="!catalogSelected"
+                                                    outlined
+                                                    dense
+                                                    hide-details
+                                                ></v-text-field>
                                             </div>
 
                                         </td>
 
                                     </tr>
                                     <tr>
-                                        <td>{{$t("collection")}} <v-icon @click="onCatalogSelection">mdi-reload</v-icon></td>
+                                        <td>{{$t("collection")}}</td>
                                         <td>
-                                            <select v-if="collections" class="form-control" v-model="publish_options.repositoryid.value">
-                                                <option value="">N/A</option>
-                                                <option v-for="(collection,collection_index) in collections" v-bind:value="collection.repositoryid">
-                                                    {{ collection.title }} - [{{ collection.repositoryid }}]
-                                                </option>
-                                            </select>                                    
+                                            <v-select
+                                                v-model="publish_options.repositoryid.value"
+                                                :items="collections_codes"
+                                                item-text="title"
+                                                item-value="repositoryid"
+                                                :disabled="!catalogSelected"
+                                                clearable
+                                                outlined
+                                                dense
+                                                hide-details
+                                                :placeholder="$t('collection')"
+                                            ></v-select>
                                         </td>
 
+                                    </tr>
+                                    <tr>
+                                        <td>{{$t("collections_linked")}}</td>
+                                        <td>
+                                            <v-select
+                                                v-model="collections_linked"
+                                                :items="collections_codes"
+                                                item-text="title"
+                                                item-value="repositoryid"
+                                                :disabled="!catalogSelected"
+                                                multiple
+                                                chips
+                                                small-chips
+                                                deletable-chips
+                                                outlined
+                                                dense
+                                                hide-details
+                                                :placeholder="$t('select_collections_linked')"
+                                            ></v-select>
+                                        </td>
                                     </tr>
                                     
                                 </table>                            
@@ -693,7 +791,7 @@ Vue.component('publish-options', {
 
 
                 <!-- dialog -->
-                <v-dialog v-model="dialog_process" width="500" height="300" persistent>
+                <v-dialog v-model="dialog_process" width="700" height="300" persistent>
                     <v-card>
                         <v-card-title class="text-h5 grey lighten-2">
                             <div class="text-h5">{{$t('publish_project')}}</div>
