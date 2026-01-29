@@ -469,6 +469,11 @@ Vue.component('publish-options', {
                 })
                 .catch(function (error) {
                     console.log("failed loading catalog info (collections, data access codes)", error);
+                    var data = error.response && error.response.data;
+                    vm.study_info = {
+                        status: 'failed',
+                        error: (data && (data.message != null)) ? data.message : (data ? JSON.stringify(data) : (error.message || 'Request failed'))
+                    };
                 });
         }
     },
