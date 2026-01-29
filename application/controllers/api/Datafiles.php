@@ -91,6 +91,45 @@ class Datafiles extends MY_REST_Controller
 	}
 
 	/**
+	 * Get columns diff between DB variables and CSV for a data file.
+	 * 
+	 * GET api/datafiles/columns_diff/{sid}/{file_id}
+	 * 
+	 * @param bool $include_names Include all variable names from db and csv in the result
+	 */
+	function columns_diff_get($sid=null, $file_id=null, $include_names=false)
+	{
+		try{
+			$sid = $this->get_sid($sid);
+			$this->editor_acl->user_has_project_access($sid, $permission='view', $this->api_user);
+
+			if (!$file_id) {
+				throw new Exception("Missing required parameter: file_id");
+			}
+
+			$datafile = $this->Editor_datafile_model->data_file_by_id($sid, $file_id);
+			if (!$datafile) {
+				throw new Exception("Data file not found");
+			}
+
+			$result=$this->Editor_datafile_model->get_columns_out_of_sync($sid, $file_id, $include_names);
+			$result= array(
+				'status'=>'success',
+				'columns_diff'=>$result
+			);			 
+			
+			$this->set_response($result, REST_Controller::HTTP_OK);
+		}
+		catch(Exception $e){
+			$error_output = array(
+				'status' => 'failed',
+				'message' => $e->getMessage()
+			);
+			$this->set_response($error_output, REST_Controller::HTTP_BAD_REQUEST);
+		}
+	}
+
+	/**
 	 * 
 	 * 
 	 * Create or update a data file

@@ -541,7 +541,13 @@ class Data extends MY_REST_Controller
 
 			$api_response=$this->datautils->export_datafile_queue($sid,$file_id,$format);
 			$status_code=$api_response['status_code'];
-			$this->set_response($api_response['response'], $status_code);
+
+			//'request'=>$request_body,
+			$output=$api_response['response'];
+			$output['request']=$api_response['request'];
+			$output['status_code']=$api_response['status_code'];
+
+			$this->set_response($output, $status_code);
 		}
 		catch(Exception $e){
 			$response=array(
@@ -627,6 +633,157 @@ class Data extends MY_REST_Controller
 		}
 	}
 
+	/**
+	 * 
+	 * Sync CSV columns with metadata: remove from CSV any columns not in DB (in-place).
+	 * 
+	 * POST api/data/sync_csv_columns_job/{sid}/{file_id}
+	 * Calls FastAPI remove-csv-columns-queue with same path for source and target; polls until done.
+	 */
+	function sync_csv_columns_job_post($sid = null, $file_id = null)
+	{
+		try {
+			$exists = $this->Editor_model->check_id_exists($sid);
+			if (!$exists) {
+				throw new Exception("Project not found");
+			}
+
+			$this->editor_acl->user_has_project_access($sid, 'edit', $this->api_user());
+
+			if (!$file_id) {
+				throw new Exception("Missing required parameter: file_id");
+			}
+
+			$datafile = $this->Editor_datafile_model->data_file_by_id($sid, $file_id);
+			if (!$datafile) {
+				throw new Exception("Data file not found");
+			}
+
+			$csv_path = $this->Editor_datafile_model->get_file_csv_path($sid, $file_id);
+			if (!$csv_path || !file_exists($csv_path)) {
+				throw new Exception("CSV file not found for this data file");
+			}
+
+			$diff = $this->Editor_datafile_model->get_columns_out_of_sync($sid, $file_id);
+			$columns_to_remove = isset($diff['columns_to_remove_from_csv']) ? $diff['columns_to_remove_from_csv'] : array();
+
+			if (empty($columns_to_remove)) {
+				$this->set_response(array(
+					'status' => 'success',
+					'message' => 'Already in sync',
+					'in_sync' => true
+				), REST_Controller::HTTP_OK);
+				return;
+			}
+
+			$api_response = $this->datautils->remove_csv_columns_queue($csv_path, $columns_to_remove, $csv_path);
+
+			$status_code = isset($api_response['status_code']) ? $api_response['status_code'] : 500;
+			$response = isset($api_response['response']) ? $api_response['response'] : array();
+
+			if ($status_code !== 202) {
+				$message = isset($response['detail']) ? $response['detail'] : (isset($response['message']) ? $response['message'] : 'FastAPI request failed');
+				if (is_array($message)) {
+					$message = json_encode($message);
+				}
+				$this->set_response(array(
+					'status' => 'failed',
+					'message' => $message
+				), $status_code >= 400 ? $status_code : REST_Controller::HTTP_BAD_REQUEST);
+				return;
+			}
+
+			$job_id = isset($response['job_id']) ? $response['job_id'] : null;
+			if (!$job_id) {
+				$this->set_response(array(
+					'status' => 'failed',
+					'message' => 'FastAPI did not return job_id'
+				), REST_Controller::HTTP_BAD_GATEWAY);
+				return;
+			}
+
+			$poll_interval = 3;
+			$max_wait_time = 30;
+			$start_time = time();
+			$completed = false;
+			$result = null;
+			$job_failed = false;
+			$timed_out = false;
+			$last_status_response = null;
+
+			while ((time() - $start_time) < $max_wait_time) {
+				$status_response = $this->datautils->get_job_status($job_id);
+				$last_status_response = $status_response;
+				$status_http = isset($status_response['status_code']) ? $status_response['status_code'] : 500;
+				$job_body = isset($status_response['response']) ? $status_response['response'] : array();
+				$job_status = isset($job_body['status']) ? $job_body['status'] : '';
+
+				if ($status_http !== 200) {
+					$this->set_response(array(
+						'status' => 'failed',
+						'message' => 'Failed to get job status'
+					), REST_Controller::HTTP_BAD_GATEWAY);
+					return;
+				}
+
+				if ($job_status === 'done' || $job_status === 'completed') {
+					$completed = true;
+					$result = $job_body;
+					break;
+				}
+
+				if ($job_status === 'failed' || $job_status === 'error') {
+					$job_failed = true;
+					$this->set_response(array(
+						'status' => 'failed',
+						'job_failed' => true,
+						'message' => isset($job_body['message']) ? $job_body['message'] : 'Job failed',
+						'job_id' => $job_id,
+						'api_response' => $last_status_response
+					), REST_Controller::HTTP_OK);
+					return;
+				}
+
+				sleep($poll_interval);
+			}
+
+			if (!$completed) {
+				$timed_out = true;
+				$out = array(
+					'status' => 'pending',
+					'timed_out' => true,
+					'job_id' => $job_id,
+					'message' => 'Job did not finish within ' . $max_wait_time . ' seconds'
+				);
+				if ($last_status_response !== null) {
+					$out['api_response'] = $last_status_response;
+				}
+				$this->set_response($out, REST_Controller::HTTP_OK);
+				return;
+			}
+
+			$output = array(
+				'status' => 'success',
+				'job_failed' => false,
+				'timed_out' => false,
+				'message' => 'CSV updated',
+				'in_sync' => true
+			);
+			if (isset($result['data']['columns_removed'])) {
+				$output['columns_removed'] = $result['data']['columns_removed'];
+			}
+			if (isset($result['data']['columns_requested_not_found'])) {
+				$output['columns_requested_not_found'] = $result['data']['columns_requested_not_found'];
+			}
+
+			$this->set_response($output, REST_Controller::HTTP_OK);
+		} catch (Exception $e) {
+			$this->set_response(array(
+				'status' => 'failed',
+				'message' => $e->getMessage()
+			), REST_Controller::HTTP_BAD_REQUEST);
+		}
+	}
 
 	/**
 	 * Return job status for a given job id.

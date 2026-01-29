@@ -4,6 +4,7 @@ use JsonSchema\SchemaStorage;
 use JsonSchema\Validator;
 use JsonSchema\Constraints\Factory;
 use JsonSchema\Constraints\Constraint;
+use League\Csv\Reader;
 
 
 /**
@@ -210,6 +211,71 @@ class Editor_datafile_model extends CI_Model {
 		}
 	}
 
+	/**
+	 * Compare DB variables and CSV columns for a data file; return what is out of sync.
+	 *
+	 * - columns_to_remove_from_csv: column names in the CSV that are not in the DB (extra in file).
+	 * - columns_in_db_not_in_csv: variable names in the DB that are not in the CSV (CSV has fewer columns).
+	 *
+	 * @param int $sid Project ID
+	 * @param string $file_id Data file ID (e.g. F1)
+	 * @param bool $include_names Include all variable names from db and csv in the result
+	 * @return array db_variable_names, csv_column_names, columns_to_remove_from_csv, columns_in_db_not_in_csv, in_sync, csv_exists
+	 */
+	function get_columns_out_of_sync($sid, $file_id, $include_names=false)
+	{
+		$empty_result = array(
+			'db_variable_names' => array(),
+			'csv_column_names' => array(),
+			'columns_to_remove_from_csv' => array(),
+			'columns_in_db_not_in_csv' => array(),
+			'in_sync' => true,
+			'csv_exists' => false,
+		);
+
+		$csv_path = $this->get_file_csv_path($sid, $file_id);
+		if (!$csv_path || !file_exists($csv_path)) {
+			$empty_result['csv_exists'] = false;
+			return $empty_result;
+		}
+		$empty_result['csv_exists'] = true;
+
+		$this->load->model('Editor_variable_model');
+		$db_names = $this->Editor_variable_model->get_variable_names_by_file($sid, $file_id);
+
+		try {
+			$csv = Reader::createFromPath($csv_path, 'r');
+			$csv->setHeaderOffset(0);
+			$csv_columns = $csv->getHeader();
+			$csv_names = is_array($csv_columns) ? $csv_columns : array();
+		} catch (Exception $e) {
+			$empty_result['db_variable_names'] = $db_names;
+			$empty_result['csv_column_names'] = array();
+			$empty_result['in_sync'] = false;
+			return $empty_result;
+		}
+
+		$columns_to_remove_from_csv = array_values(array_diff($csv_names, $db_names));
+		$columns_in_db_not_in_csv = array_values(array_diff($db_names, $csv_names));
+		$in_sync = (count($columns_to_remove_from_csv) === 0 && count($columns_in_db_not_in_csv) === 0);
+
+		$result=array();
+
+		if ($include_names){
+			$result['db_variable_names'] = $db_names;
+			$result['csv_column_names'] = $csv_names;
+		}
+
+		//merge with result
+		$result=array_merge($result, array(
+			'columns_to_remove_from_csv' => $columns_to_remove_from_csv,
+			'columns_in_db_not_in_csv' => $columns_in_db_not_in_csv,
+			'in_sync' => $in_sync,
+			'csv_exists' => true,
+		));
+
+		return $result;
+	}
 
 	function get_tmp_file_info($sid,$fid,$type)
 	{

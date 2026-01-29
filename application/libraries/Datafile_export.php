@@ -141,6 +141,12 @@ class Datafile_export
 			$params['name_labels'][$variable['name']]=$variable['metadata']['labl'] ?? '';
         }
 
+        // Columns in DB but not in CSV
+        $sync = $this->ci->Editor_datafile_model->get_columns_out_of_sync($sid, $fid);
+        if (!empty($sync['columns_to_remove_from_csv'])) {
+            $params['exclude_fields'] = $sync['columns_to_remove_from_csv'];
+        }
+
         return $params;
     }
 

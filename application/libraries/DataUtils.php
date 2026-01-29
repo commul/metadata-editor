@@ -276,7 +276,7 @@ class DataUtils
 		$request_body=$this->ci->datafile_export->get_export_params($sid,$file_id,$format);
 
 		$api_response = $client->request('POST', '', [
-			'json' => 
+			'json' =>
 				$request_body
 			,
 			['debug' => false]
@@ -345,6 +345,45 @@ class DataUtils
 		];
 	}
 
+	/**
+	 * Queue FastAPI job to remove columns from a CSV file.
+	 * POST /remove-csv-columns-queue
+	 *
+	 * @param string $file_path Absolute path to source CSV
+	 * @param array $column_names Column names to remove from the CSV
+	 * @param string $output_path Path where FastAPI should write the result CSV (overwritten if exists)
+	 * @return array response, status_code (202 on success; 400/404 on validation/file errors)
+	 */
+	public function remove_csv_columns_queue($file_path, $column_names, $output_path)
+	{
+		$client = new Client([
+			'base_uri' => $this->DataApiUrl . 'remove-csv-columns-queue'
+		]);
+		
+		$request_body = array(
+			'file_path' => realpath($file_path),
+			'column_names' => $column_names,
+			'output_path' => $output_path
+		);
+
+		$api_response = $client->request('POST', '', [
+			'json' => $request_body,
+			'debug' => false,
+			'http_errors' => false
+		]);
+
+		$body_raw = $api_response->getBody()->getContents();
+		$response = json_decode($body_raw, true);
+
+		if ($response === null && $body_raw !== '') {
+			$response = array('detail' => $body_raw);
+		}
+
+		return array(
+			'response' => $response,
+			'status_code' => $api_response->getStatusCode()
+		);
+	}
 
 	function get_file_extension($name)
 	{		
