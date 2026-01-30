@@ -382,6 +382,7 @@ $lang['extract_zip']='Extraire le zip';
 
 // Change case modal
 $lang['change_case']='Changer la casse';
+$lang['change_case_description']='Les modifications seront appliquées à toutes les variables du fichier de données.';
 $lang['title_case']='Casse de Titre';
 $lang['uppercase']='MAJUSCULES';
 $lang['lowercase']='minuscules';

@@ -382,6 +382,7 @@ $lang['extract_zip']='Zip ni chiqarish';
 
 // Change case modal
 $lang['change_case']='Harflar registrini o\'zgartirish';
+$lang['change_case_description']='O\'zgarishlar ma\'lumotlar faylidagi barcha o\'zgaruvchilarga qo\'llanadi.';
 $lang['title_case']='Sarlavha Registri';
 $lang['uppercase']='KATTA HARFLAR';
 $lang['lowercase']='kichik harflar';

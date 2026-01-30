@@ -108,8 +108,10 @@ Vue.component('spread-metadata', {
         },
         sourceVariable: function(variableName)
         {
+            if (!variableName) return false;
+            var nameLower = variableName.toLowerCase();
             for(v=0;v<this.variables.length;v++){
-                if (this.variables[v].name==variableName){
+                if (this.variables[v].name && this.variables[v].name.toLowerCase()===nameLower){
                     return this.variables[v];
                 }
             }
@@ -132,7 +134,7 @@ Vue.component('spread-metadata', {
                 if (!variables[fid].length){return;}
 
                 variables[fid].forEach((variable, index) => {
-                    if(variable.name==selected_variable.name){
+                    if(variable.name && selected_variable.name && variable.name.toLowerCase()===selected_variable.name.toLowerCase()){
                         console.log("match found",fid,variable.name);
                         datafilename=this.dataFilesDictionary[variable.fid];
                         this.variable_matches.push({

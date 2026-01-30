@@ -449,6 +449,100 @@ class Variables extends MY_REST_Controller
 	}
 
 
+	/**
+	 * Apply change case (title / upper / lower) to variable name and/or label for all variables in a data file.
+	 *
+	 * POST /api/variables/change_case/{sid}/{fid}
+	 * Body: { "case_type": "title"|"upper"|"lower", "fields": ["name"] and/or ["labl"] }
+	 */
+	function change_case_post($sid=null, $fid=null)
+	{
+		try{
+			$this->editor_acl->user_has_project_access($sid, $permission='edit', $this->api_user);
+			$user_id = $this->get_api_user_id();
+
+			$options = $this->raw_json_input();
+			if (!is_array($options)){
+				$options = array();
+			}
+
+			$case_type = isset($options['case_type']) ? $options['case_type'] : '';
+			$allowed_case = array('title', 'upper', 'lower');
+			if (!in_array($case_type, $allowed_case)){
+				throw new Exception("`case_type` is required and must be one of: " . implode(', ', $allowed_case));
+			}
+
+			$fields = isset($options['fields']) && is_array($options['fields']) ? $options['fields'] : array();
+			$allowed_fields = array('name', 'labl');
+			$fields = array_intersect($fields, $allowed_fields);
+			if (empty($fields)){
+				throw new Exception("`fields` is required and must contain at least one of: name, labl");
+			}
+
+			$valid_data_files = $this->Editor_datafile_model->list($sid);
+			if (!in_array($fid, $valid_data_files)){
+				throw new Exception("Invalid `fid`: valid values are: " . implode(", ", $valid_data_files));
+			}
+
+			$variables = $this->Editor_variable_model->select_all($sid, $fid, $metadata_detailed=true);
+			$updated = 0;
+
+			foreach ($variables as $variable){
+				$changed = false;
+				foreach ($fields as $field){
+					if (!array_key_exists($field, $variable)){
+						continue;
+					}
+					$value = $variable[$field];
+					if (!is_string($value) || $value === ''){
+						continue;
+					}
+					if ($case_type === 'title'){
+						$value = $this->_apply_title_case($value);
+					} elseif ($case_type === 'upper'){
+						$value = mb_strtoupper($value, 'UTF-8');
+					} else {
+						$value = mb_strtolower($value, 'UTF-8');
+					}
+					$variable[$field] = $value;
+					$changed = true;
+				}
+				if (!$changed){
+					continue;
+				}
+				$variable['metadata'] = $variable;
+				$this->Editor_variable_model->update($sid, $variable['uid'], $variable);
+				$updated++;
+			}
+
+			$response = array(
+				'status' => 'success',
+				'updated' => $updated
+			);
+			$this->set_response($response, REST_Controller::HTTP_OK);
+		}
+		catch(Exception $e){
+			$error_output = array(
+				'status' => 'failed',
+				'message' => $e->getMessage()
+			);
+			$this->set_response($error_output, REST_Controller::HTTP_BAD_REQUEST);
+		}
+	}
+
+
+	/**
+	 * Apply title case to a string (first letter of each word uppercase, rest lowercase).
+	 */
+	private function _apply_title_case($str)
+	{
+		if (function_exists('mb_convert_case')){
+			return mb_convert_case($str, MB_CASE_TITLE, 'UTF-8');
+		}
+		return ucwords(strtolower($str));
+	}
+
+
 	//fix variable-weight from VID to UID
 	private function update_variable_weight_info($sid,&$variables,&$vid_uid_cache=null)
     {

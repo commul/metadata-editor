@@ -385,6 +385,7 @@ $lang['change_case']='Change case';
 $lang['title_case']='Title Case';
 $lang['uppercase']='UPPERCASE';
 $lang['lowercase']='lowercase';
+$lang['change_case_description']='The changes will be applied to all variables in the data file.';
 
 // Validation report
 $lang['no_extra_fields_data_available']='No extra fields data available';
