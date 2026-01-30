@@ -7,6 +7,7 @@ Vue.component('spread-metadata', {
             //dialog:this.value,
             dialogm1: '',
             variable_matches:[],
+            filterFid: '',
             chk_select_all:false,
             options:['info','documentation','question','categories'],
             options_fields:{
@@ -150,17 +151,9 @@ Vue.component('spread-metadata', {
             });
         },
         toggleSelection: function(){
-            //Select all if chk_select_all is true else deselect all
-            if(this.chk_select_all){
-                this.variable_matches.forEach((match, index) => {
-                    match.selected=true;
-                });
-            }
-            else{
-                this.variable_matches.forEach((match, index) => {
-                    match.selected=false;
-                });
-            }
+            var list = this.filteredVariableMatches;
+            var allSelected = list.length > 0 && list.every(function(m){ return m.selected; });
+            list.forEach(function(m){ m.selected = !allSelected; });
         }
     },
     
@@ -176,108 +169,193 @@ Vue.component('spread-metadata', {
         },
         dataFilesDictionary()
         {
-            let dict={};
-            for(i=0;i<this.dataFiles.length;i++){
+            var dict={};
+            for(var i=0;i<this.dataFiles.length;i++){
                 dict[this.dataFiles[i].file_id]=this.dataFiles[i].file_name;
             }
-
             return dict;
+        },
+        sortedVariableMatches: function(){
+            return this.variable_matches.slice().sort(function(a,b){
+                return (a.fid || '').localeCompare(b.fid || '');
+            });
+        },
+        filteredVariableMatches: function(){
+            var list = this.sortedVariableMatches;
+            if (!this.filterFid) return list;
+            return list.filter(function(m){ return m.fid === this.filterFid; }.bind(this));
+        },
+        filterFidOptions: function(){
+            var fids = [];
+            var seen = {};
+            this.sortedVariableMatches.forEach(function(m){
+                if (!seen[m.fid]) { seen[m.fid] = true; fids.push(m.fid); }
+            });
+            var dict = this.dataFilesDictionary;
+            var options = [{ text: this.$t('all'), value: '' }];
+            fids.forEach(function(fid){
+                var label = dict[fid] ? fid + ' - ' + dict[fid] : fid;
+                options.push({ text: label, value: fid });
+            });
+            return options;
+        },
+        allFilteredSelected: function(){
+            var list = this.filteredVariableMatches;
+            return list.length > 0 && list.every(function(m){ return m.selected; });
+        },
+        someFilteredSelected: function(){
+            var list = this.filteredVariableMatches;
+            return list.some(function(m){ return m.selected; }) && !this.allFilteredSelected;
+        },
+        currentFilterLabel: function(){
+            var opt = this.filterFidOptions.find(function(o){ return o.value === this.filterFid; }.bind(this));
+            return opt ? opt.text : this.$t('all');
         }
     },  
     template: `
             <div class="spread-metadata-component">
-
-            <template>
-                <v-layout row justify-center>
-                    <v-dialog
-                    v-model="value" persistent 
-                    scrollable                    
-                    max-width="850px"
-                    >
-                    
-                    <v-card>
-                        <v-card-title style="m-0 p-1">
-                            <div>Spread metadata <span v-if="variable_matches.length>0">[{{variable_matches.length}} matches]</span> </div>
+                <v-dialog
+                    v-model="value"
+                    persistent
+                    max-width="1200"
+                    width="90vw"
+                    content-class="spread-metadata-dialog"
+                >
+                    <v-card class="d-flex flex-column" style="max-height: 85vh; height: 100%;">
+                        <v-toolbar flat dense class="flex-grow-0">
+                            <v-toolbar-title>
+                                {{ $t('spread_metadata') }}
+                                <span v-if="variable_matches.length > 0" class="grey--text text--darken-1 font-weight-regular">[{{ variable_matches.length }} {{ $t('matches') }}]</span>
+                            </v-toolbar-title>
                             <v-spacer></v-spacer>
-                            <v-btn right text color="red" @click.native="$emit('input', false)">{{$t("close")}}</v-btn>
-                        </v-card-title>
-                        <v-divider class="m-0 p-1"></v-divider>
-                        <v-card-text>
-
-                        <div style="height:200px;overflow:auto;">
-
-                        <div v-if="variable_matches.length==0">No matches found</div>
-                        <table class="table table-sm table-bordered" v-if="variable_matches.length>0" style="font-size:12px;">
-                            <thead>
-                            <tr>
-                                <td><input type="checkbox" v-model="chk_select_all" @change="toggleSelection"/></td>
-                                <td>FID</td>
-                                <td>Dataset</td>
-                                <td>Variable</td>
-                                <td>Type</td>
-                                <td>Type match</td>
-                            </tr>
-                            </thead>
-                            <tr v-for="match in variable_matches">
-                                <td><input type="checkbox" v-model="match.selected"/></td>
-                                <td>{{match.fid}}</td>
-                                <td>{{match.filename}}</td>
-                                <td>{{match.name}}</td>
-                                <td>{{match.var_type}}</td>
-                                <td>{{match.type_match}}</td>
-                            </tr>
-                        </table>
-
-                        </div>
-
-                        <div class="pt-1">
-                            <div class="border-bottom mb-1"><strong>Spread metadata</strong></div>
-                            <div class="form-check">
-                                <input class="form-check-input" type="checkbox" value="info" id="info" v-model="options">
-                                <label class="form-check-label" for="info">
-                                    Variable information - Labels
-                                </label>
-                            </div>
-                            <div class="form-check">
-                                <input class="form-check-input" type="checkbox" value="documentation" id="documentation" v-model="options">
-                                <label class="form-check-label" for="documentation">
-                                    Variable documentation - Texts, notes, universe, etc.
-                                </label>
-                            </div>
-                            <div class="form-check">
-                                <input class="form-check-input" type="checkbox" value="categories" id="categories" v-model="options">
-                                <label class="form-check-label" for="categories">
-                                    Categories
-                                </label>
-                            </div>
-                            <div class="form-check">
-                                <input class="form-check-input" type="checkbox" value="question" id="question" v-model="options">
-                                <label class="form-check-label" for="question">
-                                    Question texts - Pre, post, literal, etc.
-                                </label>
-                            </div>
-                            <div class="form-check">
-                                <input class="form-check-input" type="checkbox" value="weight" id="weights" v-model="options" disabled="disabled">
-                                <label class="form-check-label" for="weights">
-                                    Weights
-                                </label>
-                            </div>
-                        </div>
-
-                        
+                            <v-btn small icon @click="$emit('input', false)">
+                                <v-icon>mdi-close</v-icon>
+                            </v-btn>
+                        </v-toolbar>
+                        <v-divider></v-divider>
+                        <v-card-text class="flex-grow-1 overflow-auto pa-0">
+                            <v-container fluid class="fill-height pa-4" style="max-width: 100%;!important">
+                                <v-row class="fill-height">
+                                    <v-col cols="12" md="4" lg="3" class="d-flex flex-column">
+                                        <div class="subtitle-2 mb-3 v-font-weight-bold">{{ $t('spread_metadata_options')}}</div>
+                                        
+                                            <v-checkbox v-model="options" value="info" hide-details class="mt-0 v-font-weight-normal">
+                                                <template v-slot:label><span class="body-2">{{ $t('variable_label') }}</span></template>
+                                            </v-checkbox>                                            
+                                        
+                                        <v-tooltip bottom max-width="280">
+                                            <template v-slot:activator="{ on }">
+                                                <div v-on="on" class="d-inline-block">
+                                                    <v-checkbox v-model="options" value="documentation" hide-details class="mt-0 v-font-weight-normal">
+                                                        <template v-slot:label>
+                                                            <span class="body-2">{{ $t('variable_documentation') }}</span> <v-icon small color="info">mdi-information-outline</v-icon>
+                                                        </template>
+                                                    </v-checkbox>
+                                                </div>
+                                            </template>
+                                            <span>{{ $t('variable_documentation_tooltip') }}</span>
+                                        </v-tooltip>
+                                        <v-tooltip bottom max-width="280">
+                                            <template v-slot:activator="{ on }">
+                                                <div v-on="on" class="d-inline-block">
+                                                    <v-checkbox v-model="options" value="categories" hide-details class="mt-0 v-font-weight-normal">
+                                                        <template v-slot:label>
+                                                            <span class="body-2">{{ $t('categories') }}</span> <v-icon small color="info">mdi-information-outline</v-icon>
+                                                        </template>
+                                                    </v-checkbox>
+                                                </div>
+                                            </template>
+                                            <span>{{ $t('categories_tooltip') }}</span>
+                                        </v-tooltip>
+                                        <v-tooltip bottom max-width="280">
+                                            <template v-slot:activator="{ on }">
+                                                <div v-on="on" class="d-inline-block">
+                                                    <v-checkbox v-model="options" value="question" hide-details class="mt-0 v-font-weight-normal">
+                                                        <template v-slot:label>
+                                                            <span class="body-2">{{ $t('question_and_instructions') }}</span> <v-icon small color="info">mdi-information-outline</v-icon>
+                                                        </template>
+                                                    </v-checkbox>
+                                                </div>
+                                            </template>
+                                            <span>{{ $t('question_and_instructions_tooltip') }}</span>
+                                        </v-tooltip>                                        
+                                    </v-col>
+                                    <v-col cols="12" md="8" lg="9" class="d-flex flex-column overflow-hidden">
+                                        <div class="d-flex align-center mb-2" v-if="variable_matches.length > 0">
+                                            <span class="body-2 mr-2">{{ $t('filter_by_fid')}}:</span>
+                                            <v-menu offset-y left>
+                                                <template v-slot:activator="{ on, attrs }">
+                                                    <v-btn x-small depressed v-bind="attrs" v-on="on" class="text-capitalize">
+                                                        {{ currentFilterLabel }}
+                                                        <v-icon right small>mdi-chevron-down</v-icon>
+                                                    </v-btn>
+                                                </template>
+                                                <v-list dense>
+                                                    <v-list-item v-for="opt in filterFidOptions" :key="opt.value" @click="filterFid = opt.value">
+                                                        <v-list-item-title class="body-2">{{ opt.text }}</v-list-item-title>
+                                                    </v-list-item>
+                                                </v-list>
+                                            </v-menu>
+                                            <span class="body-2 grey--text ml-2" v-if="filterFid">({{ filteredVariableMatches.length }} {{ $t('matches') }})</span>
+                                        </div>
+                                        <div v-if="filteredVariableMatches.length === 0" class="body-2 grey--text">
+                                            {{ variable_matches.length === 0 ? $t('no_matches_found') : $t('no_matches_for_filter') }}
+                                        </div>
+                                        <v-simple-table v-else dense class="elevation-1" style="font-size: 0.875rem; min-height: 0;">
+                                            <thead>
+                                                <tr>
+                                                    <th class="text-left" style="width: 48px;">
+                                                        <v-checkbox
+                                                            :input-value="allFilteredSelected"
+                                                            :indeterminate="someFilteredSelected"
+                                                            @change="toggleSelection"
+                                                            hide-details
+                                                            class="mt-0 pt-0"
+                                                        ></v-checkbox>
+                                                    </th>
+                                                    <th class="text-left">{{ $t('fid') }}</th>
+                                                    <th class="text-left">{{ $t('dataset') }}</th>
+                                                    <th class="text-left">{{ $t('variable') }}</th>
+                                                    <th class="text-left">{{ $t('type') }}</th>
+                                                    <th class="text-left">{{ $t('type_match') }}</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody>
+                                                <tr v-for="match in filteredVariableMatches" :key="match.vid + '-' + match.fid">
+                                                    <td>
+                                                        <v-checkbox
+                                                            v-model="match.selected"
+                                                            hide-details
+                                                            class="mt-0 pt-0"
+                                                        ></v-checkbox>
+                                                    </td>
+                                                    <td>{{ match.fid }}</td>
+                                                    <td>{{ match.filename }}</td>
+                                                    <td>{{ match.name }}</td>
+                                                    <td><span v-if="match.metadata && match.metadata.var_format">{{match.metadata.var_format.type}}</span></td>
+                                                    <td>
+                                                        <v-icon v-if="match.type_match" small color="success">mdi-check-circle</v-icon>
+                                                        <v-icon v-else small color="grey">mdi-close-circle</v-icon>
+                                                    </td>
+                                                </tr>
+                                            </tbody>
+                                        </v-simple-table>
+                                    </v-col>
+                                </v-row>
+                            </v-container>
                         </v-card-text>
                         <v-divider></v-divider>
-                        <v-card-actions>
-                        <button type="button" class="btn btn-sm btn-primary" @click="spreadMetadata">Spread metadata</button>
-                        <button type="button" class="btn btn-sm btn-link" @click="$emit('input', false)">{{$t("cancel")}}</button>
-                        
+                        <v-card-actions class="pa-4 flex-grow-0">
+                            <v-btn small color="primary" @click="spreadMetadata">
+                                {{ $t('spread_metadata') }}
+                            </v-btn>
+                            <v-btn small text @click="$emit('input', false)">
+                                {{ $t('cancel') }}
+                            </v-btn>
                         </v-card-actions>
                     </v-card>
-                    </v-dialog>
-                
-                    </v-layout>
-                    </template>
-            </div>          
+                </v-dialog>
+            </div>
             `    
 });
 

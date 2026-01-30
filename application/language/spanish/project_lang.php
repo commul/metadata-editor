@@ -502,6 +502,33 @@ $lang['deletions'] = "Eliminaciones";
 $lang['additions'] = "Adiciones";
 $lang['project_validation_failed'] = "Falló la validación del proyecto";
 
+$lang['matches'] = "coincidencias";
+$lang['no_matches_found'] = "No se encontraron coincidencias";
+$lang['no_matches_for_filter'] = "No hay coincidencias para el FID seleccionado";
+$lang['filter_by_fid'] = "Filtrar por FID";
+$lang['all'] = "Todo";
+$lang['fid'] = "FID";
+$lang['dataset'] = "Conjunto de datos";
+$lang['variable'] = "Variable";
+$lang['type_match'] = "Coincidencia de tipo";
+$lang['spread_metadata_options'] = "Opciones de distribución de metadatos";
+$lang['variable_label'] = "Etiqueta de variable";
+$lang['variable_documentation'] = "Documentación de variable";
+$lang['variable_documentation_tooltip'] = "Campos: descripción, notas, universo, unidad de respuesta, imputación, instrucciones de codificación";
+$lang['categories'] = "Categorías";
+$lang['categories_tooltip'] = "Valores y etiquetas de categorías";
+$lang['question_and_instructions'] = "Pregunta e instrucciones";
+$lang['question_and_instructions_tooltip'] = "Campos: texto previo a la pregunta, pregunta literal, texto posterior a la pregunta, instrucciones del entrevistador";
+$lang['variable_information_labels'] = "Información de variable - Etiquetas";
+$lang['variable_documentation_desc'] = "Documentación de variable - Textos, notas, universo, etc.";
+$lang['question_texts_desc'] = "Textos de pregunta - Pre, post, literal, etc.";
+$lang['no_variables_selected'] = "No se seleccionaron variables";
+$lang['target_variables'] = "variables objetivo";
+$lang['spreading_metadata'] = "Distribuyendo metadatos...";
+$lang['failed_to_spread_metadata'] = "Error al distribuir metadatos";
+$lang['source_variable_not_found'] = "Variable de origen no encontrada";
+$lang['discrete'] = "Discreto";
+
 // Large number of categories translations
 $lang['large_number_of_categories'] = "Gran Número de Categorías";
 $lang['too_many_categories_message'] = "Esta variable contiene un gran número de categorías y no puede mostrarse. Revise las categorías usando la pestaña JSON. Puede eliminar las categorías usando el botón a continuación.";

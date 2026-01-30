@@ -502,6 +502,33 @@ $lang['deletions'] = "Suppressions";
 $lang['additions'] = "Ajouts";
 $lang['project_validation_failed'] = "Échec de la validation du projet";
 
+$lang['matches'] = "correspondances";
+$lang['no_matches_found'] = "Aucune correspondance trouvée";
+$lang['no_matches_for_filter'] = "Aucune correspondance pour le FID sélectionné";
+$lang['filter_by_fid'] = "Filtrer par FID";
+$lang['all'] = "Tout";
+$lang['fid'] = "FID";
+$lang['dataset'] = "Jeu de données";
+$lang['variable'] = "Variable";
+$lang['type_match'] = "Correspondance de type";
+$lang['spread_metadata_options'] = "Options de diffusion des métadonnées";
+$lang['variable_label'] = "Libellé de variable";
+$lang['variable_documentation'] = "Documentation de variable";
+$lang['variable_documentation_tooltip'] = "Champs : description, notes, univers, unité de réponse, imputation, instructions de codage";
+$lang['categories'] = "Catégories";
+$lang['categories_tooltip'] = "Valeurs et libellés des catégories";
+$lang['question_and_instructions'] = "Question et instructions";
+$lang['question_and_instructions_tooltip'] = "Champs : texte pré-question, question littérale, texte post-question, instructions d'interview";
+$lang['variable_information_labels'] = "Informations sur la variable - Libellés";
+$lang['variable_documentation_desc'] = "Documentation de variable - Textes, notes, univers, etc.";
+$lang['question_texts_desc'] = "Textes de question - Pré, post, littéral, etc.";
+$lang['no_variables_selected'] = "Aucune variable sélectionnée";
+$lang['target_variables'] = "variables cibles";
+$lang['spreading_metadata'] = "Diffusion des métadonnées...";
+$lang['failed_to_spread_metadata'] = "Échec de la diffusion des métadonnées";
+$lang['source_variable_not_found'] = "Variable source introuvable";
+$lang['discrete'] = "Discret";
+
 // Large number of categories translations
 $lang['large_number_of_categories'] = "Grand Nombre de Catégories";
 $lang['too_many_categories_message'] = "Cette variable contient un grand nombre de catégories et ne peut pas être affichée. Consultez les catégories en utilisant l'onglet JSON. Vous pouvez supprimer les catégories en utilisant le bouton ci-dessous.";

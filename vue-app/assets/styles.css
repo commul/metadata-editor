@@ -1158,6 +1158,15 @@ tr .action-buttons-hover {
     font-weight: normal;
 }
 
+/* Spread metadata dialog */
+.spread-metadata-dialog {
+    max-height: 85vh;
+}
+
+.v-font-weight-bold{
+    font-weight: bold !important;
+}
+
 #app .treeview-collection-filter .v-treeview-node__children .v-treeview-node__level {
     border: none;
 }
