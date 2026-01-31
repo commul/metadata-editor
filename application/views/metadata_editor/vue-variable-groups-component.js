@@ -44,11 +44,13 @@ Vue.component('variable-groups', {
                 ]                        
             },
             custom_fields:[ "variable_groups.variables", "variable_groups.variable_groups"],
-            is_saving:false
+            is_saving:false,
+            variables_loading:false
         }
     }, 
     mounted: function () {
         this.treeItemOpen.push('-1');
+        this.ensureAllVariablesLoaded();
     },  
     watch: {       
         'VariableGroups': {
@@ -58,7 +60,27 @@ Vue.component('variable-groups', {
             }
         }
     }, 
-    methods: {  
+    methods: {
+        ensureAllVariablesLoaded: async function () {
+            var vm = this;
+            var dataFiles = vm.$store.state.data_files || [];
+            var variables = vm.$store.state.variables || {};
+            var allLoaded = dataFiles.length > 0 && dataFiles.every(function (file) {
+                var vars = variables[file.file_id];
+                return Array.isArray(vars);
+            });
+            if (allLoaded) {
+                return;
+            }
+            vm.variables_loading = true;
+            try {
+                await vm.$store.dispatch('loadAllVariables', { dataset_id: vm.$store.state.project_id });
+            } catch (e) {
+                console.error('Failed to load variables for variable groups', e);
+            } finally {
+                vm.variables_loading = false;
+            }
+        },
         treeClick: function(item){
             console.log("tree item clicked",item);
             this.activeItem = item;
@@ -266,8 +288,8 @@ Vue.component('variable-groups', {
             return [];
         },
         Variables(){
-            $variablesByFile= this.$store.getters.getVariablesAll;
-            if (!$variablesByFile){
+            var $variablesByFile = this.$store.getters.getVariablesAll;
+            if (!$variablesByFile || typeof $variablesByFile !== 'object'){
                 return [];
             }
 
@@ -275,13 +297,15 @@ Vue.component('variable-groups', {
                 return [];
             }
 
-            ActiveItemVariables=this.ActiveItemVariables;
-            let $variables = [];
+            var ActiveItemVariables = this.ActiveItemVariables;
+            var $variables = [];
 
             for (var $file in $variablesByFile){
+                if (!Array.isArray($variablesByFile[$file])){
+                    continue;
+                }
                 for (var $variable in $variablesByFile[$file]){
                     if (ActiveItemVariables.indexOf($variablesByFile[$file][$variable].uid)>-1){
-                        console.log("found", $variablesByFile[$file][$variable].uid);
                         $variables.push($variablesByFile[$file][$variable]);
                     }
                 }
@@ -320,6 +344,11 @@ Vue.component('variable-groups', {
     },
     template: `
         <div class="variable-groups-component">
+            <div v-if="variables_loading" class="d-flex align-center justify-center p-5" style="min-height:200px;">
+                <v-progress-circular indeterminate color="primary" size="48"></v-progress-circular>
+                <span class="ml-3">{{$t("loading")}} {{$t("variables")}}...</span>
+            </div>
+            <template v-else>
             <dialog-variable-selection v-if="activeItem" :key="activeItem.vgid" v-model="showDialog" :selected_items="ActiveItemVariables" @selected="OnVariableSelection"></dialog-variable-selection>
         
             <div class="container-fluid mt-5 pt-5">
@@ -457,6 +486,7 @@ Vue.component('variable-groups', {
 
             
 
+            </template>
         </div>
     `
 });

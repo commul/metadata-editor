@@ -163,6 +163,7 @@
             echo $this->load->view("metadata_editor/vue-datafile-import-component.js",null,true);
             echo $this->load->view("metadata_editor/vue-datafile-data-explorer-component.js",null,true);
             echo $this->load->view("metadata_editor/vue-dialog-datafile-export-component.js",null,true);
+            echo $this->load->view("metadata_editor/vue-dialog-batch-export-component.js",null,true);
 
             echo $this->load->view("metadata_editor/vue-variable-edit-documentation-component.js",null,true);
             echo $this->load->view("metadata_editor/vue-variables-component.js",null,true);
@@ -276,7 +277,7 @@
         const VariableGroups ={template: '<div><variable-groups /> </div>'}
         //const ResourcesComp ={props: ['index'],template: '<div><external-resources /></div>'}
         const ResourcesComp =VueExternalResources;
-        const FileManager ={props: ['index'],template: '<div class="m-2 mt-5 pt-5 "><file-manager /></div>'}
+        const FileManager ={props: ['index'],template: '<div><file-manager /></div>'}
         const ResourcesImport ={template: '<div> <external-resources-import /></div>'}
         //const ResourcesEditComp ={props: ['index'],template: '<div><external-resources-edit /></div>'}
         const ResourcesEditComp =VueExternalResourcesEdit;
@@ -559,12 +560,10 @@
             },
             actions: {               
                 async initData({commit},options) {
-                    store.state.variables_isloading=true;
                     store.state.project_isloading=true;
                     await store.dispatch('loadTemplatesList',{});
                     await store.dispatch('loadProject',{dataset_id:options.dataset_id});
                     await store.dispatch('loadDataFiles',{dataset_id:options.dataset_id});
-                    await store.dispatch('loadAllVariables',{dataset_id:options.dataset_id});
                     await store.dispatch('loadExternalResources',{dataset_id:options.dataset_id});
                     await store.dispatch('loadVariableGroups',{dataset_id:options.dataset_id});
                     await store.dispatch('loadMetadataTypesList',{});
@@ -575,7 +574,6 @@
                     }
                     
                     store.state.variables_loaded=true;
-                    store.state.variables_isloading=false;
                     store.state.project_isloading=false;
                 },
                 async initTreeItems({commit},options) {               
@@ -844,7 +842,15 @@
                     let url=CI.base_url + '/api/datafiles/cleanup/'+getters.getProjectID;
                     let resp = await axios.post(url);
                     return resp;                
-                },                  
+                },
+                async createBatchExportZip({commit,getters}, options)
+                {
+                    let url=CI.base_url + '/api/datafiles/batch_export_zip/'+getters.getProjectID;
+                    let body = { filenames: options.filenames || [] };
+                    if (options.zip_filename) body.zip_filename = options.zip_filename;
+                    let resp = await axios.post(url, body);
+                    return resp;
+                },
             },
             mutations: VueDeepSet.extendMutation({
                 // other mutations

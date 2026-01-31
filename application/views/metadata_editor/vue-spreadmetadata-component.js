@@ -126,12 +126,13 @@ Vue.component('spread-metadata', {
         spreadMetadataSearch: function(selected_variable)
         {
             let variables=this.$store.getters.getVariablesAll;
+            if (!variables || typeof variables !== 'object') { return; }
             let datafile_names=Object.keys(variables);
 
             datafile_names.forEach((fid, index) => {
                 
                 if (fid==selected_variable.fid){return;}
-                if (!variables[fid].length){return;}
+                if (!Array.isArray(variables[fid]) || !variables[fid].length){return;}
 
                 variables[fid].forEach((variable, index) => {
                     if(variable.name && selected_variable.name && variable.name.toLowerCase()===selected_variable.name.toLowerCase()){

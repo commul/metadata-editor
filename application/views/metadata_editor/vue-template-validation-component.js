@@ -8,20 +8,45 @@ Vue.component('template-validation-component', {
           variables_validation_errors: "",
           template_idx:-1,
           template_validation:[],
-          validation_report:[]
+          validation_report:[],
+          validation_delay_ms: 2000,
+          validation_debounce_ms: 600
         }
       },
     watch:{
         ProjectMetadata: {
+            immediate: true,
             handler: function (val, oldVal) {
-                this.validateProject();
-                this.projectValidationReport();
-            }            
+                var vm = this;
+                vm._validationDelayTimer && clearTimeout(vm._validationDelayTimer);
+                vm._validationDelayTimer = setTimeout(function () {
+                    vm._validationDelayTimer = null;
+                    if (typeof requestIdleCallback === 'function') {
+                        requestIdleCallback(function () { vm.runValidationDebounced(); }, { timeout: 1500 });
+                    } else {
+                        vm.runValidationDebounced();
+                    }
+                }, vm.validation_delay_ms);
+            }
         }
     },
-    mounted: function() {
-        this.validateProject();
-        this.projectValidationReport();
+    created: function() {
+        var vm = this;
+        var debounceMs = vm.validation_debounce_ms || 600;
+        this.runValidationDebounced = typeof _.debounce === 'function'
+            ? _.debounce(function () {
+                vm.validateProject();
+                vm.projectValidationReport();
+            }, debounceMs)
+            : function () {
+                vm.validateProject();
+                vm.projectValidationReport();
+            };
+    },
+    beforeDestroy: function() {
+        if (this._validationDelayTimer) {
+            clearTimeout(this._validationDelayTimer);
+        }
     },
     computed: {
         ProjectID(){
@@ -313,9 +338,8 @@ Vue.component('template-validation-component', {
                 }
             });
             
-            // For microdata projects, also load variables validation
             if (this.isMicrodataProject) {
-                let variablesUrl = CI.base_url + '/api/validation/'+this.ProjectID+'/variables?limit=5';
+                let variablesUrl = CI.base_url + '/api/validation/'+this.ProjectID+'/variables?limit=5&mode=light';
                 
                 axios.get(variablesUrl)
                 .then(function (response) {

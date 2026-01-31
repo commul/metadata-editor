@@ -56,6 +56,42 @@ class Files extends MY_REST_Controller
 
 	/**
 	 * 
+	 * Download a project file by relative path.
+	 * 
+	 * GET /api/files/download/{sid}?file=documentation%2Ffoo.pdf
+	 */
+	function download_get($sid = null)
+	{
+		try {
+			$sid = $this->get_sid($sid);
+			$exists = $this->Editor_model->check_id_exists($sid);
+
+			if (!$exists) {
+				throw new Exception("Project not found");
+			}
+
+			$this->editor_acl->user_has_project_access($sid, $permission = 'edit', $this->api_user);
+			$file_path = $this->input->get('file');
+			
+			if (!$file_path) {
+				throw new Exception("Missing parameter: file");
+			}
+
+			$file_path = urldecode($file_path);
+			$full_path = $this->Editor_files_model->get_full_path_for_download($sid, $file_path);
+			
+			$this->load->helper("download");
+			force_download2($full_path);
+			return;
+			
+		} catch (Exception $e) {
+			$this->set_response($e->getMessage(), REST_Controller::HTTP_BAD_REQUEST);
+		}
+	}
+
+
+	/**
+	 * 
 	 * upload file
 	 * @file_type data | documentation | thumbnail
 	 * 
@@ -447,10 +483,10 @@ class Files extends MY_REST_Controller
 		try{
 			$sid=$this->get_sid($sid);
 			$user=$this->api_user();
-			$file_path=$this->input->post('file_path');
+			$file_path=$this->input->post('file');
 
 			if (!$file_path){
-				throw new Exception("Missing parameter: file_path");
+				throw new Exception("Missing parameter: file");
 			}
 
 			$this->editor_acl->user_has_project_access($sid,$permission='edit',$user);

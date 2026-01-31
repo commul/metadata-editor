@@ -376,6 +376,10 @@ $lang['login_opens_new_tab']='Login (Opens a new tab)';
 // File manager
 $lang['file_manager']='File manager';
 $lang['files']='files';
+$lang['All files']='All files';
+$lang['Project root']='Project root';
+$lang['No files in this folder']='No files in this folder';
+$lang['selected']='selected';
 $lang['Documentation']='Documentation';
 $lang['temporary']='TEMPORARY';
 $lang['extract_zip']='Extract zip';

@@ -1,5 +1,10 @@
 Vue.component('dialog-datafile-export', {
-    props: ['value', 'file_id', 'file_name'],
+    props: {
+        value: { type: Boolean, default: false },
+        file_id: { type: [String, Number], default: null },
+        file_name: { type: String, default: '' },
+        file_physical_name: { type: String, default: '' }
+    },
     data() {
         return {
             selected_format: '',
@@ -10,6 +15,12 @@ Vue.component('dialog-datafile-export', {
                 { value: 'json', label: 'JSON' },
                 { value: 'xpt', label: 'SAS' }
             ],
+            zip_option: true,
+            remove_after_zip: true,
+            zip_download_url: null,
+            zip_creating: false,
+            zip_error: null,
+            individual_file_removed: false,
             export_dialog: {
                 show: false,
                 title: '',
@@ -28,7 +39,17 @@ Vue.component('dialog-datafile-export', {
                 format: ''
             }
         }
-    }, 
+    },
+    watch: {
+        value(val) {
+            if (!val) {
+                this.zip_download_url = null;
+                this.zip_creating = false;
+                this.zip_error = null;
+                this.individual_file_removed = false;
+            }
+        }
+    },
     mounted: function () {
         
     },      
@@ -152,14 +173,15 @@ Vue.component('dialog-datafile-export', {
                 if (result.data.job_status !== 'done') {
                     this.exportFileStatusCheck(file_id, job_id, format);
                 } else if (result.data.job_status === 'done') {
-                    this.export_dialog.is_loading = false;
                     let download_url = CI.base_url + '/api/datafiles/download_tmp_file/' + this.ProjectID + '/' + file_id + '/' + format;
-                    this.export_dialog.message_success = this.$t('file_generated_success');
-                    this.export_dialog.download_links = [];
-                    this.export_dialog.download_links.push({
-                        url: download_url,
-                        format: format
+                    this.export_dialog = Object.assign({}, this.export_dialog, {
+                        is_loading: false,
+                        message_success: this.$t('file_generated_success'),
+                        download_links: [{ url: download_url, format: format }]
                     });
+                    if (this.zip_option && this.file_physical_name) {
+                        this.createZipSingle(format);
+                    }
                 }
             } catch(e) {
                 console.log("failed", e);
@@ -176,7 +198,48 @@ Vue.component('dialog-datafile-export', {
         sleep: function(ms) {
             return new Promise(resolve => setTimeout(resolve, ms));
         },
-        
+        filenamePart(name) {
+            if (!name) return '';
+            const i = name.lastIndexOf('.');
+            return i >= 0 ? name.substring(0, i) : name;
+        },
+        async createZipSingle(format) {
+            const base = this.filenamePart(this.file_physical_name);
+            if (!base) return;
+            const filename = base + '.' + format;
+            const zip_filename = base + '.zip';
+            this.zip_creating = true;
+            this.zip_error = null;
+            try {
+                const resp = await this.$store.dispatch('createBatchExportZip', { filenames: [filename], zip_filename: zip_filename });
+                const zip_path = resp.data && resp.data.zip_path ? resp.data.zip_path : null;
+                if (zip_path) {
+                    this.zip_download_url = CI.base_url + '/api/files/download/' + this.ProjectID + '?file=' + encodeURIComponent(zip_path);
+                    if (this.remove_after_zip) {
+                        await this.removeIndividualExports([filename]);
+                        this.individual_file_removed = true;
+                    }
+                } else {
+                    this.zip_error = this.$t('batch_export_zip_failed') || 'Could not create zip';
+                }
+            } catch (e) {
+                this.zip_error = (e.response && e.response.data && e.response.data.message) ? e.response.data.message : (e.message || 'Could not create zip');
+            }
+            this.zip_creating = false;
+        },
+        async removeIndividualExports(filenames) {
+            const url = CI.base_url + '/api/files/delete/' + this.ProjectID;
+            for (const name of filenames) {
+                const relativePath = 'data/tmp/' + name;
+                try {
+                    const formData = new FormData();
+                    formData.append('file', relativePath);
+                    await axios.post(url, formData);
+                } catch (e) {
+                    console.warn('Could not remove tmp file:', name, e);
+                }
+            }
+        },
         confirmValidationWarning: function() {
             // User confirmed, proceed with export
             this.validation_dialog.show = false;
@@ -232,6 +295,15 @@ Vue.component('dialog-datafile-export', {
                                 required
                             ></v-select>
                         </div>
+                        <div class="mt-3">
+                            <v-checkbox
+                                v-model="zip_option"
+                                :label="$t('single_export_zip_option') || 'Zip the exported file'"
+                                hide-details
+                                dense
+                                class="mt-0"
+                            ></v-checkbox>                            
+                        </div>
                     </v-card-text>
 
                     <v-card-actions>
@@ -273,9 +345,19 @@ Vue.component('dialog-datafile-export', {
                             <div v-if="export_dialog.message_success" class="text-center">
                                 <v-icon color="#4CAF50" size="48" class="mb-3">mdi-check-circle</v-icon>
                                 <div class="text-body-1 mb-4">{{export_dialog.message_success}}</div>
-                                
+                                <div v-if="zip_option" class="mb-3">
+                                    <div v-if="zip_creating" class="text-caption text--secondary">
+                                        <v-progress-circular indeterminate size="20" width="2" class="mr-2"></v-progress-circular>
+                                        {{ $t('batch_export_creating_zip') || 'Creating ZIP...' }}
+                                    </div>
+                                    <v-btn v-else-if="zip_download_url" color="primary" :href="zip_download_url" target="_blank" download class="mb-2">
+                                        <v-icon left>mdi-folder-zip</v-icon>{{ $t('single_export_download_zip') || 'Download (ZIP)' }}
+                                    </v-btn>
+                                    <div v-else-if="zip_error" class="text-caption error--text">{{ zip_error }}</div>
+                                </div>
                                 <v-btn 
                                     v-for="(link, index) in export_dialog.download_links" 
+                                    v-show="!individual_file_removed"
                                     :key="index"
                                     color="primary" 
                                     block
@@ -287,7 +369,7 @@ Vue.component('dialog-datafile-export', {
                                 >
                                     <v-icon left>mdi-download</v-icon>
                                     [{{link.format.toUpperCase()}}] {{$t('download')}}
-                                </v-btn>
+                                </v-btn>                                
                             </div>
 
                             <div class="alert alert-danger" v-if="export_dialog.message_error">

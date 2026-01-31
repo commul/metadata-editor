@@ -22,7 +22,8 @@ Vue.component('datafile-data-explorer', {
             export_dialog:{
                 show:false,
                 file_id:null,
-                file_name:''
+                file_name:'',
+                file_physical_name:''
             }
         }
     },
@@ -109,6 +110,7 @@ Vue.component('datafile-data-explorer', {
         exportFile: function(){
             this.export_dialog.file_id = this.activeDataFile.file_id;
             this.export_dialog.file_name = this.activeDataFile.file_name;
+            this.export_dialog.file_physical_name = (this.activeDataFile && this.activeDataFile.file_physical_name) ? this.activeDataFile.file_physical_name : '';
             this.export_dialog.show = true;
         },        
         sleep: function(ms) {
@@ -253,7 +255,8 @@ Vue.component('datafile-data-explorer', {
             <dialog-datafile-export 
                 v-model="export_dialog.show" 
                 :file_id="export_dialog.file_id"
-                :file_name="export_dialog.file_name">
+                :file_name="export_dialog.file_name"
+                :file_physical_name="export_dialog.file_physical_name || ''">
             </dialog-datafile-export>
             
             </div>          

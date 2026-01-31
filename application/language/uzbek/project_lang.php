@@ -502,6 +502,20 @@ $lang['continue_export'] = "Eksportni davom ettirish";
 $lang['failed'] = "Xatolik";
 $lang['job_status'] = "Ish holati";
 
+// Batch export
+$lang['batch_export'] = "Partiyali eksport";
+$lang['batch_export_selected_files'] = "Tanlangan fayllar";
+$lang['batch_export_select_formats'] = "Eksport formati(lar)ni tanlang";
+$lang['batch_export_task_count'] = "Jami eksportlar";
+$lang['batch_export_queuing'] = "Eksportlar navbatga qo'yilmoqda";
+$lang['batch_export_processing'] = "Qayta ishlanmoqda";
+$lang['batch_export_download_zip'] = "Hammasini yuklab olish (ZIP)";
+$lang['batch_export_creating_zip'] = "ZIP yaratilmoqda...";
+$lang['batch_export_zip_failed'] = "ZIP yaratib bo'lmadi";
+$lang['batch_export_zip_option'] = "Barcha eksport qilingan fayllarni bitta ZIP ga yig'ish";
+$lang['batch_export_remove_after_zip'] = "ZIP qilgandan keyin alohida eksportlarni o'chirish";
+$lang['batch_export_removed'] = "O'chirildi";
+
 // Missing translations for project home page
 $lang['search'] = "Qidirish...";
 $lang['compare_projects'] = "Loyihalarni solishtirish";

@@ -88,6 +88,45 @@ class Editor_files_model extends ci_model {
 	}
 
 
+	/**
+	 * Get full filesystem path for a file
+	 *
+	 * @param int    $sid       Project ID
+	 * @param string $file_path Relative file path within project (e.g. 'documentation/foo.pdf')
+	 * @return string Full path to the file
+	 * @throws Exception If path is invalid or file not found
+	 */
+	public function get_full_path_for_download($sid, $file_path)
+	{
+		$project_folder = $this->Editor_model->get_project_folder($sid);
+		$project_folder = realpath($project_folder);
+
+		if ($project_folder === false || !is_dir($project_folder)) {
+			throw new Exception("Invalid project folder");
+		}
+
+		if (strpos($file_path, '..') !== false) {
+			throw new Exception("Invalid file_path");
+		}
+
+		$full_path = realpath($project_folder . DIRECTORY_SEPARATOR . $file_path);
+
+		if ($full_path === false) {
+			throw new Exception("Invalid file_path");
+		}
+
+		// Ensure resolved path is strictly inside the project folder
+		$project_prefix = $project_folder . DIRECTORY_SEPARATOR;
+		if ($full_path !== $project_folder && strpos($full_path, $project_prefix) !== 0) {
+			throw new Exception("Invalid path");
+		}
+
+		if (!file_exists($full_path) || !is_file($full_path)) {
+			throw new Exception("File not found");
+		}
+
+		return $full_path;
+	}
 
 
 	/**

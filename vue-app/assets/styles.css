@@ -1231,3 +1231,8 @@ tr .action-buttons-hover {
   .custom-xs .v-input__prepend-inner{
     margin-top: 2px !important;
   }
+
+  .font-weight-normal .label,
+  .font-weight-normal .v-label{
+    font-weight: normal !important;
+  }

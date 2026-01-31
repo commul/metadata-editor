@@ -85,7 +85,9 @@ Vue.component('variables', {
             },
             has_clicked_edit:true, //to ignore watch from triggering on editVariable click
             is_initializing_multi:false, //to ignore watch from triggering during multi-variable initialization
-            is_navigating:false //to ignore watch from triggering during navigation
+            is_navigating:false, //to ignore watch from triggering during navigation
+            variables_loading:false, // true while loading variables for this file (on-demand load)
+            spread_metadata_loading:false // true while loading all variables for spread-metadata dialog
             
         }
     }, 
@@ -93,13 +95,22 @@ Vue.component('variables', {
         this.fid=this.$route.params.file_id;
     },
     mounted: function () {
-        setTimeout(() => {
-            if (this.variableSelectedCount() === 0) {
-                this.editVariable(0);
-            }
-        }, 2000);
+        var vm=this;
+        this.ensureVariablesLoaded().then(function(){
+            setTimeout(function() {
+                if (vm.variableSelectedCount() === 0) {
+                    vm.editVariable(0);
+                }
+            }, 2000);
+        });
     },
     watch: {
+        '$route.params.file_id': function(newFileId) {
+            if (newFileId && newFileId !== this.fid) {
+                this.fid = newFileId;
+                this.ensureVariablesLoaded();
+            }
+        },
         activeVariable: {            
             deep: true,
             handler(val,oldVal){
@@ -148,7 +159,26 @@ Vue.component('variables', {
             }
           }
     },
-    methods: {        
+    methods: {
+        ensureVariablesLoaded: function() {
+            var vm = this;
+            if (!this.fid || !this.ProjectID) {
+                return Promise.resolve();
+            }
+            var vars = this.$store.getters.getVariablesByFid(this.fid);
+            if (vars !== undefined && Array.isArray(vars)) {
+                return Promise.resolve();
+            }
+            this.variables_loading = true;
+            return this.$store.dispatch('loadVariables', { dataset_id: this.ProjectID, fid: this.fid })
+                .then(function() {
+                    vm.variables_loading = false;
+                })
+                .catch(function(err) {
+                    vm.variables_loading = false;
+                    console.log('error loading variables', err);
+                });
+        },
         clearVariableSearch: function(){
             this.variable_search='';
         },
@@ -201,31 +231,60 @@ Vue.component('variables', {
                 this.is_navigating=false;
             }, 100);
         },
-        spreadMetadata: function ()
+        spreadMetadata: async function ()
         {
-            this.showSpreadMetadataDialog=true;
+            var vm = this;
+            var dataFiles = vm.$store.state.data_files || [];
+            var variables = vm.$store.state.variables || {};
+            var allLoaded = dataFiles.length > 0 && dataFiles.every(function (file) {
+                var vars = variables[file.file_id];
+                return Array.isArray(vars);
+            });
+            if (allLoaded) {
+                vm.showSpreadMetadataDialog = true;
+                return;
+            }
+            vm.spread_metadata_loading = true;
+            try {
+                await vm.$store.dispatch('loadAllVariables', { dataset_id: vm.ProjectID });
+                vm.showSpreadMetadataDialog = true;
+            } catch (e) {
+                console.error('Failed to load variables for spread metadata', e);
+            } finally {
+                vm.spread_metadata_loading = false;
+            }
         },        
         changeCase: function()
         {
-            var_count=this.variables.length;
-            for(i=0;i<var_count;i++){
-                for(f=0;f<this.changeCaseFields.length;f++){
-                    field_=this.changeCaseFields[f];
-                    if (this.changeCaseType=='title'){
-                        this.variables[i][field_]=this.titleCase(this.variables[i][field_]);
-                    } else if (this.changeCaseType=='upper'){
-                        this.variables[i][field_]=this.variables[i][field_].toUpperCase();
-                    } else if (this.changeCaseType=='lower'){
-                        this.variables[i][field_]=this.variables[i][field_].toLowerCase();
-                    }
-                }
+            var vm = this;
+            vm.changeCaseUpdateStatus = "Applying...";
 
-                this.changeCaseUpdateStatus=this.$t("updating_progress", {current: i + 1, total: var_count});
-                this.saveVariable(this.variables[i]);
-            }
+            var url = CI.base_url + "/api/variables/change_case/" + vm.ProjectID + "/" + vm.fid;
+            var body = {
+                case_type: vm.changeCaseType,
+                fields: vm.changeCaseFields
+            };
 
-            this.changeCaseUpdateStatus="";
-            this.changeCaseDialog=false;
+            axios.post(url, body)
+                .then(function (response) {
+                    var updated = response.data && response.data.updated !== undefined ? response.data.updated : 0;
+                    return vm.reloadDataFileVariables()
+                        .then(function () {
+                            EventBus.$emit("onSuccess", updated ? (updated + " " + (updated === 1 ? "variable" : "variables") + " updated.") : "Change case applied.");
+                            vm.changeCaseUpdateStatus = "";
+                            vm.changeCaseDialog = false;
+                        })
+                        .catch(function () {
+                            EventBus.$emit("onFail", "Change case applied but failed to refresh variables.");
+                            vm.changeCaseUpdateStatus = "";
+                            vm.changeCaseDialog = false;
+                        });
+                })
+                .catch(function (error) {
+                    var msg = (error.response && error.response.data && error.response.data.message) ? error.response.data.message : "Failed to apply change case";
+                    EventBus.$emit("onFail", msg);
+                    vm.changeCaseUpdateStatus = "";
+                });
         },
         editVariableMultiple: function(index,isShift=0)
         {
@@ -940,8 +999,9 @@ Vue.component('variables', {
                                                 <v-icon aria-hidden="false" class="var-icon">mdi-format-letter-case</v-icon>
                                             </span>
 
-                                            <span @click="spreadMetadata" :title="$t('spread_metadata')">
-                                                <v-icon aria-hidden="false" class="var-icon">mdi-content-copy</v-icon>
+                                            <span @click="spread_metadata_loading ? null : spreadMetadata()" :title="$t('spread_metadata')" :class="{ 'opacity-50': spread_metadata_loading }">
+                                                <v-icon v-if="spread_metadata_loading" class="var-icon fa-spin">mdi-sync</v-icon>
+                                                <v-icon v-else aria-hidden="false" class="var-icon">mdi-content-copy</v-icon>
                                             </span>
 
                                             <span @click="deleteVariable" :title="$t('delete_selection')">
@@ -958,7 +1018,11 @@ Vue.component('variables', {
 
                             
                             <div class="section-list-body" id="variables-container" >
-                                <div id="variables-rows" class="section-rows variable-rows">
+                                <div v-if="variables_loading" class="d-flex align-center justify-center p-5" style="min-height:120px;">
+                                    <v-progress-circular indeterminate color="primary" size="48"></v-progress-circular>
+                                    <span class="ml-3">{{$t("loading")}} {{$t("variables")}}...</span>
+                                </div>
+                                <div v-else id="variables-rows" class="section-rows variable-rows">
                                 <table id="variables-table" class="table table-striped table-bordered table-sm table-hover table-variables">                                    
                                     <tbody is="draggable" :list="variables" tag="tbody" handle=".handle" @end="onVariableDrag">
                                     <tr v-for="(variable, index) in variables"  

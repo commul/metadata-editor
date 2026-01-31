@@ -26,8 +26,10 @@ Vue.component('datafiles', {
             export_dialog:{
                 show:false,
                 file_id:null,
-                file_name:''
+                file_name:'',
+                file_physical_name:''
             },
+            batch_export_dialog_show: false,
             attrs: {}
             
         }
@@ -191,6 +193,7 @@ Vue.component('datafiles', {
             let data_file = this.data_files[file_idx];
             this.export_dialog.file_id = data_file.file_id;
             this.export_dialog.file_name = data_file.file_name;
+            this.export_dialog.file_physical_name = data_file.file_physical_name || '';
             this.export_dialog.show = true;
         },        
         batchDelete: async function() {
@@ -413,7 +416,11 @@ Vue.component('datafiles', {
             let data_file = this.data_files[file_index];
             this.export_dialog.file_id = data_file.file_id;
             this.export_dialog.file_name = data_file.file_name;
+            this.export_dialog.file_physical_name = data_file.file_physical_name || '';
             this.export_dialog.show = true;
+        },
+        openBatchExportDialog: function(){
+            this.batch_export_dialog_show = true;
         },
         confirmExport: function(){
             // This function is no longer needed as the export dialog handles everything
@@ -428,7 +435,14 @@ Vue.component('datafiles', {
     computed: {
         data_files(){
             return this.$store.state.data_files;
-          },
+        },
+        /** Selected files that have data (CSV), for batch export. */
+        batchExportSelectedFiles(){
+            if (!this.data_files.length || !this.selected_files.length) return [];
+            return this.data_files
+                .filter(f => this.selected_files.indexOf(f.file_id) !== -1 && (this.hasCsvFile(f.file_id) || f.store_data === 1))
+                .map(f => ({ file_id: f.file_id, file_name: f.file_name, file_physical_name: f.file_physical_name || '' }));
+        },
     },
     template: `
         <div class="datfiles-component">
@@ -444,7 +458,8 @@ Vue.component('datafiles', {
 
                 <v-row>
                     <v-col md="8">
-                    <button v-if="selected_files.length>0" type="button" class="btn btn-sm btn-outline-danger" @click="batchDelete">{{$t("Delete")}} {{selected_files.length}} {{$t("selected")}}</button>
+                    <button v-if="selected_files.length>0" type="button" class="btn btn-sm btn-outline-danger mr-2" @click="batchDelete">{{$t("Delete")}} {{selected_files.length}} {{$t("selected")}}</button>
+                    <button v-if="selected_files.length>0" type="button" class="btn btn-sm btn-outline-primary" @click="openBatchExportDialog">{{$t("batch_export")}} ({{selected_files.length}})</button>
                     
                     </v-col>
                     <v-col md="4" align="right" class="mb-2">
@@ -683,8 +698,15 @@ Vue.component('datafiles', {
             <dialog-datafile-export 
                 v-model="export_dialog.show" 
                 :file_id="export_dialog.file_id"
-                :file_name="export_dialog.file_name">
+                :file_name="export_dialog.file_name"
+                :file_physical_name="export_dialog.file_physical_name || ''">
             </dialog-datafile-export>
+
+            <!-- Batch Export Dialog -->
+            <dialog-batch-export 
+                v-model="batch_export_dialog_show" 
+                :selected-files="batchExportSelectedFiles">
+            </dialog-batch-export>
         
         </div>
     `

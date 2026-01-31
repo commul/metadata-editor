@@ -457,6 +457,20 @@ $lang['continue_export'] = "Continuar Exportación";
 $lang['failed'] = "Falló";
 $lang['job_status'] = "Estado del trabajo";
 
+// Batch export
+$lang['batch_export'] = "Exportación por lotes";
+$lang['batch_export_selected_files'] = "Archivos seleccionados";
+$lang['batch_export_select_formats'] = "Seleccionar formato(s) de exportación";
+$lang['batch_export_task_count'] = "Total de exportaciones";
+$lang['batch_export_queuing'] = "Encolando exportaciones";
+$lang['batch_export_processing'] = "Procesando";
+$lang['batch_export_download_zip'] = "Descargar todo (ZIP)";
+$lang['batch_export_creating_zip'] = "Creando ZIP...";
+$lang['batch_export_zip_failed'] = "No se pudo crear el ZIP";
+$lang['batch_export_zip_option'] = "Comprimir todos los archivos exportados en un solo ZIP";
+$lang['batch_export_remove_after_zip'] = "Eliminar exportaciones individuales después de comprimir";
+$lang['batch_export_removed'] = "Eliminado";
+
 // Missing translations for project home page
 $lang['search'] = "Buscar...";
 $lang['compare_projects'] = "Comparar Proyectos";

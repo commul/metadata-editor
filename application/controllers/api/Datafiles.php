@@ -392,6 +392,103 @@ class Datafiles extends MY_REST_Controller
 	}
 
 	/**
+	 * Create a zip of exported tmp files in project data/tmp.
+	 * POST /api/datafiles/batch_export_zip/{sid}
+	 * Body: { "filenames": [ "survey1.csv", "survey1.dta", ... ], "zip_filename": "optional.zip" }
+	 * zip_filename: optional target zip name (e.g. example_file1.zip for single file). Default: batch_export_YYYYMMDD_HHMMSS.zip
+	 */
+	function batch_export_zip_post($sid = null)
+	{
+		try {
+			$sid = $this->get_sid($sid);
+			$exists = $this->Editor_model->check_id_exists($sid);
+			if (!$exists) {
+				throw new Exception("Project not found");
+			}
+			$this->editor_acl->user_has_project_access($sid, $permission = 'edit', $this->api_user);
+
+			$body = $this->raw_json_input();
+			if (!is_array($body)) {
+				$body = array();
+			}
+			$filenames = isset($body['filenames']) ? $body['filenames'] : array();
+			if (!is_array($filenames) || empty($filenames)) {
+				throw new Exception("Missing or empty filenames array");
+			}
+
+			$project_folder = $this->Editor_model->get_project_folder($sid);
+			$tmp_folder = rtrim($project_folder, DIRECTORY_SEPARATOR) . DIRECTORY_SEPARATOR . 'data' . DIRECTORY_SEPARATOR . 'tmp' . DIRECTORY_SEPARATOR;
+			$tmp_folder_real = realpath($tmp_folder);
+			if ($tmp_folder_real === false || !is_dir($tmp_folder_real)) {
+				throw new Exception("Project tmp folder not found");
+			}
+
+			// Set time limit to 5 minutes (300 seconds)
+			set_time_limit(300);
+
+			$files_to_add = array();
+			foreach ($filenames as $name) {
+				$base = basename($name);
+				if ($base === '' || strpos($name, '..') !== false) {
+					continue;
+				}
+				$full = $tmp_folder_real . DIRECTORY_SEPARATOR . $base;
+				if (!file_exists($full) || !is_file($full)) {
+					throw new Exception("File not found in tmp: " . $base);
+				}
+				$resolved = realpath($full);
+				if ($resolved === false || strpos($resolved, $tmp_folder_real) !== 0) {
+					throw new Exception("Invalid path: " . $base);
+				}
+				$files_to_add[] = array('full' => $resolved, 'entry' => $base);
+			}
+			if (empty($files_to_add)) {
+				throw new Exception("No valid files to add to zip");
+			}
+
+			// Optional target zip filename (e.g. example_file1.zip for single file export)
+			$zip_filename = isset($body['zip_filename']) && is_string($body['zip_filename']) && trim($body['zip_filename']) !== ''
+				? trim($body['zip_filename'])
+				: '';
+			if ($zip_filename !== '') {
+				$zip_filename = basename($zip_filename);
+				if ($zip_filename === '' || strpos($body['zip_filename'], '..') !== false) {
+					$zip_filename = '';
+				}
+				if ($zip_filename !== '' && strtolower(pathinfo($zip_filename, PATHINFO_EXTENSION)) !== 'zip') {
+					$zip_filename = $zip_filename . '.zip';
+				}
+			}
+			if ($zip_filename === '') {
+				$zip_filename = 'batch_export_' . date('Ymd_His') . '.zip';
+			}
+			$zip_path_full = $tmp_folder_real . DIRECTORY_SEPARATOR . $zip_filename;
+
+			$zip = new ZipArchive();
+			if ($zip->open($zip_path_full, ZipArchive::CREATE | ZipArchive::OVERWRITE) !== true) {
+				throw new Exception("Could not create zip file");
+			}
+			foreach ($files_to_add as $f) {
+				$zip->addFile($f['full'], $f['entry']);
+			}
+			$zip->close();
+
+			$zip_path_relative = 'data/tmp/' . $zip_filename;
+			$output = array(
+				'status' => 'success',
+				'zip_path' => $zip_path_relative,
+				'zip_filename' => $zip_filename
+			);
+			$this->set_response($output, REST_Controller::HTTP_OK);
+		} catch (Exception $e) {
+			$this->set_response(array(
+				'status' => 'failed',
+				'message' => $e->getMessage()
+			), REST_Controller::HTTP_BAD_REQUEST);
+		}
+	}
+
+	/**
 	 * 
 	 * Get data file by name
 	 * 
