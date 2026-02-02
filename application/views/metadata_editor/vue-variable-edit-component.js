@@ -319,11 +319,11 @@ Vue.component('variable-edit', {
                 }
 
                 Vue.set(this.variable, 'var_wgt_id', e);
+                Vue.set(this.variable, 'update_required', true);
             }
             else{
-                Vue.delete(this.variable, 'var_wgt_id');
-            }            
-            Vue.set(this.variable, 'update_required', true);
+                Vue.delete(this.variable, 'var_wgt_id');                
+            }
         },
         sectionEnabled: function(section){
             
@@ -467,8 +467,13 @@ Vue.component('variable-edit', {
                 Vue.set(this.Variable.sum_stats_options, 'stdev_wgt', false);
             }
             
-            // Mark variable as needing update
-            Vue.set(this.variable, 'update_required', true);
+            // Flag refresh stats only when a change requires re-running the data API:
+            // - freq turned from false to true (to get var_catgry again)
+            // Display/export-only options (min, max, mean, stdev, vald, missing, mean_wgt, stdev_wgt, wgt)
+            // and freq turned to false do not require refresh.
+            if (option === 'freq' && value === true) {
+                Vue.set(this.variable, 'update_required', true);
+            }
         }
 
     },

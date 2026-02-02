@@ -506,6 +506,7 @@ class DataUtils
     {
 		$this->ci->load->model("Editor_datafile_model");
 		$this->ci->load->model("Editor_variable_model");
+		$this->ci->load->model("Editor_model");
 
         if (!$datafile_path){
             $datafile_path=$this->ci->Editor_datafile_model->get_file_path($sid,$fid);
@@ -515,8 +516,8 @@ class DataUtils
             throw new Exception("Data file not found");
         }
 		
-		//get variables data types, missing, weights info
-        $this->ci->db->select("name,field_dtype,user_missings,is_weight,var_wgt_id, interval_type");
+		//get variables data types, missing, weights info, and metadata (for sum_stats_options.freq)
+        $this->ci->db->select("name,field_dtype,user_missings,is_weight,var_wgt_id, interval_type, metadata");
         $this->ci->db->where("sid",$sid);
         $this->ci->db->where("fid",$fid);        
         $variables=$this->ci->db->get("editor_variables")->result_array();
@@ -533,6 +534,12 @@ class DataUtils
 
         foreach($variables as $variable){
             if (isset($variable['var_wgt_id']) && $variable['var_wgt_id']>0 ){
+
+				//if field and weight_field are the same, skip
+				if ($variable['name']==$this->ci->Editor_variable_model->get_name_by_var_wgt_id($sid,$variable['var_wgt_id'])){
+					continue;
+				}
+
                 $params['weights'][]=array(
                     'field'=>$variable['name'],
                     'weight_field'=>$this->ci->Editor_variable_model->get_name_by_var_wgt_id($sid,$variable['var_wgt_id'])
@@ -560,8 +567,15 @@ class DataUtils
                 }
             }
 
-			//interval type [categorical - for enabling frequencies]
-			if ($variable['interval_type']!='' && $variable['interval_type']=='discrete'){
+			//interval type [categorical - for enabling frequencies]; skip if user disabled freq
+			$include_categorical = true;
+			if (!empty($variable['metadata'])) {
+				$meta = $this->ci->Editor_model->decode_metadata($variable['metadata']);
+				if (isset($meta['sum_stats_options']['freq']) && $meta['sum_stats_options']['freq'] === false) {
+					$include_categorical = false;
+				}
+			}
+			if ($include_categorical && $variable['interval_type']!='' && $variable['interval_type']=='discrete'){
 				$params['categorical'][]=$variable['name'];
 			}
         }

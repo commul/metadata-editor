@@ -263,6 +263,10 @@ class Editor_variable_model extends ci_model {
         foreach($summary_stats_elements as $element)
         {
             if (isset($stats[$element])){
+                // If disabled category frequencies, do not overwrite var_catgry
+                if ($element === 'var_catgry' && isset($variable['sum_stats_options']['freq']) && $variable['sum_stats_options']['freq'] === false) {
+                    continue;
+                }
                 $variable[$element]=$stats[$element];
                 
                 if ($element === 'var_intrvl') {
@@ -672,6 +676,8 @@ class Editor_variable_model extends ci_model {
         if(isset($options['metadata'])){
             // Sync var_invalrng.values and is_missing on categories
             $options['metadata'] = $this->sync_invalrng_and_is_missing($options['metadata']);
+            // Remove var_catgry when freq is disabled
+            $options['metadata'] = $this->remove_catgry_when_freq_disabled($options['metadata']);
             
             $core=$this->get_variable_core_fields($options['metadata']);
             $options=array_merge($options,$core);
@@ -700,6 +706,8 @@ class Editor_variable_model extends ci_model {
         if(isset($options['metadata'])){
             // Sync var_invalrng.values and is_missing on categories
             $options['metadata'] = $this->sync_invalrng_and_is_missing($options['metadata']);
+            // Remove var_catgry when sum_stats_options.freq is false
+            $options['metadata'] = $this->remove_catgry_when_freq_disabled($options['metadata']);
             
             $core=$this->get_variable_core_fields($options['metadata']);
             $options=array_merge($options,$core);
@@ -791,6 +799,20 @@ class Editor_variable_model extends ci_model {
         return $variable;
     }
 
+    /**
+     * Remove var_catgry from metadata when sum_stats_options.freq is false.
+     * var_catgry_labels is kept so user-edited labels can be restored when freq is re-enabled.
+     *
+     * @param array $variable Variable metadata array
+     * @return array Variable with var_catgry removed when freq is disabled
+     */
+    private function remove_catgry_when_freq_disabled($variable)
+    {
+        if (isset($variable['sum_stats_options']['freq']) && $variable['sum_stats_options']['freq'] === false) {
+            unset($variable['var_catgry']);
+        }
+        return $variable;
+    }
 
     function get_name_by_var_wgt_id($sid,$uid)
     {

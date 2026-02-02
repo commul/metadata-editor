@@ -48,6 +48,11 @@ Vue.component('variable-categories', {
             Vue.set(this.variable, 'var_catgry', []);
             Vue.set(this.variable, 'var_catgry_labels', []);
             
+            if (!this.variable.sum_stats_options) {
+                Vue.set(this.variable, 'sum_stats_options', {});
+            }
+            Vue.set(this.variable.sum_stats_options, 'freq', false);
+            
             // Emit update event
             this.$emit('update:value', this.variable);
             
