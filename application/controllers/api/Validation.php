@@ -141,7 +141,23 @@ class Validation extends MY_REST_Controller
             
             // Only validate variables for microdata/survey projects
             if ($type !== 'microdata' && $type !== 'survey') {
-                throw new Exception("Variables validation is only available for microdata and survey projects");
+                throw new Exception("Variables validation is only available for microdata projects");
+            }
+
+            // Get limit parameter (default to 50, max 1000)
+            $limit = $this->get('limit');
+            $limit = $limit ? min((int)$limit, 1000) : 50;
+
+            $mode = $this->get('mode');
+            if ($mode === 'light') {
+                // Fast SQL-only check: empty variable labels (no schema validation, no metadata decode)
+                $result = $this->_variables_validation_light($sid, $limit);
+                $response = array(
+                    'status' => 'success',
+                    'validation' => $result
+                );
+                $this->set_response($response, REST_Controller::HTTP_OK);
+                return;
             }
 
             $result = array(
@@ -149,14 +165,10 @@ class Validation extends MY_REST_Controller
                 'issues' => array()
             );
 
-            // Get limit parameter (default to 50, max 1000)
-            $limit = $this->get('limit');
-            $limit = $limit ? min((int)$limit, 1000) : 50;
-
             // Load variable model
             $this->load->model('Editor_variable_model');
             
-            // Validate all variables
+            // Validate all variables (full schema validation)
             $issues = array();
             $validated_count = 0;
             
@@ -244,6 +256,52 @@ class Validation extends MY_REST_Controller
             );
             $this->set_response($error_output, REST_Controller::HTTP_BAD_REQUEST);
         }
+    }
+
+    /**
+     * Light variables validation: SQL-only check for empty labels (no schema, no metadata decode).
+     * Used when mode=light on the variables validation endpoint.
+     *
+     * @param int $sid Project ID
+     * @param int $limit Max number of issues to return
+     * @return array Same shape as variables_get result: valid, issues, validated_count, total_issues, limit_reached?
+     */
+    private function _variables_validation_light($sid, $limit)
+    {
+        $sid = (int) $sid;
+        $this->db->select('uid, sid, fid, vid, name, labl');
+        $this->db->from('editor_variables');
+        $this->db->where('sid', $sid);
+        $this->db->where('(labl IS NULL OR TRIM(COALESCE(labl,\'\')) = \'\')', null, false);
+        $this->db->limit($limit);
+        $this->db->order_by('uid', 'asc');
+        $rows = $this->db->get()->result_array();
+
+        $issues = array();
+        foreach ($rows as $row) {
+            $variable_fid = isset($row['fid']) ? $row['fid'] : 'unknown';
+            $variable_name = isset($row['name']) ? $row['name'] : 'unknown';
+            $issues[] = array(
+                'type' => 'variable_validation_error',
+                'property' => 'labl',
+                'path' => 'variables/' . $variable_fid,
+                'message' => 'The property labl is required',
+                'variable_fid' => $variable_fid,
+                'variable_name' => $variable_name,
+                'variable_uid' => isset($row['uid']) ? $row['uid'] : null
+            );
+        }
+
+        $result = array(
+            'valid' => empty($issues),
+            'issues' => $issues,
+            'validated_count' => count($issues),
+            'total_issues' => count($issues)
+        );
+        if (count($issues) >= $limit) {
+            $result['limit_reached'] = true;
+        }
+        return $result;
     }
 
     /**
