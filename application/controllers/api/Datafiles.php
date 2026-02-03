@@ -392,10 +392,13 @@ class Datafiles extends MY_REST_Controller
 	}
 
 	/**
+	 * 
 	 * Create a zip of exported tmp files in project data/tmp.
+	 * 
 	 * POST /api/datafiles/batch_export_zip/{sid}
 	 * Body: { "filenames": [ "survey1.csv", "survey1.dta", ... ], "zip_filename": "optional.zip" }
 	 * zip_filename: optional target zip name (e.g. example_file1.zip for single file). Default: batch_export_YYYYMMDD_HHMMSS.zip
+	 * 
 	 */
 	function batch_export_zip_post($sid = null)
 	{
@@ -446,7 +449,6 @@ class Datafiles extends MY_REST_Controller
 				throw new Exception("No valid files to add to zip");
 			}
 
-			// Optional target zip filename (e.g. example_file1.zip for single file export)
 			$zip_filename = isset($body['zip_filename']) && is_string($body['zip_filename']) && trim($body['zip_filename']) !== ''
 				? trim($body['zip_filename'])
 				: '';

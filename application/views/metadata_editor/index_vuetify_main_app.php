@@ -167,6 +167,7 @@
 
             echo $this->load->view("metadata_editor/vue-variable-edit-documentation-component.js",null,true);
             echo $this->load->view("metadata_editor/vue-variables-component.js",null,true);
+            echo $this->load->view("metadata_editor/vue-variables-diff-component.js",null,true);
             echo $this->load->view("metadata_editor/vue-variable-edit-component.js",null,true);
             echo $this->load->view("metadata_editor/vue-variable-weights-component.js",null,true);
             echo $this->load->view("metadata_editor/vue-variable-categories-component.js",null,true);
@@ -314,6 +315,7 @@
             { path: '/datafiles', component: Datafiles },
             { path: '/datafiles/import', component: DatafileImport },
             { path: '/variables/:file_id', component: Variables, props: true },
+            { path: '/variables-diff/:file_id', component: { props: ['file_id'], template: '<div><variables-diff></variables-diff></div>' }, props: true, name: 'variables-diff' },
             { path: '/variable-groups', component: VariableGroups},
             { path: '/external-resources', component: ResourcesComp, props: true, name: 'external-resources'},
             { path: '/external-resources/create', component: ResourcesCreateComp, props: true, name: 'external-resources-create'},

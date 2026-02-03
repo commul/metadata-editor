@@ -325,6 +325,9 @@ $lang['clear']="Clear";
 $lang['refresh_stats']="Refresh stats";
 $lang['change_case']="Change case";
 $lang['spread_metadata']="Spread metadata";
+$lang['variables_vs_csv_mismatch_tooltip']="Variables and Data are out of sync.";
+$lang['variables_match_csv']="Variables match data file columns.";
+$lang['confirm_remove_variables']="Are you sure you want to remove selected variables?";
 $lang['delete_selection']="Delete selection";
 $lang['weight_variable']="Weight variable";
 $lang['weighted']="Weighted";
@@ -595,6 +598,8 @@ $lang['too_many_categories_message'] = "This variable contains large number of c
 $lang['too_many_categories_frequencies_message'] = "This variable has a large number of categories. Frequencies are not displayed for performance reasons.";
 $lang['confirm_delete_all_categories'] = "Are you sure you want to delete all {count} categories? This action cannot be undone.";
 $lang['all_categories_deleted'] = "All {count} categories have been deleted.";
+$lang['columns_in_db_not_in_csv_help'] = "Variables found in metadata that are not present in the data file.";
+$lang['metadata_columns_diff'] = "Metadata columns mismatch";
 
 /* End of file project_lang.php */
 /* Location: ./application/language/english/project_lang.php */

@@ -87,7 +87,9 @@ Vue.component('variables', {
             is_initializing_multi:false, //to ignore watch from triggering during multi-variable initialization
             is_navigating:false, //to ignore watch from triggering during navigation
             variables_loading:false, // true while loading variables for this file (on-demand load)
-            spread_metadata_loading:false // true while loading all variables for spread-metadata dialog
+            spread_metadata_loading:false, // true while loading all variables for spread-metadata dialog
+            columns_diff: null, // result from api/datafiles/columns_diff: { in_sync, csv_exists, ... }
+            columns_diff_loading: false
             
         }
     }, 
@@ -167,16 +169,39 @@ Vue.component('variables', {
             }
             var vars = this.$store.getters.getVariablesByFid(this.fid);
             if (vars !== undefined && Array.isArray(vars)) {
+                vm.fetchColumnsDiff();
                 return Promise.resolve();
             }
             this.variables_loading = true;
             return this.$store.dispatch('loadVariables', { dataset_id: this.ProjectID, fid: this.fid })
                 .then(function() {
                     vm.variables_loading = false;
+                    vm.fetchColumnsDiff();
                 })
                 .catch(function(err) {
                     vm.variables_loading = false;
                     console.log('error loading variables', err);
+                });
+        },
+        fetchColumnsDiff: function() {
+            var vm = this;
+            if (!this.fid || !this.ProjectID) {
+                return;
+            }
+            vm.columns_diff_loading = true;
+            vm.columns_diff = null;
+            var url = CI.base_url + '/api/datafiles/columns_diff/' + vm.ProjectID + '/' + encodeURIComponent(vm.fid);
+            axios.get(url)
+                .then(function(response) {
+                    vm.columns_diff_loading = false;
+                    if (response.data && response.data.status === 'success' && response.data.columns_diff) {
+                        vm.columns_diff = response.data.columns_diff;
+                    }
+                })
+                .catch(function(err) {
+                    vm.columns_diff_loading = false;
+                    vm.columns_diff = null;
+                    console.log('columns_diff error', err);
                 });
         },
         clearVariableSearch: function(){
@@ -734,7 +759,9 @@ Vue.component('variables', {
             }
         },
         reloadDataFileVariables: async function(){
-            return await this.$store.dispatch('loadVariables',{dataset_id:this.ProjectID, fid:this.fid});
+            var result = await this.$store.dispatch('loadVariables',{dataset_id:this.ProjectID, fid:this.fid});
+            this.fetchColumnsDiff();
+            return result;
         },
         sleep: function(ms) {
             return new Promise(resolve => setTimeout(resolve, ms));
@@ -911,6 +938,32 @@ Vue.component('variables', {
 
             return vars;
         },
+        columnsDiffCount(){
+            if (!this.columns_diff || this.columns_diff.in_sync) return 0;
+            var count = 0;
+            if (this.columns_diff.columns_in_db_not_in_csv && this.columns_diff.columns_in_db_not_in_csv.length) {
+                count += this.columns_diff.columns_in_db_not_in_csv.length;
+            }
+            return count;
+        },
+        columnsDiffTooltip(){
+            if (!this.columns_diff || this.columns_diff.in_sync) return '';
+
+            var count = 0;
+            if (this.columns_diff.columns_in_db_not_in_csv && this.columns_diff.columns_in_db_not_in_csv.length) {
+                count += this.columns_diff.columns_in_db_not_in_csv.length;
+            }
+
+            /*
+            if (this.columns_diff.columns_to_remove_from_csv && this.columns_diff.columns_to_remove_from_csv.length) {
+                count += this.columns_diff.columns_to_remove_from_csv.length;
+            }
+            */
+
+            if (count == 0) return '';
+            var msg = this.$t('variables_vs_csv_mismatch_tooltip');
+            return msg + " (" + count + ")";
+        },
         duplicateVariableNamesCount(){
             return Object.keys(this.duplicateVariableNames).length;
         },
@@ -986,11 +1039,25 @@ Vue.component('variables', {
                                 
                                     <div class="float-right" >
                                     
+                                        
                                         <span v-if="duplicateVariableNamesCount>0">
                                             <v-icon :title="$t('duplicate_variables_count', {count: duplicateVariableNamesCount})" aria-hidden="false" class="var-icon" style="color:red">mdi-alert-box</v-icon>                                            
                                         </span>
 
                                         <span v-show="edit_items.length>0">
+
+                                            <span v-if="columns_diff_loading" class="mr-1">
+                                                <v-icon class="var-icon" style="opacity:0.6">mdi-sync</v-icon>
+                                            </span>
+                                            <span v-else-if="columnsDiffCount>0" @click="$router.push('/variables-diff/' + fid)" style="cursor:pointer;">
+                                            <v-tooltip bottom color="red">
+                                                <template v-slot:activator="{ on, attrs }">
+                                                    <v-icon aria-hidden="false" class="var-icon" style="color:red" v-bind="attrs" v-on="on">mdi-alert-box</v-icon>
+                                                </template>
+                                                <span>{{ columnsDiffTooltip }}</span>
+                                            </v-tooltip>
+                                            </span>
+
                                             <span @click="refreshSummaryStats" :title="$t('refresh_stats')">
                                                 <v-icon aria-hidden="false" class="var-icon">mdi-database-sync</v-icon>
                                             </span>
