@@ -41,6 +41,9 @@ $lang['export_csv']="Exportar CSV";
 $lang['remove']="Eliminar";
 $lang['actions']="Acciones";
 $lang['replace_file']="Reemplazar archivo";
+$lang['duplicate_data_file']="Duplicar archivo de datos";
+$lang['confirm_duplicate_data_file']="¿Duplicar este archivo de datos? Se creará un nuevo archivo con los mismos metadatos, variables y datos (CSV).";
+$lang['data_file_duplicated_successfully']="Archivo de datos duplicado correctamente.";
 $lang['confirm_import_summary_statistics']="¿Estás seguro de que quieres importar estadísticas resumidas para este archivo? Esto sobrescribirá cualquier estadística resumida existente.";
 $lang['summary_stats']="Estadísticas resumidas";
 
@@ -549,6 +552,9 @@ $lang['too_many_categories_message'] = "Esta variable contiene un gran número d
 $lang['too_many_categories_frequencies_message'] = "Esta variable tiene un gran número de categorías. Las frecuencias no se muestran por razones de rendimiento.";
 $lang['confirm_delete_all_categories'] = "¿Está seguro de que desea eliminar todas las {count} categorías? Esta acción no se puede deshacer.";
 $lang['all_categories_deleted'] = "Se han eliminado todas las {count} categorías.";
+
+$lang['columns_in_db_not_in_csv_help'] = "Variables encontradas en los metadatos que no están presentes en el archivo de datos.";
+$lang['metadata_columns_diff'] = "Discrepancia de columnas de metadatos";
 
 /* End of file project_lang.php */
 /* Location: ./application/language/spanish/project_lang.php */

@@ -875,6 +875,135 @@ class Editor_datafile_model extends CI_Model {
 	}
 
 
+	/**
+	 * Duplicate a data file: create a new data file row, copy the CSV file, and copy all variables.
+	 * New file_id and file_name are generated. Variable vids are reassigned (project-wide unique).
+	 * Weight variable references (var_wgt_id) are remapped to the new variable uids.
+	 *
+	 * @param int $sid Project ID
+	 * @param string $source_file_id Source data file ID (e.g. F1)
+	 * @param int|null $user_id User ID for created_by/changed_by
+	 * @return array The new data file row (with file_id, file_name, etc.)
+	 */
+	function duplicate_datafile($sid, $source_file_id, $user_id = null)
+	{
+		$this->Editor_model->check_project_editable($sid);
+
+		$source = $this->data_file_by_id($sid, $source_file_id);
+		if (!$source) {
+			throw new Exception("Data file not found: " . $source_file_id);
+		}
+
+		$new_file_id = $this->generate_fileid($sid);
+		$base_name = $this->filename_part($source['file_name']);
+		$new_file_name = $base_name . '_copy';
+		$counter = 0;
+		while ($this->data_file_by_name($sid, $new_file_name)) {
+			$counter++;
+			$new_file_name = $base_name . '_copy' . ($counter > 1 ? $counter : '');
+		}
+		$ext = $this->get_file_extension($source['file_physical_name']);
+		$new_file_physical_name = $new_file_name . ($ext ? '.' . $ext : '');
+		$new_csv_name = $new_file_name . '.csv';
+
+		$project_folder = $this->Editor_model->get_project_folder($sid);
+		$data_folder = rtrim($project_folder, DIRECTORY_SEPARATOR) . DIRECTORY_SEPARATOR . 'data' . DIRECTORY_SEPARATOR;
+
+		$now = date("U");
+		$options = array(
+			'sid' => $sid,
+			'file_id' => $new_file_id,
+			'file_name' => $new_file_name,
+			'file_physical_name' => $new_file_physical_name,
+			'description' => $source['description'],
+			'case_count' => $source['case_count'],
+			'var_count' => $source['var_count'],
+			'producer' => $source['producer'],
+			'data_checks' => $source['data_checks'],
+			'missing_data' => $source['missing_data'],
+			'version' => $source['version'],
+			'notes' => $source['notes'],
+			'metadata' => $source['metadata'],
+			'wght' => $this->max_wght($sid) + 1,
+			'store_data' => isset($source['store_data']) ? (int)$source['store_data'] : 1,
+			'created' => $now,
+			'changed' => $now,
+			'created_by' => $user_id,
+			'changed_by' => $user_id,
+		);
+		$this->db->insert('editor_data_files', $options);
+		$new_pk_id = $this->db->insert_id();
+		if (!$new_pk_id) {
+			throw new Exception("Failed to insert duplicate data file");
+		}
+
+		// Copy physical CSV if it exists (so the duplicate has the same data)
+		$source_csv_path = $this->get_file_csv_path($sid, $source_file_id);
+		if ($source_csv_path && file_exists($source_csv_path) && is_file($source_csv_path)) {
+			$dest_csv_path = $data_folder . $new_csv_name;
+			if (!copy($source_csv_path, $dest_csv_path)) {
+				throw new Exception("Failed to copy data file to " . $new_csv_name);
+			}
+			$this->db->where('id', $new_pk_id);
+			$this->db->update('editor_data_files', array('file_physical_name' => $new_csv_name, 'changed' => $now));
+		}
+
+		// Copy variables: load all for source file, assign new vids, insert for new file, then fix var_wgt_id
+		$this->load->model('Editor_variable_model');
+		$this->db->select('*');
+		$this->db->where('sid', $sid);
+		$this->db->where('fid', $source_file_id);
+		$this->db->order_by('sort_order, uid');
+		$variables = $this->db->get('editor_variables')->result_array();
+
+		$max_vid = $this->Editor_variable_model->get_max_vid($sid);
+		$uid_map = array(); // old_uid => new_uid
+		$var_wgt_updates = array(); // new_uid => old_var_wgt_id (to update to new uid later)
+
+		foreach ($variables as $idx => $row) {
+			$old_uid = (int)$row['uid'];
+			$old_var_wgt_id = isset($row['var_wgt_id']) ? (int)$row['var_wgt_id'] : 0;
+			$max_vid++;
+			$new_vid = 'V' . $max_vid;
+
+			$metadata = $this->Editor_model->decode_metadata(isset($row['metadata']) ? $row['metadata'] : '');
+			if (is_array($metadata)) {
+				$metadata['fid'] = $new_file_id;
+				$metadata['vid'] = $new_vid;
+			}
+
+			$insert_opts = array(
+				'sid' => $sid,
+				'fid' => $new_file_id,
+				'vid' => $new_vid,
+				'name' => $row['name'],
+				'labl' => $row['labl'],
+				'sort_order' => isset($row['sort_order']) ? (int)$row['sort_order'] : 0,
+				'user_missings' => $row['user_missings'],
+				'is_weight' => isset($row['is_weight']) ? (int)$row['is_weight'] : 0,
+				'is_key' => isset($row['is_key']) ? (int)$row['is_key'] : 0,
+				'field_dtype' => $row['field_dtype'],
+				'field_format' => isset($row['field_format']) ? $row['field_format'] : null,
+				'var_wgt_id' => 0,
+				'interval_type' => isset($row['interval_type']) ? $row['interval_type'] : null,
+				'metadata' => $metadata,
+			);
+			$new_uid = $this->Editor_variable_model->insert($sid, $insert_opts);
+			$uid_map[$old_uid] = $new_uid;
+			if ($old_var_wgt_id > 0) {
+				$var_wgt_updates[$new_uid] = $old_var_wgt_id;
+			}
+		}
+
+		// Update var_wgt_id on new variables to point to new uids
+		foreach ($var_wgt_updates as $new_uid => $old_var_wgt_id) {
+			$new_var_wgt_id = isset($uid_map[$old_var_wgt_id]) ? $uid_map[$old_var_wgt_id] : 0;
+			$this->Editor_variable_model->update($sid, $new_uid, array('var_wgt_id' => $new_var_wgt_id));
+		}
+
+		return $this->data_file_by_id($sid, $new_file_id);
+	}
+
 	function get_varcount($sid)
 	{
 		$this->db->select("sid,fid, count(*) as varcount");

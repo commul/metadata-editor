@@ -41,6 +41,9 @@ $lang['export_csv']="CSV eksport qilish";
 $lang['remove']="Olib tashlash";
 $lang['actions']="Harakatlar";
 $lang['replace_file']="Faylni almashtirish";
+$lang['duplicate_data_file']="Ma'lumotlar faylini nusxalash";
+$lang['confirm_duplicate_data_file']="Ushbu ma'lumotlar faylini nusxalash? Xuddi shu metadata, o'zgaruvchilar va ma'lumotlar (CSV) bilan yangi fayl yaratiladi.";
+$lang['data_file_duplicated_successfully']="Ma'lumotlar fayli muvaffaqiyatli nusxalandi.";
 $lang['confirm_import_summary_statistics']="Ushbu fayl uchun umumiy statistikani import qilishni xohlaysizmi? Bu mavjud umumiy statistikani ustiga yozadi.";
 $lang['summary_stats']="Umumiy statistika";
 
@@ -593,6 +596,9 @@ $lang['too_many_categories_message'] = "Bu o'zgaruvchi juda ko'p kategoriyalarni
 $lang['too_many_categories_frequencies_message'] = "Bu o'zgaruvchi juda ko'p kategoriyalarga ega. Ishlash sabablariga ko'ra chastotalar ko'rsatilmaydi.";
 $lang['confirm_delete_all_categories'] = "Barcha {count} kategoriyalarni o'chirishni xohlaysizmi? Bu amalni bekor qilib bo'lmaydi.";
 $lang['all_categories_deleted'] = "Barcha {count} kategoriyalar o'chirildi.";
+
+$lang['columns_in_db_not_in_csv_help'] = "Metadatalarda topilgan, lekin ma'lumotlar faylida mavjud bo'lmagan o'zgaruvchilar.";
+$lang['metadata_columns_diff'] = "Metadatalar ustunlari mos kelmasligi";
 
 /* End of file project_lang.php */
 /* Location: ./application/language/uzbek/project_lang.php */

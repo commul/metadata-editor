@@ -189,6 +189,28 @@ Vue.component('datafiles', {
             this.dialog_datafile_import_fid=data_file.file_id;
             this.dialog_datafile_import=true;
         },
+        duplicateFile: async function(file_idx){
+            let data_file = this.data_files[file_idx];
+            if (!data_file) return;
+            if (!confirm(this.$t("confirm_duplicate_data_file"))) return;
+            let vm = this;
+            let url = CI.base_url + '/api/datafiles/duplicate/' + vm.dataset_id + '/' + encodeURIComponent(data_file.file_id);
+            try {
+                let response = await axios.post(url, {});
+                if (response.data && response.data.status === 'success') {
+                    await vm.reloadDataFiles();
+                    vm.dialog.show = true;
+                    vm.dialog.title = vm.$t("duplicate_data_file");
+                    vm.dialog.is_loading = false;
+                    vm.dialog.message_success = vm.$t("data_file_duplicated_successfully");
+                } else {
+                    alert(vm.$t("failed") + ": " + (response.data && response.data.message ? response.data.message : "Unknown error"));
+                }
+            } catch (error) {
+                let message = (error.response && error.response.data && error.response.data.message) ? error.response.data.message : error.message;
+                alert(vm.$t("failed") + ": " + message);
+            }
+        },
         exportFile: function(file_idx, format){
             let data_file = this.data_files[file_idx];
             this.export_dialog.file_id = data_file.file_id;
@@ -589,6 +611,13 @@ Vue.component('datafiles', {
                                                 <v-icon>mdi-file-upload-outline</v-icon>
                                             </v-list-item-icon>
                                             <v-list-item-title>{{$t("Replace file")}}</v-list-item-title>
+                                        </v-list-item>
+                                        
+                                        <v-list-item @click="duplicateFile(index)">
+                                            <v-list-item-icon>
+                                                <v-icon>mdi-content-copy</v-icon>
+                                            </v-list-item-icon>
+                                            <v-list-item-title>{{$t("duplicate_data_file")}}</v-list-item-title>
                                         </v-list-item>
                                         
                                         <v-divider></v-divider>

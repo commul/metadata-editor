@@ -280,6 +280,39 @@ class Datafiles extends MY_REST_Controller
 	}
 
 	/**
+	 * Duplicate a data file: creates a new data file with a new file_id and file_name,
+	 * copies all variables, and copies the CSV data file.
+	 *
+	 * POST api/datafiles/duplicate/{sid}/{file_id}
+	 */
+	function duplicate_post($sid = null, $file_id = null)
+	{
+		try {
+			$sid = $this->get_sid($sid);
+			$this->editor_acl->user_has_project_access($sid, $permission = 'edit', $this->api_user);
+
+			if (!$file_id) {
+				throw new Exception("Missing required parameter: file_id");
+			}
+
+			$user_id = $this->get_api_user_id();
+			$new_datafile = $this->Editor_datafile_model->duplicate_datafile($sid, $file_id, $user_id);
+
+			$response = array(
+				'status' => 'success',
+				'datafile' => $new_datafile
+			);
+			$this->set_response($response, REST_Controller::HTTP_OK);
+		} catch (Exception $e) {
+			$error_output = array(
+				'status' => 'failed',
+				'message' => $e->getMessage()
+			);
+			$this->set_response($error_output, REST_Controller::HTTP_BAD_REQUEST);
+		}
+	}
+
+	/**
 	 * 
 	 * 
 	 * Delete a data file

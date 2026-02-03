@@ -41,6 +41,9 @@ $lang['export_csv']="Export CSV";
 $lang['remove']="Remove";
 $lang['actions']="Actions";
 $lang['replace_file']="Replace file";
+$lang['duplicate_data_file']="Duplicate data file";
+$lang['confirm_duplicate_data_file']="Duplicate this data file? This will create a new file with the same metadata, variables, and data (CSV).";
+$lang['data_file_duplicated_successfully']="Data file duplicated successfully.";
 $lang['confirm_import_summary_statistics']="Are you sure you want to import summary statistics for this file? This will overwrite any existing summary statistics.";
 $lang['summary_stats']="Summary statistics";
 
