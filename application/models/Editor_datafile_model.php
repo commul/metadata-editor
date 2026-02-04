@@ -876,7 +876,7 @@ class Editor_datafile_model extends CI_Model {
 
 
 	/**
-	 * Duplicate a data file: create a new data file row, copy the CSV file, and copy all variables.
+	 * Duplicate a data file: create a new data file, copy the CSV file, and copy all variables.
 	 * New file_id and file_name are generated. Variable vids are reassigned (project-wide unique).
 	 * Weight variable references (var_wgt_id) are remapped to the new variable uids.
 	 *
@@ -937,7 +937,7 @@ class Editor_datafile_model extends CI_Model {
 			throw new Exception("Failed to insert duplicate data file");
 		}
 
-		// Copy physical CSV if it exists (so the duplicate has the same data)
+		// Copy physical CSV if it exists
 		$source_csv_path = $this->get_file_csv_path($sid, $source_file_id);
 		if ($source_csv_path && file_exists($source_csv_path) && is_file($source_csv_path)) {
 			$dest_csv_path = $data_folder . $new_csv_name;
