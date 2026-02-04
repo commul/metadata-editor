@@ -479,3 +479,11 @@ SET `template_type` = CASE
     WHEN `uid` LIKE '%__core' THEN 'generated'
     ELSE 'custom'
 END;
+
+-- Seed default custom template mapping if missing
+INSERT INTO `editor_templates_default` (`data_type`, `template_uid`)
+SELECT 'custom', 'custom-system-en'
+WHERE NOT EXISTS (
+  SELECT 1 FROM `editor_templates_default`
+  WHERE `data_type`='custom' AND `template_uid`='custom-system-en'
+);

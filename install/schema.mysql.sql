@@ -605,27 +605,6 @@ CREATE TABLE `editor_collection_acl` (
 ) ENGINE=InnoDB AUTO_INCREMENT=1 DEFAULT CHARSET=utf8mb4;
 
 
-create table editor_project_tags (
-  id int not null auto_increment,
-  sid int not null,
-  tag_id int not null,
-  primary key (id)
-) DEFAULT CHARSET=utf8mb4;
-
-
-CREATE TABLE editor_tags(  
-    id int NOT NULL PRIMARY KEY AUTO_INCREMENT,    
-    tag VARCHAR(255) not null
-) DEFAULT CHARSET=utf8mb4;
-
-
-CREATE TABLE editor_project_tags(  
-    id int NOT NULL PRIMARY KEY AUTO_INCREMENT,
-    sid int not null,
-    tag_id int not null
-) DEFAULT CHARSET=utf8mb4;
-
-
 CREATE TABLE `editor_variable_groups` (
   `id` int(11) NOT NULL AUTO_INCREMENT,
   `sid` int(11) DEFAULT NULL,
