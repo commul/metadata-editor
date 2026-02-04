@@ -44,6 +44,11 @@ $lang['replace_file']="Faylni almashtirish";
 $lang['duplicate_data_file']="Ma'lumotlar faylini nusxalash";
 $lang['confirm_duplicate_data_file']="Ushbu ma'lumotlar faylini nusxalash? Xuddi shu metadata, o'zgaruvchilar va ma'lumotlar (CSV) bilan yangi fayl yaratiladi.";
 $lang['data_file_duplicated_successfully']="Ma'lumotlar fayli muvaffaqiyatli nusxalandi.";
+$lang['export_metadata']="Metadatalarni eksport qilish";
+$lang['import_metadata']="Metadatalarni import qilish";
+$lang['import_metadata_replace_help']="Ushbu faylning metadata va o'zgaruvchilarini almashtirish uchun JSON fayl yuklang. Mavjud o'zgaruvchilar o'chiriladi va almashtiriladi.";
+$lang['import_metadata_success']="Metadata va o'zgaruvchilar muvaffaqiyatli import qilindi.";
+$lang['please_select_file']="Iltimos, fayl tanlang.";
 $lang['confirm_import_summary_statistics']="Ushbu fayl uchun umumiy statistikani import qilishni xohlaysizmi? Bu mavjud umumiy statistikani ustiga yozadi.";
 $lang['summary_stats']="Umumiy statistika";
 

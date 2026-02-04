@@ -314,6 +314,89 @@ class Datafiles extends MY_REST_Controller
 
 	/**
 	 * 
+	 * Export metadata for a single data file and its variables as JSON download.
+	 * 
+	 * 
+	 * Response: attachment {file_name}_metadata.json
+	 */
+	function export_metadata_get($sid = null, $file_id = null)
+	{
+		try {
+			$sid = $this->get_sid($sid);
+			if (!$file_id) {
+				throw new Exception("Missing required parameter: file_id");
+			}
+			$this->editor_acl->user_has_project_access($sid, $permission = 'view', $this->api_user);
+
+			$this->load->library('Project_json_writer');
+			$this->project_json_writer->download_datafile_metadata_json($sid, $file_id);			
+			return;
+		} catch (Exception $e) {
+			$error_output = array(
+				'status' => 'failed',
+				'message' => $e->getMessage()
+			);
+			$this->set_response($error_output, REST_Controller::HTTP_BAD_REQUEST);
+		}
+	}
+
+	/**
+	 * Replace metadata for an existing data file and its variables.
+	 * POST api/datafiles/replace_metadata/{sid}/{file_id}
+	 * Body: multipart with 'file' = JSON file, or raw JSON { "datafile": {...}, "variables": [...] }
+	 */
+	function replace_metadata_post($sid = null, $file_id = null)
+	{
+		try {
+			$sid = $this->get_sid($sid);
+			if (!$file_id) {
+				throw new Exception("Missing required parameter: file_id");
+			}
+			$this->editor_acl->user_has_project_access($sid, $permission = 'edit', $this->api_user);
+
+			$payload = null;
+			if (!empty($_FILES['file']['tmp_name']) && is_uploaded_file($_FILES['file']['tmp_name'])) {
+				$this->load->model('Editor_resource_model');
+				$allowed = 'json';
+				$uploaded = $this->Editor_resource_model->upload_temporary_file($allowed, $file_field_name = 'file', $temp_upload_folder = null);
+				if (!file_exists($uploaded)) {
+					throw new Exception("Failed to upload file");
+				}
+				$json = file_get_contents($uploaded);
+				$payload = json_decode($json, true);
+			} else {
+				$payload = $this->raw_json_input();
+			}
+
+			if (!$payload || !is_array($payload)) {
+				throw new Exception("Invalid or missing JSON payload. Expected { \"datafile\": {...}, \"variables\": [...] }");
+			}
+
+			$this->load->library('ImportJsonMetadata');
+			$user_id = $this->get_api_user_id();
+			$result = $this->importjsonmetadata->replace_datafile_metadata($sid, $file_id, $payload, $validate = true, $user_id);
+
+			$this->set_response(array(
+				'status' => 'success',
+				'datafile' => $result['datafile'],
+				'variables_count' => $result['variables_count']
+			), REST_Controller::HTTP_OK);
+		} catch (ValidationException $e) {
+			$this->set_response(array(
+				'status' => 'failed',
+				'message' => $e->getMessage(),
+				'errors' => $e->GetValidationErrors()
+			), REST_Controller::HTTP_BAD_REQUEST);
+		} catch (Exception $e) {
+			$this->set_response(array(
+				'status' => 'failed',
+				'message' => $e->getMessage()
+			), REST_Controller::HTTP_BAD_REQUEST);
+		}
+	}
+
+	/**
+	 * 
 	 * 
 	 * Delete a data file
 	 * 

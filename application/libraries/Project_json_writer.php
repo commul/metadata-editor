@@ -45,6 +45,68 @@ class Project_json_writer
 	}
 
 	/**
+	 * Export metadata for a single data file and its variables as JSON and stream as download.
+	 * 
+	 * Filename: {file_name}_metadata.json
+	 * Structure: { "datafile": {...}, "variables": [...] } (same shape as project JSON subset).
+	 *
+	 * @param int $sid Project ID
+	 * @param string $file_id Data file ID (e.g. F1)
+	 */
+	function download_datafile_metadata_json($sid, $file_id)
+	{
+		$datafile = $this->ci->Editor_datafile_model->data_file_by_id($sid, $file_id);
+		if (!$datafile) {
+			throw new Exception("Data file not found: " . $file_id);
+		}
+
+		$exclude_fields = array('id', 'sid', 'file_physical_name', 'store_data', 'created', 'changed', 'created_by', 'changed_by');
+		foreach ($exclude_fields as $field) {
+			if (array_key_exists($field, $datafile)) {
+				unset($datafile[$field]);
+			}
+		}
+
+		$writer = $this;
+		$variables_generator = function () use ($sid, $file_id, $writer) {
+			$writer->uid_vid_cache = $writer->ci->Editor_variable_model->uid_vid_list($sid);
+			try {
+				$offset = 0;
+				$batch = 200;
+				do {
+					$writer->ci->db->select('uid,sid,fid,metadata');
+					$writer->ci->db->where('sid', (int)$sid);
+					$writer->ci->db->where('fid', $file_id);
+					$writer->ci->db->order_by('sort_order, uid');
+					$writer->ci->db->limit($batch, $offset);
+					$rows = $writer->ci->db->get('editor_variables')->result_array();
+					foreach ($rows as $row) {
+						$row['metadata'] = $writer->ci->Editor_model->decode_metadata(isset($row['metadata']) ? $row['metadata'] : '');
+						$transformed = $writer->transform_variable($row);
+						yield $transformed['metadata'];
+					}
+					$offset += $batch;
+				} while (count($rows) === $batch);
+			} finally {
+				$writer->uid_vid_cache = null;
+			}
+		};
+
+		$output = array(
+			'datafile' => $datafile,
+			'variables' => $variables_generator
+		);
+
+		$file_name = isset($datafile['file_name']) ? $datafile['file_name'] : $file_id;
+		$safe_filename = preg_replace('/[^a-zA-Z0-9_\-\.]/', '_', $file_name) . '_metadata.json';
+
+		header("Content-type: application/json; charset=utf-8");
+		header('Content-Disposition: attachment; filename="' . $safe_filename . '"');
+		$encoder = new \Violet\StreamingJsonEncoder\StreamJsonEncoder($output, null);
+		$encoder->encode();
+	}
+
+	/**
 	 * 
 	 * Remove private fields from JSON
 	 * 

@@ -1219,6 +1219,65 @@ class ImportJsonMetadata
         }
     }
 
+    /**
+     * Replace metadata for an existing data file and its variables.
+     * Updates the data file row from payload, deletes existing variables, then imports variables from payload.
+     * Payload format (same as export): { "datafile": {...}, "variables": [...] }
+     *
+     * @param int $sid Project ID
+     * @param string $file_id Target data file ID to replace (e.g. F1)
+     * @param array $payload Must have keys 'datafile' (object) and 'variables' (array)
+     * @param bool $validate Whether to validate datafile and variables
+     * @param int|null $user_id User ID for changed_by
+     * @return array ['datafile' => updated row, 'variables_count' => N]
+     */
+    public function replace_datafile_metadata($sid, $file_id, $payload, $validate = true, $user_id = null)
+    {
+        if (!isset($payload['datafile']) || !is_array($payload['datafile'])) {
+            throw new Exception("Payload must contain 'datafile' object.");
+        }
+        if (!isset($payload['variables']) || !is_array($payload['variables'])) {
+            throw new Exception("Payload must contain 'variables' array.");
+        }
+
+        $existing = $this->ci->Editor_datafile_model->data_file_by_id($sid, $file_id);
+        if (!$existing) {
+            throw new Exception("Data file not found: " . $file_id);
+        }
+
+        $datafile = $payload['datafile'];
+        $variables = $payload['variables'];
+
+        // Allowed fields to update
+        $allowed = array('description', 'case_count', 'var_count', 'producer', 'data_checks', 'missing_data', 'version', 'notes', 'metadata', 'wght');
+        $options = array();
+        foreach ($allowed as $key) {
+            if (array_key_exists($key, $datafile)) {
+                $options[$key] = $datafile[$key];
+            }
+        }
+        $options['changed'] = date("U");
+        if ($user_id !== null) {
+            $options['changed_by'] = $user_id;
+        }
+
+        // Skip validate_data_file for replace
+        $this->ci->Editor_datafile_model->data_file_update($existing['id'], $options);
+
+        // Delete existing variables
+        $this->ci->Editor_datafile_model->delete_variables($sid, $file_id);
+
+        // Import new variables
+        $source_file_id = isset($datafile['file_id']) ? $datafile['file_id'] : $file_id;
+        $file_id_mapping = array($source_file_id => $file_id);
+        $this->import_variable_metadata($sid, $variables, $file_id_mapping, $validate);
+
+        $updated = $this->ci->Editor_datafile_model->data_file_by_id($sid, $file_id);
+        return array(
+            'datafile' => $updated,
+            'variables_count' => count($variables)
+        );
+    }
 
     function get_variable_category_value_labels($variable)
     {

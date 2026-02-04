@@ -44,6 +44,10 @@ $lang['replace_file']="Replace file";
 $lang['duplicate_data_file']="Duplicate data file";
 $lang['confirm_duplicate_data_file']="Duplicate this data file? This will create a new file with the same metadata, variables, and data (CSV).";
 $lang['data_file_duplicated_successfully']="Data file duplicated successfully.";
+$lang['export_metadata']="Export metadata";
+$lang['import_metadata']="Import metadata";
+$lang['import_metadata_replace_help']="Upload a JSON file to replace this file's metadata and variables. Existing variables will be removed and replaced.";
+$lang['import_metadata_success']="Metadata and variables imported successfully.";
 $lang['confirm_import_summary_statistics']="Are you sure you want to import summary statistics for this file? This will overwrite any existing summary statistics.";
 $lang['summary_stats']="Summary statistics";
 

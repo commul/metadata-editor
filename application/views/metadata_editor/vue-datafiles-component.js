@@ -30,6 +30,15 @@ Vue.component('datafiles', {
                 file_physical_name:''
             },
             batch_export_dialog_show: false,
+            dialog_import_metadata: {
+                show: false,
+                file_id: null,
+                file_name: '',
+                selected_file: null,
+                uploading: false,
+                message_success: '',
+                message_error: ''
+            },
             attrs: {}
             
         }
@@ -188,6 +197,54 @@ Vue.component('datafiles', {
             let data_file=this.data_files[file_idx];
             this.dialog_datafile_import_fid=data_file.file_id;
             this.dialog_datafile_import=true;
+        },
+        exportMetadataFile: function(file_idx){
+            let data_file = this.data_files[file_idx];
+            if (!data_file) return;
+            let url = CI.base_url + '/api/datafiles/export_metadata/' + this.dataset_id + '/' + encodeURIComponent(data_file.file_id);
+            window.location.href = url;
+        },
+        openImportMetadataDialog: function(file_idx){
+            let data_file = this.data_files[file_idx];
+            if (!data_file) return;
+            this.dialog_import_metadata.show = true;
+            this.dialog_import_metadata.file_id = data_file.file_id;
+            this.dialog_import_metadata.file_name = data_file.file_name || data_file.file_id;
+            this.dialog_import_metadata.selected_file = null;
+            this.dialog_import_metadata.uploading = false;
+            this.dialog_import_metadata.message_success = '';
+            this.dialog_import_metadata.message_error = '';
+        },
+        submitImportMetadata: async function(){
+            var raw = this.dialog_import_metadata.selected_file;
+            var file = Array.isArray(raw) ? (raw.length ? raw[0] : null) : raw;
+            if (!file || !(file instanceof File)) {
+                this.dialog_import_metadata.message_error = this.$t("please_select_file");
+                return;
+            }
+            let vm = this;
+            let url = CI.base_url + '/api/datafiles/replace_metadata/' + vm.dataset_id + '/' + encodeURIComponent(this.dialog_import_metadata.file_id);
+            let formData = new FormData();
+            formData.append('file', file);
+            this.dialog_import_metadata.uploading = true;
+            this.dialog_import_metadata.message_error = '';
+            this.dialog_import_metadata.message_success = '';
+            try {
+                let response = await axios.post(url, formData, {
+                    headers: { 'Content-Type': 'multipart/form-data' }
+                });
+                if (response.data && response.data.status === 'success') {
+                    this.dialog_import_metadata.message_success = this.$t("import_metadata_success") + ' (' + (response.data.variables_count || 0) + ' ' + this.$t("variables") + ')';
+                    await vm.reloadDataFiles();
+                } else {
+                    this.dialog_import_metadata.message_error = (response.data && response.data.message) ? response.data.message : vm.$t("failed");
+                }
+            } catch (error) {
+                let msg = (error.response && error.response.data && error.response.data.message) ? error.response.data.message : error.message;
+                this.dialog_import_metadata.message_error = vm.$t("failed") + ": " + msg;
+            } finally {
+                this.dialog_import_metadata.uploading = false;
+            }
         },
         duplicateFile: async function(file_idx){
             let data_file = this.data_files[file_idx];
@@ -457,13 +514,17 @@ Vue.component('datafiles', {
     computed: {
         data_files(){
             return this.$store.state.data_files;
-        },
-        /** Selected files that have data (CSV), for batch export. */
+        },        
         batchExportSelectedFiles(){
             if (!this.data_files.length || !this.selected_files.length) return [];
             return this.data_files
                 .filter(f => this.selected_files.indexOf(f.file_id) !== -1 && (this.hasCsvFile(f.file_id) || f.store_data === 1))
                 .map(f => ({ file_id: f.file_id, file_name: f.file_name, file_physical_name: f.file_physical_name || '' }));
+        },        
+        importMetadataFileSelected(){
+            var s = this.dialog_import_metadata.selected_file;
+            if (!s) return false;
+            return Array.isArray(s) ? s.length > 0 : true;
         },
     },
     template: `
@@ -620,6 +681,20 @@ Vue.component('datafiles', {
                                             <v-list-item-title>{{$t("duplicate_data_file")}}</v-list-item-title>
                                         </v-list-item>
                                         
+                                        <v-list-item @click="exportMetadataFile(index)">
+                                            <v-list-item-icon>
+                                                <v-icon>mdi-code-json</v-icon>
+                                            </v-list-item-icon>
+                                            <v-list-item-title>{{$t("export_metadata")}}</v-list-item-title>
+                                        </v-list-item>
+                                        
+                                        <v-list-item @click="openImportMetadataDialog(index)">
+                                            <v-list-item-icon>
+                                                <v-icon>mdi-file-import</v-icon>
+                                            </v-list-item-icon>
+                                            <v-list-item-title>{{$t("import_metadata")}}</v-list-item-title>
+                                        </v-list-item>
+                                        
                                         <v-divider></v-divider>
                                         
                                         <!-- Export Options -->
@@ -736,6 +811,47 @@ Vue.component('datafiles', {
                 v-model="batch_export_dialog_show" 
                 :selected-files="batchExportSelectedFiles">
             </dialog-batch-export>
+
+            <!-- Import metadata (replace) dialog -->
+            <v-dialog v-model="dialog_import_metadata.show" max-width="500" persistent>
+                <v-card>
+                    <v-card-title class="text-h6 grey lighten-2">
+                        {{$t("import_metadata")}}
+                    </v-card-title>
+                    <v-card-text>
+                        <p class="mb-3">{{$t("import_metadata_replace_help")}}</p>
+                        <v-file-input
+                            v-model="dialog_import_metadata.selected_file"
+                            accept=".json,application/json"
+                            label=""
+                            outlined
+                            truncate-length="50"
+                            dense
+                            clearable
+                            prepend-icon=""
+                            prepend-inner-icon="mdi-paperclip"
+                            show-size
+                        ></v-file-input>
+                        <div class="alert alert-success mt-3" v-if="dialog_import_metadata.message_success">
+                            {{dialog_import_metadata.message_success}}
+                        </div>
+                        <div class="alert alert-danger mt-3" v-if="dialog_import_metadata.message_error">
+                            {{dialog_import_metadata.message_error}}
+                        </div>
+                    </v-card-text>
+                    <v-card-actions>
+                        <v-spacer></v-spacer>
+                        <v-btn small text @click="dialog_import_metadata.show = false" :disabled="dialog_import_metadata.uploading">
+                            {{$t("close")}}
+                        </v-btn>
+                        <v-btn small class="mr-2" color="primary" @click="submitImportMetadata"
+                               :disabled="!importMetadataFileSelected || dialog_import_metadata.uploading"
+                               :loading="dialog_import_metadata.uploading">
+                            {{$t("import_metadata")}}
+                        </v-btn>
+                    </v-card-actions>
+                </v-card>
+            </v-dialog>
         
         </div>
     `

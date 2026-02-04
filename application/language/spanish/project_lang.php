@@ -44,6 +44,11 @@ $lang['replace_file']="Reemplazar archivo";
 $lang['duplicate_data_file']="Duplicar archivo de datos";
 $lang['confirm_duplicate_data_file']="¿Duplicar este archivo de datos? Se creará un nuevo archivo con los mismos metadatos, variables y datos (CSV).";
 $lang['data_file_duplicated_successfully']="Archivo de datos duplicado correctamente.";
+$lang['export_metadata']="Exportar metadatos";
+$lang['import_metadata']="Importar metadatos";
+$lang['import_metadata_replace_help']="Suba un archivo JSON para reemplazar los metadatos y variables de este archivo. Las variables existentes se eliminarán y se reemplazarán.";
+$lang['import_metadata_success']="Metadatos y variables importados correctamente.";
+$lang['please_select_file']="Por favor seleccione un archivo.";
 $lang['confirm_import_summary_statistics']="¿Estás seguro de que quieres importar estadísticas resumidas para este archivo? Esto sobrescribirá cualquier estadística resumida existente.";
 $lang['summary_stats']="Estadísticas resumidas";
 
