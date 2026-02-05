@@ -1,0 +1,120 @@
+<?php
+
+defined('BASEPATH') OR exit('No direct script access allowed');
+
+/*
+|--------------------------------------------------------------------------
+| OIDC Authentication Configuration
+|--------------------------------------------------------------------------
+|
+| This file contains OIDC (OpenID Connect) authentication settings.
+|
+| IMPORTANT SECURITY NOTES:
+| - This file is gitignored and should NEVER be committed to version control
+| - Copy this example file to auth_oidc.php and fill in your actual values
+| - Keep client_secret and other sensitive values secure
+|
+| SETUP INSTRUCTIONS:
+| 1. Copy this file: cp auth_oidc.php.example auth_oidc.php
+| 2. Fill in your OIDC provider settings below
+| 3. Verify auth_oidc.php is in .gitignore
+|
+*/
+
+$config['oidc_auth'] = array(
+    // Set to true to enable OIDC login
+    'enabled' => true,
+    
+    // Show default username/password login form when OIDC is enabled
+    // Set to true to show both OIDC and default login options
+    // Set to false to show only OIDC login (hide username/password form)
+    'show_default_login' => true,
+
+    // Provider icon URL (optional)
+    // URL to an icon/image for your OIDC provider (shown on login button)
+    'provider_icon' => '',
+    
+    // Display name for the OIDC provider (shown on login button)
+    // Example: 'Login with Azure AD', 'Login with Google', etc.
+    'provider_name' => 'OAuth0 Provider',
+    
+    // OIDC Provider Configuration
+    // Issuer URL for auto-discovery (recommended)
+    // This is the base URL of your OIDC provider
+    // Example: 'https://login.microsoftonline.com/{tenant-id}/v2.0'
+    //          'https://accounts.google.com'
+    //          'https://dev-<domain>.us.auth0.com'    
+    'issuer' => '',
+    
+    // Client type and credentials
+    // client_type options:
+    //   - 'confidential': Server-side PHP application (requires client_secret)
+    //   - 'public': SPA/frontend application (uses PKCE, no client_secret)
+    'client_type' => 'public',  // 'confidential' | 'public'
+    
+    // Use PKCE (Proof Key for Code Exchange)
+    // - Required for public clients (client_type='public')
+    // - Optional but recommended for confidential clients (adds extra security)
+    'use_pkce' => true,  // true | false
+    
+    // OIDC Client ID (required)    
+    'client_id' => '',
+    
+    // OIDC Client Secret
+    // - Required for confidential clients (client_type='confidential')
+    // - Not used for public clients (client_type='public')
+    // - Leave empty for public clients
+    'client_secret' => '',
+    
+    // Redirect URI (optional)
+    // The callback URL where OIDC provider will redirect after authentication
+    // Will default to site_url('auth/oidc_callback') if empty
+    // Example: 'https://yourdomain.com/auth/oidc_callback'
+    'redirect_uri' => '',
+    
+    // OIDC/OAuth settings
+    // response_type options:
+    //   - 'code': Authorization code flow (standard, recommended)
+    //   - 'id_token': Implicit flow (deprecated, not recommended)
+    'response_type' => 'code',  // Authorization code flow
+    
+    // response_mode options:
+    //   - 'query': Code in URL query string (default)
+    //   - 'form_post': Code in POST body (more secure)
+    //   - 'fragment': Code in URL fragment (less secure, not recommended)
+    'response_mode' => 'query', // 'query', 'form_post', or 'fragment'
+    
+    // OAuth scopes to request from the provider
+    // Standard scopes: 'openid profile email'
+    'scopes' => 'openid profile email',
+    
+    // Prompt parameter - controls OIDC provider behavior
+    // Options:
+    //   - 'select_account': Force account selection screen every time (default)
+    //   - 'login': Force re-authentication (login screen)
+    //   - 'consent': Force consent screen
+    //   - 'none': No prompt (use existing session if available)
+    //   - 'select_account login': Combine multiple prompts
+    // Set to empty string or false to disable prompt parameter
+    'prompt' => 'select_account',  // Forces account selection every login
+    
+    // User claim mappings (OIDC claims → local user fields)
+    // Maps OIDC provider claims to local user database fields
+    'claim_mappings' => array(
+        'email' => 'email',                    // OIDC email claim → local email field
+        'first_name' => 'given_name',          // OIDC given_name claim → local first_name
+        'last_name' => 'family_name',          // OIDC family_name claim → local last_name
+        'username' => 'preferred_username',     // OIDC preferred_username → local username (falls back to email if not present)
+    ),
+    
+    // Behavior settings
+    'auto_register' => true,  // Auto-create users from OIDC claims if they don't exist
+    'logout_endpoint' => true,  // Use end_session_endpoint for logout (redirects to provider logout)
+    
+    // Security settings
+    'validate_nonce' => true,  // Validate nonce in ID token (prevents replay attacks)
+    'validate_state' => true,  // Validate state parameter (CSRF protection)
+);
+
+/* End of file auth_oidc.php.example */
+/* Location: ./application/config/auth_oidc.php.example */
