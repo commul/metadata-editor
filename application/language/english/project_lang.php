@@ -409,6 +409,12 @@ $lang['No collections found']="No collections found";
 $lang['Users']="Users";
 $lang['Projects']="Projects";
 
+// Tags
+$lang['Tags']="Tags";
+$lang['Add tag']="Add tag";
+$lang['Select a project']="Select a project";
+$lang['add_tags_placeholder']="Enter one or more tags (one per line or comma-separated)";
+
 // User actions - missing translations
 $lang['add']="Add";
 $lang['user']="User";

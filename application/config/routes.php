@@ -97,6 +97,11 @@ $route['api/schemas/compiled_schema/(:any)'] = "api/schemas/compiled_schema/$1";
 $route['api/schemas/fields/(:any)'] = "api/schemas/fields/$1";
 $route['api/schemas/regenerate_template/(:any)'] = "api/schemas/regenerate_template/$1";
 
+//tags API
+$route['api/tags/remove_project_tags/(:num)'] = 'api/tags/remove_project_tags/$1';
+$route['api/tags/project/(:num)'] = 'api/tags/project/$1';
+$route['api/tags'] = 'api/tags';
+
 //validation API
 $route['api/validation/(:num)'] = "api/validation/schema/$1";
 $route['api/validation/(:num)/schema'] = "api/validation/schema/$1";

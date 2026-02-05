@@ -215,6 +215,11 @@ Vue.component('summary-component', {
                             <!-- project collections -->
                             <vue-summary-collections></vue-summary-collections>
                         </div>
+
+                        <div class="mb-5">
+                            <!-- project tags -->
+                            <vue-project-tags></vue-project-tags>
+                        </div>
                 
                         <v-card>
                             <v-card-title class="d-flex justify-space-between">

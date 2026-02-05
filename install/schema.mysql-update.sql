@@ -487,3 +487,29 @@ WHERE NOT EXISTS (
   SELECT 1 FROM `editor_templates_default`
   WHERE `data_type`='custom' AND `template_uid`='custom-system-en'
 );
+
+-- 2026/02/04
+
+-- drop editor_tags table
+DROP TABLE `editor_tags`;
+DROP TABLE `editor_project_tags`;
+
+-- create tags and project_tags
+CREATE TABLE `tags` (
+  `id` int NOT NULL AUTO_INCREMENT,
+  `tag` varchar(50) NOT NULL,
+  `is_core` tinyint(1) NOT NULL DEFAULT '0',
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `tag_UNIQUE` (`tag`),
+  KEY `idx_is_core` (`is_core`)
+) DEFAULT CHARSET=utf8mb4;
+
+
+CREATE TABLE `project_tags` (
+  `id` int NOT NULL AUTO_INCREMENT,
+  `sid` int NOT NULL,
+  `tag_id` int NOT NULL,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `unq_sid_tag` (`sid`,`tag_id`),
+  KEY `idx_tag_id` (`tag_id`)
+) DEFAULT CHARSET=utf8mb4;

@@ -220,6 +220,7 @@
             echo $this->load->view("project/vue-project-share-component.js", null, true);
             echo $this->load->view("project/vue-collection-share-component.js", null, true);
             echo $this->load->view("metadata_editor/vue-summary-collections-component.js", null, true);
+            echo $this->load->view("metadata_editor/vue-project-tags-component.js", null, true);
             echo $this->load->view("metadata_editor/vue-textarea-latex-component.js", null, true);
             echo $this->load->view("metadata_editor/vue-project-history-component.js",null,true);
             echo $this->load->view("metadata_editor/vue-admin-metadata-history-component.js",null,true);

@@ -19,6 +19,13 @@ $lang['type']="Tipo";
 $lang['collection']="Colección";
 $lang['collections']="Colecciones";
 $lang['add_to_collection']="Agregar a la colección";
+
+// Tags
+$lang['Tags']="Etiquetas";
+$lang['Add tag']="Añadir etiqueta";
+$lang['Select a project']="Seleccionar un proyecto";
+$lang['add_tags_placeholder']="Introduzca una o más etiquetas (una por línea o separadas por comas)";
+
 $lang['upload_thumbnail']="Subir miniatura";
 $lang['thumbnail']="Miniatura";
 $lang['change_thumbnail']="Cambiar miniatura";

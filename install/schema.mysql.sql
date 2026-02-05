@@ -889,3 +889,23 @@ CREATE TABLE `job_queue` (
   KEY `idx_user_id` (`user_id`),
   KEY `idx_worker` (`worker_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+
+CREATE TABLE `tags` (
+  `id` int NOT NULL AUTO_INCREMENT,
+  `tag` varchar(50) NOT NULL,
+  `is_core` tinyint(1) NOT NULL DEFAULT '0',
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `tag_UNIQUE` (`tag`),
+  KEY `idx_is_core` (`is_core`)
+) DEFAULT CHARSET=utf8mb4;
+
+
+CREATE TABLE `project_tags` (
+  `id` int NOT NULL AUTO_INCREMENT,
+  `sid` int NOT NULL,
+  `tag_id` int NOT NULL,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `unq_sid_tag` (`sid`,`tag_id`),
+  KEY `idx_tag_id` (`tag_id`)
+) DEFAULT CHARSET=utf8mb4;

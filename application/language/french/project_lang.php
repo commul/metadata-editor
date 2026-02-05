@@ -19,6 +19,13 @@ $lang['type']="Type";
 $lang['collection']="Collection";
 $lang['collections']="Collections";
 $lang['add_to_collection']="Ajouter à la collection";
+
+// Tags
+$lang['Tags']="Tags";
+$lang['Add tag']="Ajouter un tag";
+$lang['Select a project']="Sélectionner un projet";
+$lang['add_tags_placeholder']="Saisir un ou plusieurs tags (un par ligne ou séparés par des virgules)";
+
 $lang['upload_thumbnail']="Télécharger la vignette";
 $lang['thumbnail']="Vignette";
 $lang['change_thumbnail']="Changer la vignette";

@@ -36,6 +36,7 @@ class Project_search
 		$this->ci->load->model('Collection_model');
 		$this->ci->load->model('Collection_tree_model');
 		$this->ci->load->model('Editor_model');
+		$this->ci->load->model('Tags_model');
 		$this->ci->load->library('project_versions');
 	}
 
@@ -318,6 +319,16 @@ class Project_search
 		}
 
 
+		//filter by tag(s)
+		$tag_filters=$this->parse_filter_values_as_int($this->get_search_filter($search_options,'tag'));
+		
+		if ($tag_filters){
+			$tag_filters = array_map('intval', $tag_filters);
+			$tag_subquery = 'SELECT sid FROM project_tags WHERE tag_id IN (' . implode(',', $tag_filters) . ')';
+			$this->ci->db->where('editor_projects.id IN (' . $tag_subquery . ')', null, false);
+			$applied_filters['tag'] = $tag_filters;
+		}
+
 		//filter by type
 		$data_type_filters=$this->get_search_filter($search_options,'type');
 		
@@ -506,6 +517,8 @@ class Project_search
 		}
 
 		$facets['collection']=$this->ci->Collection_tree_model->collections_tree_by_user_access($user_id);
+
+		$facets['tags'] = $this->ci->Tags_model->get_tags_facet($user_id);
 
 		$facets['ownership']=array(
 			array("id"=>"shared","title"=>"shared"),

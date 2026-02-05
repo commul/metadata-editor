@@ -90,7 +90,7 @@
                 <div class="mr-4 mt-5">
                   <v-expansion-panels v-model="facet_panel" multiple class="">
 
-                    <v-expansion-panel v-for="(facet_values,facet_key) in facets" :key="facet_key">
+                    <v-expansion-panel v-for="(facet_values,facet_key) in facets" :key="facet_key" v-if="facet_values && facet_values.length > 0">
                       <v-expansion-panel-header class="capitalize">
                         <div v-if="facet_key=='collection'" style="display: flex; justify-content: space-between; align-items: center; width: 100%; padding-right: 12px;">
                           <span>{{$t(facet_key)}}</span>
@@ -144,7 +144,7 @@
 
                         </div>
                         <div v-else>
-                          <div style="display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 4px;" v-for="facet in facet_values">
+                          <div style="display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 4px;" v-for="facet in facet_values" :key="facet.id">
                             <v-checkbox
                                 v-model="search_filters[facet_key]"
                                 :value="facet.id"
@@ -154,7 +154,7 @@
                                 style="flex: 1; min-width: 0;"
                             >
                               <template v-slot:label>
-                                <span style="overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">{{$t(facet.title)}}</span>
+                                <span style="overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">{{ facet.type === 'tags' ? facet.title : $t(facet.title) }}</span>
                               </template>
                             </v-checkbox>
                             <span v-if="facet.count !== undefined" class="text-muted" style="font-size: 0.7em; padding-left: 5px; padding-right: 5px; border-radius: 3px; flex-shrink: 0;">{{ facet.count }}</span>
@@ -376,6 +376,19 @@
                               </template>
                             </div>
 
+                            <div class="text-small mt-2" v-if="project.tags && project.tags.length>0" @click.stop="manageProjectTags(project.id)">
+                              <template v-for="(tag,idx) in project.tags" v-if="idx<5">
+                                <v-chip outlined small  class="mr-1" color="grey">
+                                  {{tag.tag}}
+                                </v-chip>
+                              </template>
+                              <template v-if="project.tags.length>3">
+                                <v-chip outlined small  class="mr-1" color="grey">
+                                  +{{project.tags.length-3}} {{$t('more')}}
+                                </v-chip>
+                              </template>
+                            </div>
+
                             <div class="mt-2" v-if="project.versions && project.versions.length>0">
                               <v-btn color="primary" outlined x-small dark @click.stop="toggleRevisions(project.id)" :title="project.versions.length">
                                 <v-icon x-small left>mdi-content-copy</v-icon> {{$t('versions')}} <span class="ml-1">{{project.versions.length}}</span>
@@ -436,6 +449,9 @@
 
     <vue-collection-remove-dialog v-model="dialog_manage_collections" v-bind="dialog_manage_collections_options" v-on:collection-removed="search">
     </vue-collection-remove-dialog>
+
+    <vue-project-tags-manage-dialog v-model="dialog_manage_tags" v-bind="dialog_manage_tags_options" v-on:tags-updated="search">
+    </vue-project-tags-manage-dialog>
 
     <vue-create-revision-dialog v-model="dialog_project_revision" v-bind="dialog_project_revision_options" v-on:revision-created="search" :key="dialog_project_revision_key">
     </vue-create-revision-dialog>
@@ -655,6 +671,7 @@
     echo $this->load->view("vue/vue-confirm-dialog-component.js", null, true);
     echo $this->load->view("project/vue-project-share-component.js", null, true);
     echo $this->load->view("project/vue-collection-remove-component.js", null, true);
+    echo $this->load->view("project/vue-project-tags-manage-dialog-component.js", null, true);
     echo $this->load->view("project/vue-collection-share-component.js", null, true);
     echo $this->load->view("project/vue-project-access-component.js", null, true);
     echo $this->load->view("project/vue-transfer-ownership-component.js", null, true);
@@ -794,6 +811,8 @@
         dialog_transfer_ownership_options: [],
         dialog_manage_collections: false,
         dialog_manage_collections_options: {},
+        dialog_manage_tags: false,
+        dialog_manage_tags_options: {},
         users_list: null,
         errors:[],
         projects_shared: [],
@@ -1450,7 +1469,8 @@
             'collection': '#c6d4ff',
             'type': '#b0bec5',
             'ownership': '#98d7c2',
-            'users_filter': '#68bbe3'
+            'users_filter': '#68bbe3',
+            'tags': '#a5d6a7'
           };
           return colorMap[filter_type] || '#526bc7';
         },
@@ -1587,6 +1607,15 @@
             'collections': project.collections
           };
           this.dialog_manage_collections = true;
+        },
+        manageProjectTags: function (project_id) {
+          var project = this.Projects.find(function (x) { return x.id == project_id; });
+          if (!project) return;
+          this.dialog_manage_tags_options = {
+            project_id: project_id,
+            tags: project.tags || []
+          };
+          this.dialog_manage_tags = true;
         },
         addProjectsToCollection: async function() {
           try {

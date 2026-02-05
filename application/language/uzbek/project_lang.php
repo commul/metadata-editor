@@ -19,6 +19,13 @@ $lang['type']="Turi";
 $lang['collection']="To'plam";
 $lang['collections']="To'plamlar";
 $lang['add_to_collection']="To'plamga qo'shish";
+
+// Tags
+$lang['Tags']="Teglar";
+$lang['Add tag']="Teg qo'shish";
+$lang['Select a project']="Loyihani tanlash";
+$lang['add_tags_placeholder']="Bir yoki bir nechta teg kiriting (har bir qatorda bitta yoki vergul bilan ajratilgan)";
+
 $lang['upload_thumbnail']="Kichik rasm yuklash";
 $lang['thumbnail']="Kichik rasm";
 $lang['change_thumbnail']="Kichik rasmini o'zgartirish";
