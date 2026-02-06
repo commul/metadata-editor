@@ -91,7 +91,7 @@
                 <div class="mr-4 mt-5">
                   <v-expansion-panels v-model="facet_panel" multiple class="">
 
-                    <v-expansion-panel v-for="(facet_values,facet_key) in facets" :key="facet_key" v-if="facet_values && facet_values.length > 0">
+                    <v-expansion-panel v-for="(facet_values,facet_key) in facets" :key="facet_key">
                       <v-expansion-panel-header class="capitalize">
                         <div v-if="facet_key=='collection'" style="display: flex; justify-content: space-between; align-items: center; width: 100%; padding-right: 12px;">
                           <span>{{$t(facet_key)}}</span>
@@ -110,7 +110,10 @@
                         <span v-else>{{$t(facet_key)}}</span>
                       </v-expansion-panel-header>
                       <v-expansion-panel-content>
-                        <div v-if="facet_key=='collection'">
+                        <div v-if="(!facet_values || facet_values.length === 0) && facet_key !== 'users_filter' && facet_key !== 'tags'" class="py-2">
+                          <v-chip small outlined disabled>N/A</v-chip>
+                        </div>
+                        <div v-else-if="facet_key=='collection'">
                           
                           <v-text-field
                               v-model="collection_search"
@@ -123,26 +126,56 @@
                               prepend-inner-icon="mdi-magnify"
                           ></v-text-field>
                           
-                          <v-treeview
-                              :items="facet_values"
-                              :search="collection_search"
-                              item-children="items"
-                              activatable
-                              item-key="id"
-                              item-text="title"                            
-                              v-model="search_filters[facet_key]"                              
-                              selectable
-                              selection-type="independent"
-                              class="treeview-collection-filter tree-with-lines"
-                              >
-                              <template v-slot:label="{ item }">
-                                <div style="display: flex; justify-content: space-between; width: 100%; align-items: center; gap: 8px;">
-                                  <span style="overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex: 1; min-width: 0;">{{ item.title }}</span>
-                                  <span v-if="item.projects" class="text-muted" style="font-size: 0.85em; padding-left: 5px; padding-right: 5px; border-radius: 3px; flex-shrink: 0;">{{ item.projects }}</span>
-                                </div>
-                              </template>
-                          </v-treeview>
+                          <div class="treeview-collection-scroll" style="max-height: 400px; overflow-y: auto;">
+                            <v-treeview
+                                :items="facet_values"
+                                :search="collection_search"
+                                item-children="items"
+                                activatable
+                                item-key="id"
+                                item-text="title"                            
+                                v-model="search_filters[facet_key]"                              
+                                selectable
+                                selection-type="independent"
+                                class="treeview-collection-filter tree-with-lines"
+                                >
+                                <template v-slot:label="{ item }">
+                                  <div style="display: flex; justify-content: space-between; width: 100%; align-items: center; gap: 8px;">
+                                    <span style="overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex: 1; min-width: 0;">{{ item.title }}</span>
+                                    <span v-if="item.projects" class="text-muted" style="font-size: 0.85em; padding-left: 5px; padding-right: 5px; border-radius: 3px; flex-shrink: 0;">{{ item.projects }}</span>
+                                  </div>
+                                </template>
+                            </v-treeview>
+                          </div>
 
+                        </div>
+                        <div v-else-if="facet_key=='tags'" class="py-1">
+                          <div style="display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 4px;" v-for="facet in facet_values" :key="facet.id">
+                            <v-checkbox
+                                v-model="search_filters[facet_key]"
+                                :value="facet.id"
+                                hide-details
+                                dense
+                                class="mt-0 pt-0 facet-checkbox"
+                                style="flex: 1; min-width: 0;"
+                            >
+                              <template v-slot:label>
+                                <span style="overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">{{ facet.title }}</span>
+                              </template>
+                            </v-checkbox>
+                          </div>
+                          <div class="mt-2">
+                            <v-btn
+                                @click="openTagFilterDialog"
+                                small
+                                outlined
+                                color="primary"
+                                block
+                            >
+                              <v-icon small left>mdi-tag-plus</v-icon>
+                              {{$t('add_tag')}}
+                            </v-btn>
+                          </div>
                         </div>
                         <div v-else>
                           <div style="display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 4px;" v-for="facet in facet_values" :key="facet.id">
@@ -185,6 +218,8 @@
 
               <!-- User filter dialog component -->
               <vue-user-filter v-model="dialog_user_filter" @apply="onApplyUserFilter"></vue-user-filter>
+              <!-- Tag filter dialog component -->
+              <vue-tag-filter v-model="dialog_tag_filter" @apply="onApplyTagFilter"></vue-tag-filter>
 
               <div class="projects col-md-9 col-sm-8">
                 <div class="mt-5 mb-5">                  
@@ -609,6 +644,9 @@
             <v-list-item-title @click="addProjectToCollection(menu_active_project_id)"><v-btn text>{{$t('add_to_collection')}}</v-btn></v-list-item-title>
           </v-list-item>
           <v-list-item>
+            <v-list-item-title @click="show_project_menu = false; manageProjectTags(menu_active_project_id)"><v-btn text>{{$t('tags')}}</v-btn></v-list-item-title>
+          </v-list-item>
+          <v-list-item>
             <v-list-item-title @click="viewAccessPermissions(menu_active_project_id)"><v-btn text>{{$t('view_access')}}</v-btn></v-list-item-title>
           </v-list-item>
 
@@ -682,6 +720,7 @@
     echo $this->load->view("project/vue-create-revision-component.js", null, true);
     echo $this->load->view("project/vue-list-revisions-component.js", null, true);
     echo $this->load->view("project/vue-user-filter-component.js", null, true);
+    echo $this->load->view("project/vue-tag-filter-component.js", null, true);
 
     ?>
 
@@ -791,6 +830,7 @@
         collection_search: '',
         exclude_collections_filter: false,
         dialog_user_filter: false,
+        dialog_tag_filter: false,
         updating_route: false,
         pagination_page: 0,
         dialog_create_project: false,
@@ -1053,7 +1093,8 @@
           let search_filters = {};
           for(i=0;i<Object.keys(this.search_filters).length;i++){
             let filter_name=Object.keys(this.search_filters)[i];
-            search_filters[filter_name]=this.search_filters[filter_name].join(",");
+            let qsKey = filter_name === 'tags' ? 'tag' : filter_name;
+            search_filters[qsKey]=this.search_filters[filter_name].join(",");
           }
 
           //sort
@@ -1086,7 +1127,8 @@
           let search_filters = {};
           for(i=0;i<Object.keys(this.search_filters).length;i++){
             let filter_name=Object.keys(this.search_filters)[i];
-            let values=urlParams.get(filter_name);
+            let paramName = filter_name === 'tags' ? 'tag' : filter_name;
+            let values=urlParams.get(paramName);
             
             if (values && values.length>0){
               search_filters[filter_name]=values.split(",");
@@ -1499,6 +1541,29 @@
         },
         openUserFilterDialog: function() {
             this.dialog_user_filter = true;
+        },
+        onApplyTagFilter: function(selected_tags) {
+            if (!this.facets.tags) {
+                Vue.set(this.facets, 'tags', []);
+            }
+            if (!this.search_filters.tags) {
+                Vue.set(this.search_filters, 'tags', []);
+            }
+            selected_tags.forEach(tag => {
+                if (!this.facets.tags.find(t => t.id === tag.id)) {
+                    this.facets.tags.push({
+                        id: tag.id,
+                        title: tag.tag
+                    });
+                }
+                if (!this.search_filters.tags.includes(tag.id)) {
+                    this.search_filters.tags.push(tag.id);
+                }
+            });
+            this.search();
+        },
+        openTagFilterDialog: function() {
+            this.dialog_tag_filter = true;
         },
         getUsersList: async function() {
           vm = this;

@@ -15,7 +15,7 @@ class Editor extends MY_REST_Controller
 		$this->load->model("Editor_datafile_model");
 		$this->load->model("Editor_publish_model");
 		$this->load->model("Collection_model");
-		
+		$this->load->model("Tags_model");
 		$this->load->library("Editor_acl");
 		$this->load->model("Audit_log_model");
 		$this->load->library("Audit_log");
@@ -85,13 +85,15 @@ class Editor extends MY_REST_Controller
 				$project_id_list[]=$row['id'];
 			}
 
-			if (count($project_id_list)>0){						
-				//get collections
+			if (count($project_id_list)>0){
+				//get collections and tags
 				$collections=$this->Collection_model->collections_by_projects($project_id_list);
+				$tags=$this->Tags_model->get_tags_by_projects($project_id_list);
 
 				//add collections and tags to each study
 				foreach($result['result'] as $key=>$row){
 					$result['result'][$key]['collections']=isset($collections[$row['id']]) ? $collections[$row['id']] : array();
+					$result['result'][$key]['tags']=isset($tags[$row['id']]) ? $tags[$row['id']] : array();
 				}
 			}
 

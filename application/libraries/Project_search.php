@@ -517,8 +517,14 @@ class Project_search
 		}
 
 		$facets['collection']=$this->ci->Collection_tree_model->collections_tree_by_user_access($user_id);
-
-		$facets['tags'] = $this->ci->Tags_model->get_tags_facet($user_id);
+		
+		$facets['tags'] = array();
+		if (isset($options['tag']) && !empty($options['tag'])) {
+			$tag_ids = $this->parse_filter_values_as_int(explode(',', $options['tag']));
+			if (!empty($tag_ids)) {
+				$facets['tags'] = $this->ci->Tags_model->get_tags_by_ids($tag_ids);
+			}
+		}
 
 		$facets['ownership']=array(
 			array("id"=>"shared","title"=>"shared"),

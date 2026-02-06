@@ -34,6 +34,30 @@ class Tags_model extends CI_Model {
     }
 
     /**
+     * Get tags by IDs (for facet display when only selected tags are needed).
+     * Returns array of { id, title } for facet compatibility.
+     *
+     * @param array $ids Tag IDs
+     * @return array
+     */
+    public function get_tags_by_ids($ids)
+    {
+        if (!is_array($ids) || empty($ids)) {
+            return array();
+        }
+        $ids = array_map('intval', $ids);
+        $ids = array_filter($ids);
+        if (empty($ids)) {
+            return array();
+        }
+        $this->db->select('id, tag AS title');
+        $this->db->from($this->table_tags);
+        $this->db->where_in('id', $ids);
+        $this->db->order_by('tag', 'ASC');
+        return $this->db->get()->result_array();
+    }
+
+    /**
      * Get all tags with optional filters (paginated).
      *
      * @param array $filters Optional: is_core (0|1), search (substring on tag)
