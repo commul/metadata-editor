@@ -225,7 +225,7 @@ INSERT INTO `configurations` VALUES ('topics_vocab','1','Vocabulary ID for Topic
 INSERT INTO `configurations` VALUES ('topic_search','no','Topic search',NULL,NULL);
 INSERT INTO `configurations` VALUES ('topic_search_weight','6',NULL,NULL,NULL);
 INSERT INTO `configurations` VALUES ('use_html_editor','yes','Use HTML editor for entering HTML for static pages',NULL,NULL);
-INSERT INTO `configurations` VALUES ('website_footer','',NULL,NULL);
+INSERT INTO `configurations` VALUES ('website_footer','','',NULL,NULL);
 INSERT INTO `configurations` VALUES ('website_title','Metadata Editor','Website title','Provide the title of the website','website');
 INSERT INTO `configurations` VALUES ('website_url','','Website URL','URL of the website','website');
 INSERT INTO `configurations` VALUES ('website_webmaster_email','','Site webmaster email address','-','website');
@@ -356,7 +356,7 @@ LOCK TABLES `roles` WRITE;
 /*!40000 ALTER TABLE `roles` DISABLE KEYS */;
 insert into roles(id,name,description, weight, is_admin, is_locked) values 
 (1,'admin','Site administrator', 0,1,1),
-(2,'user','General user account', 0,0,1);
+(2,'user','General user account', 0,0,1),
 (3,'editor','General role required for projects management', 0,0,0),
 (6,'Template manager','Global role for managing templates', 0,0,0),
 (7,'Collection manager','Global role for managing collections', 0,0,0),
@@ -872,9 +872,6 @@ CREATE TABLE `geospatial_feature_chars` (
   KEY `idx_feature_chars_feature_id` (`feature_id`),
   CONSTRAINT `geospatial_feature_chars_ibfk_1` FOREIGN KEY (`feature_id`) REFERENCES `geospatial_features` (`id`) ON DELETE CASCADE
 ) ENGINE=InnoDB AUTO_INCREMENT=1 DEFAULT CHARSET=utf8mb4;
-
-
-CREATE INDEX idx_feature_chars_feature_id ON geospatial_feature_chars(feature_id);
 
 
 CREATE TABLE `job_queue` (
