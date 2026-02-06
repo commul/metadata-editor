@@ -143,7 +143,7 @@
                                 </v-list-item-title>
                             </v-list-item>
 
-                            <v-list-item v-if="dataset_type=='timeseries'" @click="onLinkClick(base_url + '/api/sdmx/msd/?template_uid=' + projectTemplateUID)">
+                            <v-list-item v-if="dataset_type=='indicator'" @click="onLinkClick(base_url + '/api/sdmx/msd/?template_uid=' + projectTemplateUID)">
                                 <v-list-item-icon>
                                     <v-icon>mdi-file</v-icon>
                                 </v-list-item-icon>
@@ -152,7 +152,7 @@
                                 </v-list-item-title>
                             </v-list-item>
 
-                            <v-list-item v-if="dataset_type=='timeseries'" @click="onLinkClick(base_url + '/api/sdmx/metadatasetreport/' + dataset_id)">
+                            <v-list-item v-if="dataset_type=='indicator'" @click="onLinkClick(base_url + '/api/sdmx/metadatasetreport/' + dataset_id)">
                                 <v-list-item-icon>
                                     <v-icon>mdi-file</v-icon>
                                 </v-list-item-icon>
@@ -161,7 +161,7 @@
                                 </v-list-item-title>
                             </v-list-item>
 
-                            <v-list-item v-if="dataset_type=='timeseries'" @click="onRouterLinkClick('/sdmx-csv-export')">
+                            <v-list-item v-if="dataset_type=='indicator'" @click="onRouterLinkClick('/sdmx-csv-export')">
                                 <v-list-item-icon>
                                     <v-icon>mdi-file-document-arrow-right-outline</v-icon>
                                 </v-list-item-icon>
