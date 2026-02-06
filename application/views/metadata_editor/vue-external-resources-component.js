@@ -230,13 +230,13 @@ const VueExternalResources = Vue.component('external-resources', {
                 </v-card-title>
                 <v-card-subtitle>
                     <v-row>
-                        <v-col md="6">
+                        <v-col md="4">
                             <v-btn v-if="showBulkActions" color="error" small outlined @click="bulkDeleteResources" :disabled="isDeleting">
                                 <i class="fas fa-trash-alt"></i> 
                                 {{isDeleting ? $t("deleting") : $t("delete_selected") + ' (' + selectedResources.length + ')'}}
                             </v-btn>
                         </v-col>
-                        <v-col md="6" class="mb-2">
+                        <v-col md="8" class="mb-2">
                             <div class="float-right">                                
                                 <v-btn color="primary" outlined small @click="addResource">
                                     <i class="fas fa-plus-square"></i> {{$t("create_resource")}}
