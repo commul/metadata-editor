@@ -355,10 +355,15 @@ CREATE TABLE `roles` (
 LOCK TABLES `roles` WRITE;
 /*!40000 ALTER TABLE `roles` DISABLE KEYS */;
 insert into roles(id,name,description, weight, is_admin, is_locked) values 
-(1,'admin','Site administrator and has access to all site content', 0,1,1),
-(2,'user','General user account with no access to site administration', 0,0,1);
+(1,'admin','Site administrator', 0,1,1),
+(2,'user','General user account', 0,0,1);
+(3,'editor','General role required for projects management', 0,0,0),
+(6,'Template manager','Global role for managing templates', 0,0,0),
+(7,'Collection manager','Global role for managing collections', 0,0,0),
+(8,'Schema manager','Global role for managing schemas', 0,0,0);
 /*!40000 ALTER TABLE `roles` ENABLE KEYS */;
 UNLOCK TABLES;
+
 
 
 CREATE TABLE `role_permissions` (
@@ -368,6 +373,14 @@ CREATE TABLE `role_permissions` (
   `permissions` varchar(500) DEFAULT NULL,
   PRIMARY KEY (`id`)
 ) AUTO_INCREMENT=1 DEFAULT CHARSET=utf8mb4;
+
+-- Default Role permissions 
+insert into role_permissions(role_id,resource,permissions) values
+(3,'editor','admin'),
+(3,'collection','view'),
+(3, 'template_manager','view'),
+(7,'collection','admin'),
+(8,'schema','admin');
 
 
 CREATE TABLE `user_roles` (
