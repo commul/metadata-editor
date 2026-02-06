@@ -156,7 +156,8 @@ Vue.component('dialog-datafile-export', {
                 loading_message: '',
                 message_success: '',
                 message_error: '',
-                is_loading: false
+                is_loading: false,
+                download_links: []
             };
 
             this.export_dialog.is_loading = true;
@@ -355,21 +356,23 @@ Vue.component('dialog-datafile-export', {
                                     </v-btn>
                                     <div v-else-if="zip_error" class="text-caption error--text">{{ zip_error }}</div>
                                 </div>
-                                <v-btn 
-                                    v-for="(link, index) in export_dialog.download_links" 
-                                    v-show="!individual_file_removed"
-                                    :key="index"
-                                    color="primary" 
-                                    block
-                                    large
-                                    :href="link.url" 
-                                    target="_blank"
-                                    download
-                                    class="mb-2"
-                                >
-                                    <v-icon left>mdi-download</v-icon>
-                                    [{{link.format.toUpperCase()}}] {{$t('download')}}
-                                </v-btn>                                
+                                <!-- Direct file download when ZIP is not selected -->
+                                <div v-if="(export_dialog.download_links || []).length && !individual_file_removed" class="mb-2">
+                                    <v-btn 
+                                        v-for="(link, index) in (export_dialog.download_links || [])" 
+                                        :key="'dl-' + index"
+                                        color="primary" 
+                                        block
+                                        large
+                                        :href="link.url" 
+                                        target="_blank"
+                                        download
+                                        class="mb-2"
+                                    >
+                                        <v-icon left>mdi-download</v-icon>
+                                        [{{(link.format || '').toUpperCase()}}] {{$t('download')}}
+                                    </v-btn>
+                                </div>
                             </div>
 
                             <div class="alert alert-danger" v-if="export_dialog.message_error">
