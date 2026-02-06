@@ -165,6 +165,8 @@ $lang['activate_now']="Activate Now";
 $lang['user_already_active']="User is already active";
 $lang['user_not_found']="User not found";
 $lang['activation_code_generation_failed']="Failed to generate activation code";
+$lang['search_in']="Search in";
+$lang['search_users']="Search users";
 
 /* End of file users_lang.php */
 /* Location: ./application/language/english/users_lang.php */

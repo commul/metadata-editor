@@ -193,6 +193,7 @@ class MY_Exceptions extends CI_Exceptions {
   		$buffer = ob_get_contents();
   		ob_end_clean();
   		echo $buffer;
+  		exit(1);
   	}
 
 }

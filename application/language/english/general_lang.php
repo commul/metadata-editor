@@ -241,6 +241,11 @@ $lang['no_users_have_access_to_template'] = 'No users have access to this templa
 $lang['add_user'] = 'Add user';
 $lang['filter_by_user'] = 'Filter by User';
 $lang['users_filter'] = 'Users';
+$lang['add_tag'] = 'Add tag';
+$lang['filter_by_tag'] = 'Filter by tag';
+$lang['search_tag'] = 'Search tag';
+$lang['type_to_search_tags'] = 'Type to search tags';
+$lang['tags'] = 'Tags';
 $lang['change_template_uid'] = 'Change template UID';
 $lang['template_uid'] = 'Template UID';
 $lang['new_uid'] = 'New UID';
@@ -535,6 +540,7 @@ $lang['Today']='Today';
 $lang['Last hour']='Last hour';
 $lang['Last 30 days']='Last 30 days';
 $lang['No data available']='No data available';
+$lang['showing %d-%d of %d']='Showing %s-%s of %s';
 
 /* End of file general_lang.php */
 /* Location: ./application/language/english/general_lang.php */

@@ -1,7 +1,9 @@
 <?php
-header("Expires: Sat, 26 Jul 1997 05:00:00 GMT");
-header('Cache-Control: no-store, no-cache, must-revalidate');
-header("Pragma: no-cache");
+if (!headers_sent()) {
+    header("Expires: Sat, 26 Jul 1997 05:00:00 GMT");
+    header('Cache-Control: no-store, no-cache, must-revalidate');
+    header("Pragma: no-cache");
+}
 ?>
 <?php //include_once APPPATH.'/config/site_menus.php'; ?>
 <?php
@@ -32,15 +34,12 @@ $site_navigation_menu=get_site_menu();
 	  <base href="<?php echo js_base_url(); ?>">
 	  <title><?php echo $title; ?></title>
 
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.13.0/css/all.min.css" crossorigin="anonymous" />
-    <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.0/css/bootstrap.min.css" integrity="sha384-9aIt2nRpC12Uk9gS9baDl411NQApFmC26EwAOH8WgZl5MYYxFfc+NcPb1dKGj7Sk" crossorigin="anonymous">   
+    <link rel="stylesheet" href="<?php echo base_url(); ?>/themes/nada52/fontawesome/css/all.min.css" crossorigin="anonymous" />
+    <link rel="stylesheet" href="<?php echo base_url();?>/vue-app/assets/bootstrap.min.css" crossorigin="anonymous">   
 
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.5.1/jquery.min.js"  crossorigin="anonymous"></script>
-    <script src="https://cdn.jsdelivr.net/npm/popper.js@1.16.0/dist/umd/popper.min.js" integrity="sha384-Q6E9RHvbIyZFJoft+2mJbHaEWldlvI9IOYy5n3zV9zzTtmI3UksdQRVvoxMfooAo" crossorigin="anonymous"></script>
-    <script src="https://stackpath.bootstrapcdn.com/bootstrap/4.5.0/js/bootstrap.min.js" integrity="sha384-OgVRvuATP1z7JjHLkuOU7Xw704+h835Lr+6QL9UvYjZE3Ipu6Tp75j7Bh/kR0JKI" crossorigin="anonymous"></script>
-
-    <link href="https://cdn.jsdelivr.net/gh/gitbrent/bootstrap4-toggle@3.6.1/css/bootstrap4-toggle.min.css" rel="stylesheet">
-    <script src="https://cdn.jsdelivr.net/gh/gitbrent/bootstrap4-toggle@3.6.1/js/bootstrap4-toggle.min.js"></script>
+    <script src="<?php echo base_url();?>vue-app/assets/jquery.min.js"  crossorigin="anonymous"></script>
+    <script src="<?php echo base_url();?>vue-app/assets/popper.min.js"  crossorigin="anonymous"></script>
+    <script src="<?php echo base_url();?>vue-app/assets/bootstrap.bundle.min.js"  crossorigin="anonymous"></script>
 
     <link href="<?php echo base_url(); ?>themes/<?php echo $this->template->theme();?>/custom.css?v=bt4" rel="stylesheet">
     <link rel="stylesheet" type="text/css" href="<?php echo base_url(); ?>themes/<?php echo $this->template->theme();?>/style.css?v=3">
@@ -106,9 +105,15 @@ $site_navigation_menu=get_site_menu();
 
       .app-version{
         font-weight:normal;
-        font-size: 0.8em;
+        font-size: 0.6em;
         vertical-align: super;        
       }
+
+      .divider{
+        border-bottom: 1px solid #E5E5E5;
+        margin: 5px 0;
+      }
+
     </style>
 
     <script>
@@ -126,19 +131,8 @@ $site_navigation_menu=get_site_menu();
         event.preventDefault();
         event.stopPropagation();
         
-        //method 1: remove show from sibilings and their children under your first parent
-        
-    /* 		if (!$(this).next().hasClass('show')) {
-              
-                $(this).parents('.dropdown-menu').first().find('.show').removeClass('show');
-            }  */     
-        
-        
-        //method 2: remove show from all siblings of all your parents
-        $(this).parents('.dropdown-submenu').siblings().find('.show').removeClass("show");
-        
-        $(this).siblings().toggleClass("show");
-        
+        $(this).parents('.dropdown-submenu').siblings().find('.show').removeClass("show");        
+        $(this).siblings().toggleClass("show");        
         
         //collapse all after nav is closed
         $(this).parents('li.nav-item.dropdown.show').on('hidden.bs.dropdown', function(e) {
@@ -169,14 +163,15 @@ $site_navigation_menu=get_site_menu();
       <?php $user=strtoupper($this->session->userdata('username'));?>
       <?php if ($user):?>
         <a href="#" class="dropdown-toggle" data-toggle="dropdown"><?php echo $user;?> <b class="caret"></b></a>
-        <ul class="dropdown-menu">
-          <?php if ($this->session->userdata('impersonate_user')):?>
-              <li><?php echo anchor('admin/users/exit_impersonate',t('exit_impersonate'));?></li>  
-            <?php endif;?>
-          <li><?php echo anchor('auth/change_password',t('change_password'));?></li>
-          <li><?php echo anchor('auth/logout',t('logout'));?></li>
-          <li class="divider"></li>
+        <ul class="dropdown-menu dropdown-menu-right">                  
           <li><a target="_blank" href="<?php echo site_url();?>"><?php echo t('home');?></a></li>
+          <li class="divider"></li>
+          <li><?php echo anchor('auth/profile',t('profile'));?></li>
+          <li class="divider"></li>
+          <li><?php echo anchor('auth/change_password',t('change_password'));?></li>
+          <li class="divider"></li>
+          <li><?php echo anchor('auth/logout',t('logout'));?></li>
+          
         </ul>
         <?php endif;?>
       </li>

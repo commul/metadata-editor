@@ -1,7 +1,9 @@
 <?php
-header("Expires: Sat, 26 Jul 1997 05:00:00 GMT");
-header('Cache-Control: no-store, no-cache, must-revalidate');
-header("Pragma: no-cache");
+if (!headers_sent()) {
+    header("Expires: Sat, 26 Jul 1997 05:00:00 GMT");
+    header('Cache-Control: no-store, no-cache, must-revalidate');
+    header("Pragma: no-cache");
+}
 ?>
 <!DOCTYPE html>
 <html>
@@ -12,12 +14,12 @@ header("Pragma: no-cache");
 	<base href="<?php echo js_base_url(); ?>">
 	<title><?php echo $title; ?></title>
 
-	<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.13.0/css/all.min.css" crossorigin="anonymous" />
-	<link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.0/css/bootstrap.min.css" integrity="sha384-9aIt2nRpC12Uk9gS9baDl411NQApFmC26EwAOH8WgZl5MYYxFfc+NcPb1dKGj7Sk" crossorigin="anonymous">   
+	<link rel="stylesheet" href="<?php echo base_url(); ?>/themes/nada52/fontawesome/css/all.min.css" crossorigin="anonymous" />
+	<link rel="stylesheet" href="<?php echo base_url();?>/vue-app/assets/bootstrap.min.css" crossorigin="anonymous">   
 
-	<script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.5.1/jquery.min.js"  crossorigin="anonymous"></script>
-	<script src="https://cdn.jsdelivr.net/npm/popper.js@1.16.0/dist/umd/popper.min.js" integrity="sha384-Q6E9RHvbIyZFJoft+2mJbHaEWldlvI9IOYy5n3zV9zzTtmI3UksdQRVvoxMfooAo" crossorigin="anonymous"></script>
-	<script src="https://stackpath.bootstrapcdn.com/bootstrap/4.5.0/js/bootstrap.min.js" integrity="sha384-OgVRvuATP1z7JjHLkuOU7Xw704+h835Lr+6QL9UvYjZE3Ipu6Tp75j7Bh/kR0JKI" crossorigin="anonymous"></script>
+	<script src="<?php echo base_url();?>vue-app/assets/jquery.min.js"  crossorigin="anonymous"></script>
+	<script src="<?php echo base_url();?>vue-app/assets/popper.min.js"  crossorigin="anonymous"></script>
+	<script src="<?php echo base_url();?>vue-app/assets/bootstrap.bundle.min.js"  crossorigin="anonymous"></script>
 
 	<link href="<?php echo base_url(); ?>themes/<?php echo $this->template->theme();?>/style.css" rel="stylesheet">
 	<link href="<?php echo base_url(); ?>themes/<?php echo $this->template->theme();?>/custom.css" rel="stylesheet">
