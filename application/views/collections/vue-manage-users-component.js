@@ -326,7 +326,7 @@ Vue.component('vue-collection-access-manager', {
         <!-- Simple Tab Indicator -->
         <div class="mb-4">
             <v-chip 
-                :color="tab === 'collection-acl' ? 'primary' : 'grey'" 
+                :color="tab === 'collection-acl' ? 'primary' : ''" 
                 class="mr-2"
                 @click="changeTab('collection-acl')"
                 style="cursor: pointer;"
@@ -334,7 +334,7 @@ Vue.component('vue-collection-access-manager', {
                 Collection Access Control
             </v-chip>
             <v-chip 
-                :color="tab === 'project-access' ? 'primary' : 'grey'" 
+                :color="tab === 'project-access' ? 'primary' : ''" 
                 class="mr-2"
                 @click="changeTab('project-access')"
                 style="cursor: pointer;"
@@ -353,7 +353,7 @@ Vue.component('vue-collection-access-manager', {
             <div v-else>
                 <div class="border-round border-light p-3 mb-5 shadow bg-light">
                     <h5>{{$t('Manage Collection Access Control')}}</h5>
-                                            <p class="text-muted">{{$t('Control which users can access this collection and manage its settings')}}</p>
+                                            <p class="text-muted">{{$t('manage_collection_access_control_description')}}</p>
                     <div class="row">
                         <div class="col-6">
                         
@@ -458,7 +458,7 @@ Vue.component('vue-collection-access-manager', {
             <div v-else>
                 <div class="border-round border-light p-3 mb-5 shadow bg-light">
                     <h5>{{$t('Manage Project Access')}}</h5>
-                                            <p class="text-muted">{{$t('Control which users can access projects within this collection')}}</p>
+                    <p class="text-muted">{{$t('manage_project_access_description')}}</p>
                 <div class="row">
                     <div class="col-6">
                     

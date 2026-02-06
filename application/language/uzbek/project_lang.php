@@ -435,8 +435,8 @@ $lang['collection_copied_successfully']="To'plam muvaffaqiyatli nusxalandi";
 $lang['collection_moved_successfully']="To'plam muvaffaqiyatli ko'chirildi";
 
 // Additional missing translations
-$lang['Control which users can access this collection and manage its settings']="Qaysi foydalanuvchilar bu to'plamga kirish va uning sozlamalarini boshqarish huquqiga ega ekanligini nazorat qilish";
-$lang['Control which users can access projects within this collection']="Qaysi foydalanuvchilar bu to'plam ichidagi loyihalarga kirish huquqiga ega ekanligini nazorat qilish";
+$lang['manage_collection_access_control_description']="Qaysi foydalanuvchilar bu to'plamga kirish va uning sozlamalarini boshqarish huquqiga ega ekanligini nazorat qilish";
+$lang['manage_project_access_description']="Qaysi foydalanuvchilar bu to'plam ichidagi loyihalarga kirish huquqiga ega ekanligini nazorat qilish";
 $lang['Select the source and target collections to move the collection']="To'plamni ko'chirish uchun manba va maqsad to'plamlarni tanlash";
 
 // Import options translations

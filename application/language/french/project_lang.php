@@ -394,9 +394,9 @@ $lang['collection_copied_successfully']="Collection copiée avec succès";
 $lang['collection_moved_successfully']="Collection déplacée avec succès";
 
 // Additional missing translations
-$lang['Control which users can access this collection and manage its settings']="Contrôler quels utilisateurs peuvent accéder à cette collection et gérer ses paramètres";
-$lang['Control which users can access projects within this collection']="Contrôler quels utilisateurs peuvent accéder aux projets dans cette collection";
-$lang['Select the source and target collections to move the collection']="Sélectionner les collections source et cible pour déplacer la collection";
+$lang['manage_collection_access_control_description']="Contrôler qui peut accéder à cette collection. Les utilisateurs ont besoin d'un rôle Edit ou Admin pour ajouter ou supprimer des projets.";
+$lang['manage_project_access_description']="Contrôler quels utilisateurs peuvent accéder aux projets dans cette collection";
+$lang['select_source_and_target_collections_to_move_collection']="Sélectionner les collections source et cible pour déplacer la collection";
 
 // Import options translations
 $lang['import_project_metadata'] = 'Importer les métadonnées du projet';

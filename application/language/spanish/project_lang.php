@@ -394,9 +394,9 @@ $lang['collection_copied_successfully']="Colección copiada con éxito";
 $lang['collection_moved_successfully']="Colección movida con éxito";
 
 // Additional missing translations
-$lang['Control which users can access this collection and manage its settings']="Controlar qué usuarios pueden acceder a esta colección y gestionar sus configuraciones";
-$lang['Control which users can access projects within this collection']="Controlar qué usuarios pueden acceder a proyectos dentro de esta colección";
-$lang['Select the source and target collections to move the collection']="Seleccionar las colecciones fuente y destino para mover la colección";
+$lang['manage_collection_access_control_description']="Controlar quién puede acceder a esta colección. Los usuarios necesitan un rol Edit o Admin para agregar o eliminar proyectos.";
+$lang['manage_project_access_description']="Controlar qué usuarios pueden acceder a proyectos dentro de esta colección";
+$lang['select_source_and_target_collections_to_move_collection']="Seleccionar las colecciones fuente y destino para mover la colección";
 
 // Import options translations
 $lang['import_project_metadata'] = 'Importar metadatos del proyecto';
