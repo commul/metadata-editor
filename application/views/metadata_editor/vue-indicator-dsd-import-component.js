@@ -812,7 +812,7 @@ Vue.component('indicator-dsd-import', {
 
                         
                         <div v-if="csvPreviewView === 'data'">
-                            <h5 class="mb-1">{{$t("csv_preview") || "CSV Preview"}}</h5>
+                            <h5 class="mb-1">{{$t("data_preview")}}</h5>
                             <p class="text-muted mb-0">
                                 {{csvData.totalRows}} {{$t("rows_found") || "rows found"}}
                                 <template >
