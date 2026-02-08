@@ -11,6 +11,8 @@ Vue.component('datafile-data-explorer', {
             file:null,
             rows_limit:50,
             data_loading_dialog:false,
+            delete_confirm_dialog: false,
+            delete_in_progress: false,
             dialog:{
                 show:false,
                 title:'',
@@ -112,24 +114,60 @@ Vue.component('datafile-data-explorer', {
             this.export_dialog.file_name = this.activeDataFile.file_name;
             this.export_dialog.file_physical_name = (this.activeDataFile && this.activeDataFile.file_physical_name) ? this.activeDataFile.file_physical_name : '';
             this.export_dialog.show = true;
-        },        
+        },
+        confirmDeleteData: function(){
+            this.delete_confirm_dialog = true;
+        },
+        deleteData: async function(){
+            if (!this.ProjectID || !this.fid) return;
+            this.delete_in_progress = true;
+            const vm = this;            
+            // Delete only the physical CSV file; keep the datafile definition
+            const url = CI.base_url + '/api/datafiles/delete_file/' + this.ProjectID + '/' + encodeURIComponent(this.fid);
+            try {
+                const res = await axios.post(url);
+                if (res.data && res.data.status === 'success') {
+                    vm.delete_confirm_dialog = false;
+                    if (vm.$store && vm.$store.dispatch) {
+                        await vm.$store.dispatch('loadDataFiles', { dataset_id: vm.ProjectID });
+                    }
+                    vm.variable_data = [];
+                    if (typeof EventBus !== 'undefined') {
+                        EventBus.$emit('onSuccess', vm.$t('csv_data_deleted') || 'CSV data deleted successfully.');
+                    }
+                } else {
+                    if (typeof EventBus !== 'undefined') {
+                        EventBus.$emit('onFail', (res.data && res.data.message) || 'Failed to delete CSV data.');
+                    }
+                }
+            } catch (err) {
+                const msg = (err.response && err.response.data && err.response.data.message) || err.message;
+                if (typeof EventBus !== 'undefined') EventBus.$emit('onFail', msg);
+            } finally {
+                vm.delete_in_progress = false;
+            }
+        },
         sleep: function(ms) {
             return new Promise(resolve => setTimeout(resolve, ms));
         },
     },  
     template: `
-            <div class="datafile-component mt-5 pt-3 m-3" v-if="activeDataFile">
-
+            <div class="datafile-component mt-5 pt-3 m-3">
+            <template v-if="activeDataFile">
             <v-card>
                 <v-card-title>
                     {{$t('Data')}}
                 </v-card-title>
                 <v-card-text style="min-height:200px;">
 
-                    <div class="float-right" v-if="variable_data.records">
-                                      
-                        <v-btn color="primary" outlined small @click="exportFile">
-                            <v-icon>mdi-export</v-icon> {{$t("export")}}
+                    <div class="float-right d-flex align-center" style="gap: 8px;">
+                        <template v-if="variable_data.records">
+                            <v-btn color="primary" outlined small @click="exportFile">
+                                <v-icon>mdi-export</v-icon> {{$t("export")}}
+                            </v-btn>
+                        </template>
+                        <v-btn color="error" outlined small @click="confirmDeleteData" :disabled="delete_in_progress">
+                            <v-icon small>mdi-delete</v-icon> {{$t("delete_data") || "Delete data"}}
                         </v-btn>
                     </div>
                     <br/>
@@ -258,6 +296,29 @@ Vue.component('datafile-data-explorer', {
                 :file_name="export_dialog.file_name"
                 :file_physical_name="export_dialog.file_physical_name || ''">
             </dialog-datafile-export>
+            </template>
+            <v-card v-else class="mt-5 pt-3 m-3">
+                <v-card-title>{{$t('Data')}}</v-card-title>
+                <v-card-text class="text-center py-8">
+                    <v-icon size="64" color="grey lighten-1">mdi-database-off</v-icon>
+                    <p class="mt-3 mb-0">{{$t('no_data_file') || 'No data file found.'}}</p>                    
+                </v-card-text>
+            </v-card>
+
+            <!-- Delete data confirmation -->
+            <v-dialog v-model="delete_confirm_dialog" max-width="400" persistent>
+                <v-card>
+                    <v-card-title class="text-subtitle-1">{{ $t("delete_data") || "Delete data" }}</v-card-title>
+                    <v-card-text>
+                        {{ $t("confirm_remove_data")  }}
+                    </v-card-text>
+                    <v-card-actions>
+                        <v-spacer></v-spacer>
+                        <v-btn text @click="delete_confirm_dialog = false" :disabled="delete_in_progress">{{ $t("cancel") || "Cancel" }}</v-btn>
+                        <v-btn color="error" text @click="deleteData" :loading="delete_in_progress">{{ $t("delete") || "Delete" }}</v-btn>
+                    </v-card-actions>
+                </v-card>
+            </v-dialog>
             
             </div>          
             `    

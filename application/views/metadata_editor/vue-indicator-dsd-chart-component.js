@@ -508,7 +508,7 @@ Vue.component('indicator-dsd-chart', {
                     <div style="flex: 1; overflow-y: auto; padding: 16px;">
                         <!-- Geography Filter (from DSD code_list, typeahead) -->
                         <div class="mb-4">
-                            <label class="font-weight-bold mb-2">{{$t("geography") || "Geography"}}</label>
+                            <label class="font-weight-bold mb-2">{{$t("field_geography") || "Geography"}}</label>
                             <v-autocomplete
                                 v-model="filters.geography"
                                 :items="filterOptions.geography || []"
@@ -528,7 +528,7 @@ Vue.component('indicator-dsd-chart', {
 
                         <!-- Time Period Filter -->
                         <div class="mb-4">
-                            <label class="font-weight-bold mb-2">{{$t("time_period") || "Time Period"}}</label>
+                            <label class="font-weight-bold mb-2">{{$t("field_time_period") || "Time Period"}}</label>
                             <div class="mb-2">
                                 <label class="text-caption">{{$t("from") || "From"}}</label>
                                 <v-text-field

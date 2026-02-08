@@ -374,6 +374,10 @@ Vue.component('indicator-dsd-import', {
                         EventBus.$emit('onFail', 'CSV import completed with errors. Please check the errors below.');
                         this.step = 2; // Go back to preview to show errors
                     } else if (response.data.status === 'success') {
+                        // Refresh project data so left-tree data preview gets the new file (no page refresh needed)
+                        if (this.$store && this.$store.dispatch) {
+                            this.$store.dispatch('loadDataFiles', { dataset_id: this.dataset_id });
+                        }
                         // Successful import - when any field label was set, populate code_lists from CSV
                         const hasLabelColumns = Object.values(this.requiredFieldLabelColumns || {}).some(v => v && String(v).trim() !== '');
                         if (hasLabelColumns) {
@@ -777,33 +781,6 @@ Vue.component('indicator-dsd-import', {
                             </v-card-text>
                         </v-card>
 
-                        <!-- Indicator ID Validation Alert (Success only) -->
-                        <v-alert 
-                            v-if="indicatorIdValidation && indicatorIdValidation.valid" 
-                            type="success" 
-                            class="mb-3"
-                            dense
-                        >
-                            <div class="font-weight-bold">{{$t("indicator_id_validation_passed") || "Indicator ID Validation Passed"}}</div>
-                            <div>{{$t("all_sample_rows_match_indicator_idno") || "All sample rows match indicator IDNO"}}</div>
-                        </v-alert>
-
-                        <v-alert v-if="hasWarnings" type="warning" class="mb-3">
-                            <div>{{$t("some_columns_exist") || "Some columns already exist in the data structure"}}</div>
-                            <div class="mt-2">
-                                <v-checkbox v-model="overwriteExisting" class="mt-0">
-                                    <template v-slot:label>
-                                        <div class="font-weight-regular">{{$t("overwrite_existing_columns") || "Overwrite existing columns"}}</div>
-                                    </template>
-                                </v-checkbox>
-                                <v-checkbox v-model="skipExisting" class="mt-0">
-                                    <template v-slot:label>
-                                        <div class="font-weight-regular">{{$t("skip_existing_columns") || "Skip existing columns"}}</div>
-                                    </template>
-                                </v-checkbox>
-                            </div>
-                        </v-alert>
-
                         <v-alert v-if="hasErrors" type="error" class="mb-3">
                             <div v-for="error in errors" :key="error">{{error}}</div>
                         </v-alert>
@@ -1008,6 +985,24 @@ Vue.component('indicator-dsd-import', {
                                 </v-simple-table>
                             </div>
                         </div>
+
+
+                        <v-alert v-if="hasWarnings" type="warning" class="mb-3">
+                            <div>{{$t("some_columns_exist") || "Some columns already exist in the data structure"}}</div>
+                            <div class="mt-2">
+                                <v-checkbox v-model="overwriteExisting" class="mt-0">
+                                    <template v-slot:label>
+                                        <div class="font-weight-regular">{{$t("overwrite_existing_columns") || "Overwrite existing columns"}}</div>
+                                    </template>
+                                </v-checkbox>
+                                <v-checkbox v-model="skipExisting" class="mt-0">
+                                    <template v-slot:label>
+                                        <div class="font-weight-regular">{{$t("skip_existing_columns") || "Skip existing columns"}}</div>
+                                    </template>
+                                </v-checkbox>
+                            </div>
+                        </v-alert>
+
 
                         <div class="mt-4 d-flex justify-space-between align-center">
                             <div>

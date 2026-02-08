@@ -115,8 +115,9 @@ Vue.component('indicator-dsd-edit', {
             return this.column.column_type === 'time_period';
         },
         showCodeList: function() {
+            return true; //show for all types
             // Show code list for dimensions and other column types that might use codes
-            return ['dimension', 'attribute', 'geography'].includes(this.column.column_type);
+            //return ['dimension', 'attribute', 'geography'].includes(this.column.column_type);
         },
         codeListColumns: function() {
             var cols = this.code_list_template.slice();

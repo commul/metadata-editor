@@ -400,6 +400,9 @@ $lang['export_csv']="Export CSV";
 $lang['generate_csv_file']="Generate CSV file";
 $lang['csv_generated_success']="CSV file generated successfully";
 $lang['confirm_remove_data']="Are you sure you want to remove the data from this file?";
+$lang['delete_data']="Delete data";
+$lang['confirm_delete_data']="Are you s";
+$lang['no_data_file']="No data file found.";
 $lang['Has data']="Has data";
 $lang['More options']="More options";
 $lang['select_export_format']="Select export format";
@@ -634,12 +637,16 @@ $lang['required_fields']='Required fields';
 $lang['field_label']='Field label';
 $lang['mapping']='Mapping';
 $lang['timeseries_visualization']='Timeseries visualization';
-$lang['time_period']='Time period';
+$lang['field_time_period']='Time period';
+$lang['field_geography']='Geography';
+$lang['available_range']='Available range';
+$lang['all_data']='All data';
 $lang['select_one_or_more_geography']='Select one or more to load chart';
 $lang['no_geography_options']='No geography options. Populate code lists from CSV first.';
 $lang['rows_found']='rows found';
 $lang['showing_first']='showing first';
 $lang['no_columns_found']='No Data!';
 $lang['no_column_selected']='Click on a column to edit';
+
 /* End of file project_lang.php */
 /* Location: ./application/language/english/project_lang.php */

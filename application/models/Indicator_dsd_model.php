@@ -1116,10 +1116,21 @@ class Indicator_dsd_model extends CI_Model {
     }
 
     /**
-     * Populate code_list for all DSD columns from the indicator CSV file.
-     * For each column: code = value from the CSV column matching DSD column name;
+     * Valid code: alphanumeric and underscore only (no spaces or special characters).
+     * Codes can be numeric or strings.
+     *
+     * @param string $code
+     * @return bool
+     */
+    private function is_valid_code_list_code($code)
+    {
+        return $code !== '' && preg_match('/^[A-Za-z0-9_]+$/', (string) $code) === 1;
+    }
+
+    /**
+     * Populate code_list from the indicator CSV file only for dimensions and core fields (geography, time_period).
+     * For each column: code = value from the CSV column (must be alphanumeric/underscore, no spaces or special chars);
      * label = value from metadata.value_label_column CSV column if set, else same as code.
-     * Updates each column's code_list with unique code/label pairs.
      *
      * @param int $sid - Project ID
      * @param int|null $user_id - User ID for changed_by
@@ -1143,6 +1154,8 @@ class Indicator_dsd_model extends CI_Model {
             return $result;
         }
 
+        $allowed_column_types = array('dimension', 'geography', 'time_period');
+
         $csv = Reader::createFromPath($csv_path, 'r');
         $csv->setHeaderOffset(0);
         $headers = $csv->getHeader();
@@ -1152,6 +1165,12 @@ class Indicator_dsd_model extends CI_Model {
         }
 
         foreach ($columns as $column) {
+            $col_type = isset($column['column_type']) ? $column['column_type'] : 'attribute';
+            if (!in_array($col_type, $allowed_column_types, true)) {
+                $result['skipped'][] = $column['name'] . ' (only dimensions and geography/time_period get code lists from data)';
+                continue;
+            }
+
             $col_name_upper = strtoupper(trim($column['name']));
             $code_column = isset($header_map[$col_name_upper]) ? $header_map[$col_name_upper] : null;
             if (!$code_column) {
@@ -1172,7 +1191,7 @@ class Indicator_dsd_model extends CI_Model {
             $code_to_label = array();
             foreach ($csv->getRecords() as $record) {
                 $code = isset($record[$code_column]) ? trim((string)$record[$code_column]) : '';
-                if ($code === '') {
+                if ($code === '' || !$this->is_valid_code_list_code($code)) {
                     continue;
                 }
                 $label = $label_column !== null && isset($record[$label_column]) ? trim((string)$record[$label_column]) : $code;

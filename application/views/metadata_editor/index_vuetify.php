@@ -1093,6 +1093,16 @@
               metadataTypesNodeFound = true;
               this.items[k]["items"]=this.MetadataTypesTreeNodes;
             }
+
+            if (this.items[k]["key"]==="indicator-dsd-container" && this.items[k]["items"]) {
+              const sub = this.items[k]["items"];
+              for (let j = 0; j < sub.length; j++) {
+                if (sub[j] && sub[j].type === 'data-preview') {
+                  sub[j].datafile = this.IndicatorDataFile;
+                  break;
+                }
+              }
+            }
             
           }
           // add admin metadata to tree
@@ -1202,14 +1212,9 @@
             return;
           }
 
-          if (node.type=='data-preview'){
-            // For indicators, route to data explorer with the indicator datafile
-            if (node.datafile && node.datafile.file_id) {
-              router.push('/data-explorer/' + node.datafile.file_id);
-            } else {
-              // If no datafile, show message or redirect to import
-              EventBus.$emit('onFail', this.$t('no_data_file') || 'No data file found. Please import CSV data first.');
-            }
+          if (node.type=='data-preview'){            
+            const fileId = (node.datafile && node.datafile.file_id) ? node.datafile.file_id : 'INDICATOR_DATA';
+            router.push('/data-explorer/' + fileId);
             return;
           }
 
