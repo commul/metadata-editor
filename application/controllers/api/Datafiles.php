@@ -396,10 +396,40 @@ class Datafiles extends MY_REST_Controller
 	}
 
 	/**
-	 * 
-	 * 
-	 * Delete a data file
-	 * 
+	 * Delete only the physical CSV/data file; keep the datafile record (definition).
+	 * Use this to clear data while keeping the file entry in the project.
+	 *
+	 * POST /api/datafiles/delete_file/{sid}/{file_id}
+	 */
+	function delete_file_post($sid = null, $file_id = null)
+	{
+		try {
+			$sid = $this->get_sid($sid);
+			$this->editor_acl->user_has_project_access($sid, $permission = 'edit', $this->api_user);
+
+			if ($this->Editor_datafile_model->delete_physical_file($sid, $file_id) === false) {
+				throw new Exception("Failed to delete the data file or file not found.");
+			}
+
+			$response = array(
+				'status' => 'success',
+				'message' => 'Data file (CSV) deleted. Definition kept.'
+			);
+			$this->set_response($response, REST_Controller::HTTP_OK);
+		}
+		catch (Exception $e) {
+			$error_output = array(
+				'status' => 'failed',
+				'message' => $e->getMessage()
+			);
+			$this->set_response($error_output, REST_Controller::HTTP_BAD_REQUEST);
+		}
+	}
+
+	/**
+	 * Delete a data file (physical file + database record and variables).
+	 *
+	 * POST /api/datafiles/delete/{sid}/{file_id}
 	 */
 	function delete_post($sid=null,$file_id=null)
 	{

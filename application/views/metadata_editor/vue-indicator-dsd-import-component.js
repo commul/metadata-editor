@@ -14,8 +14,7 @@ Vue.component('indicator-dsd-import', {
             errors: [],
             warnings: [],
             step: 1, // 1: upload, 2: preview (simplified - no stepper)
-            overwriteExisting: false,
-            skipExisting: false,
+            existingColumnsAction: 'overwrite', // 'overwrite' | 'skip' when some columns already exist
             previewRows: 10,
             isProcessing: false,
             importStatus: '',
@@ -337,8 +336,8 @@ Vue.component('indicator-dsd-import', {
             const selectedMappings = this.columnMappings.filter(m => m.selected);
             console.log('Sending column mappings:', selectedMappings);
             formData.append('column_mappings', JSON.stringify(selectedMappings));
-            formData.append('overwrite_existing', this.overwriteExisting ? '1' : '0');
-            formData.append('skip_existing', this.skipExisting ? '1' : '0');
+            formData.append('overwrite_existing', this.existingColumnsAction === 'overwrite' ? '1' : '0');
+            formData.append('skip_existing', this.existingColumnsAction === 'skip' ? '1' : '0');
             formData.append('indicator_idno', (this.editableStudyIdno || this.StudyIDNO || '').trim());
             formData.append('required_field_label_columns', JSON.stringify(this.requiredFieldLabelColumns || {}));
 
@@ -446,6 +445,7 @@ Vue.component('indicator-dsd-import', {
             this.errors = [];
             this.warnings = [];
             this.step = 1;
+            this.existingColumnsAction = 'overwrite';
             this.importStatus = '';
             this.importProgress = 0;
             this.indicatorIdValidation = null;
@@ -785,63 +785,60 @@ Vue.component('indicator-dsd-import', {
                             <div v-for="error in errors" :key="error">{{error}}</div>
                         </v-alert>
 
-                        <div class="d-flex align-center justify-space-between flex-wrap mb-3" style="gap: 12px;">                            
-                            <!-- View switch: Data view / Column view -->
-                            <div class="d-flex align-center" style="gap: 4px;">
-                                <span class="mr-1">Switch view:</span>
-                                <v-btn
-                                    small
-                                    icon
-                                    :color="csvPreviewView === 'data' ? 'primary' : 'grey'"
-                                    :text="csvPreviewView !== 'data'"
-                                    :outlined="false"
-                                    title="Data view"
-                                    @click="csvPreviewView = 'data'"
-                                >
-                                    <v-icon>mdi-table</v-icon>
-                                </v-btn>
-                                <v-btn
-                                    small
-                                    icon
-                                    :color="csvPreviewView === 'column' ? 'primary' : 'grey'"
-                                    :text="csvPreviewView !== 'column'"
-                                    :outlined="false"
-                                    title="Columns view"
-                                    @click="csvPreviewView = 'column'"
-                                >
-                                    <v-icon>mdi-view-list</v-icon>
-                                </v-btn>
-                            </div>
-                        </div>
+                        <!-- Map fields: bordered section with view switcher and column/data views -->
+                        <v-card class="mb-3" outlined>
+                            <v-card-title class="pa-3" style="font-size: 16px; font-weight: bold;">
+                                {{$t("map_fields") || "Map fields"}}
+                            </v-card-title>
+                            <v-card-text class="pa-3 pt-0">
+                                <!-- Row to switch between Data or Column view -->
+                                <div class="d-flex align-center flex-wrap mb-3" style="gap: 8px;">                                    
+                                    <v-btn
+                                        small
+                                        :color="csvPreviewView === 'data' ? 'primary' : ''"
+                                        :outlined="csvPreviewView !== 'data'"
+                                        @click="csvPreviewView = 'data'"
+                                    >
+                                        <v-icon left small>mdi-table</v-icon>
+                                        {{$t("data_view") || "Data"}}
+                                    </v-btn>
+                                    <v-btn
+                                        small
+                                        :color="csvPreviewView === 'column' ? 'primary' : ''"
+                                        :outlined="csvPreviewView !== 'column'"
+                                        @click="csvPreviewView = 'column'"
+                                    >
+                                        <v-icon left small>mdi-view-list</v-icon>
+                                        {{$t("columns") || "Columns"}}
+                                    </v-btn>
+                                </div>
 
-                        
-                        <div v-if="csvPreviewView === 'data'">
-                            <h5 class="mb-1">{{$t("data_preview")}}</h5>
-                            <p class="text-muted mb-0">
-                                {{csvData.totalRows}} {{$t("rows_found") || "rows found"}}
-                                <template >
-                                    ({{$t("showing_first") || "showing first"}} {{previewRows}})
-                                </template>
-                            </p>
-                        </div>
+                                <div v-if="csvPreviewView === 'data'">
+                                    <p class="text-muted mb-2">
+                                        {{csvData.totalRows}} {{$t("rows_found") || "rows found"}}
+                                        <template>
+                                            ({{$t("showing_first") || "showing first"}} {{previewRows}})
+                                        </template>
+                                    </p>
+                                </div>
 
-                        <!-- Select All Checkbox -->
-                        <div class="mb-3">
-                            <v-checkbox
-                                v-model="selectAll"
-                                :indeterminate="someSelected"
-                                @change="toggleSelectAll"
-                            >
-                                <template v-slot:label>
-                                    <div class="font-weight-bold">{{$t("select_all") || "Select All"}}</div>
-                                </template>
-                            </v-checkbox>
-                        </div>
+                                <!-- Select All Checkbox -->
+                                <div class="mb-3">
+                                    <v-checkbox
+                                        v-model="selectAll"
+                                        :indeterminate="someSelected"
+                                        @change="toggleSelectAll"
+                                    >
+                                        <template v-slot:label>
+                                            <div class="font-weight-bold">{{$t("select_all") || "Select All"}}</div>
+                                        </template>
+                                    </v-checkbox>
+                                </div>
 
-                        <!-- Column view: table of fields for mapping -->
-                        <div v-if="csvPreviewView === 'column'" class="mb-4">
-                            <div class="csv-column-view-table" style="border: 1px solid #e0e0e0; border-radius: 4px; overflow: hidden;">
-                                <v-simple-table dense>
+                                <!-- Column view: table of fields for mapping -->
+                                <div v-if="csvPreviewView === 'column'" class="mb-4">
+                                    <div class="csv-column-view-table" style="border: 1px solid #e0e0e0; border-radius: 4px; overflow: hidden;">
+                                        <v-simple-table dense>
                                     <thead>
                                         <tr>
                                             <th class="text-left" style="width: 48px;"></th>
@@ -910,13 +907,13 @@ Vue.component('indicator-dsd-import', {
                                                 </v-chip>
                                             </td>
                                         </tr>
-                                    </tbody>
-                                </v-simple-table>
-                            </div>
-                        </div>
+                                            </tbody>
+                                        </v-simple-table>
+                                    </div>
+                                </div>
 
-                        <!-- Data view: Data Preview Table with Column Configuration in Headers -->
-                        <div v-if="csvPreviewView === 'data'" class="mb-4" style="border: 1px solid #e0e0e0; border-radius: 4px; overflow-x: scroll; overflow-y: auto; max-height: 600px; position: relative;">
+                                <!-- Data view: Data Preview Table with Column Configuration in Headers -->
+                                <div v-if="csvPreviewView === 'data'" class="mb-4" style="border: 1px solid #e0e0e0; border-radius: 4px; overflow-x: scroll; overflow-y: auto; max-height: 600px; position: relative;">
                             <div class="csv-preview-table-container" style="overflow-x: scroll; overflow-y: auto;">
                                 <v-simple-table dense style="min-width: 100%;">
                                     <thead>
@@ -983,25 +980,25 @@ Vue.component('indicator-dsd-import', {
                                         </tr>
                                     </tbody>
                                 </v-simple-table>
-                            </div>
+                                    </div>
+                                </div>
+                            </v-card-text>
+                        </v-card>
+
+                        <!-- When some columns already exist: choose overwrite or skip (radio, not alert) -->
+                        <div v-if="hasWarnings" class="mb-3 pa-3" style="border: 1px solid #e0e0e0; border-radius: 4px;">
+                            <div class="mb-2">{{$t("some_columns_exist") || "Some columns already exist in the data structure"}}</div>
+                            <v-radio-group v-model="existingColumnsAction" hide-details class="mt-0 pt-0">
+                                <v-radio
+                                    value="overwrite"
+                                    :label="$t('overwrite_existing_columns') || 'Overwrite existing columns'"
+                                ></v-radio>
+                                <v-radio
+                                    value="skip"
+                                    :label="$t('skip_existing_columns') || 'Skip existing columns'"
+                                ></v-radio>
+                            </v-radio-group>
                         </div>
-
-
-                        <v-alert v-if="hasWarnings" type="warning" class="mb-3">
-                            <div>{{$t("some_columns_exist") || "Some columns already exist in the data structure"}}</div>
-                            <div class="mt-2">
-                                <v-checkbox v-model="overwriteExisting" class="mt-0">
-                                    <template v-slot:label>
-                                        <div class="font-weight-regular">{{$t("overwrite_existing_columns") || "Overwrite existing columns"}}</div>
-                                    </template>
-                                </v-checkbox>
-                                <v-checkbox v-model="skipExisting" class="mt-0">
-                                    <template v-slot:label>
-                                        <div class="font-weight-regular">{{$t("skip_existing_columns") || "Skip existing columns"}}</div>
-                                    </template>
-                                </v-checkbox>
-                            </div>
-                        </v-alert>
 
 
                         <div class="mt-4 d-flex justify-space-between align-center">

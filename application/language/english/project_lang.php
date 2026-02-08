@@ -647,6 +647,27 @@ $lang['rows_found']='rows found';
 $lang['showing_first']='showing first';
 $lang['no_columns_found']='No Data!';
 $lang['no_column_selected']='Click on a column to edit';
+// DSD import – required field labels and shared labels
+$lang['indicator_idno']='Indicator IDNO';
+$lang['indicator_id']='Indicator ID';
+$lang['geography']='Geography';
+$lang['time_period']='Time period';
+$lang['observation_value']='Observation value';
+$lang['field']='Field';
+$lang['status']='Status';
+$lang['reset']='Reset';
+$lang['type_to_search']='Type to search...';
+$lang['map_fields']='Map fields';
+$lang['data_view']='Data';
+$lang['columns']='Columns';
+$lang['csv_field']='CSV field';
+$lang['column_type']='Column type';
+$lang['data_type']='Data type';
+$lang['exists']='Exists';
+$lang['some_columns_exist']='Some columns already exist in the data structure';
+$lang['overwrite_existing_columns']='Overwrite existing columns';
+$lang['skip_existing_columns']='Skip existing columns';
+$lang['upload_another']='Upload Another File';
 
 /* End of file project_lang.php */
 /* Location: ./application/language/english/project_lang.php */
