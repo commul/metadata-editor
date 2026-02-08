@@ -24,7 +24,7 @@
 
 <div>
 <?php echo form_open(site_url('admin/permissions/create_role'), array('class'=>'form form-inline','autocomplete'=>'off'));?>	
-	<h4><?php echo t('Create a new role');?></h4>
+	<h4 class="mr-2"><?php echo t('Create a new role');?></h4>
   <div class="form-group">
   <label class="sr-only" for="description"><?php echo t('Role');?></label>
     <input type="text" name="role" class="form-control" id="user_role" placeholder="Role/Group name" maxlength="100">
