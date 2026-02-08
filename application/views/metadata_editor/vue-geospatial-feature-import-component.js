@@ -19,6 +19,7 @@ Vue.component('geospatial-feature-import', {
             selectedLayers: [],
             pendingJobs: null,
             pollInterval: null,
+            pollJobStatusInProgress: false,
             timeoutIds: [],
             is_cancelled: false,
             featureCreationProgress: { current: 0, total: 0 }
@@ -353,37 +354,45 @@ Vue.component('geospatial-feature-import', {
                 }
                 return;
             }
-            
-            // Check if user cancelled the import
-            if (this.is_cancelled) {
-                console.log('Import cancelled, stopping job polling');
-                if (this.pollInterval) {
-                    clearInterval(this.pollInterval);
-                    this.pollInterval = null;
-                }
-                this.pendingJobs = null;
-                this.is_processing = false;
+            // Prevent concurrent poll cycles (e.g. interval fires again before previous run finishes)
+            if (this.pollJobStatusInProgress) {
                 return;
             }
-            
-            // Check for timeout
-            const elapsedTime = Date.now() - this.pendingJobs.startTime;
-            if (elapsedTime > this.pendingJobs.maxPollTime) {
-                console.error('Job polling timeout after', elapsedTime, 'ms');
-                if (this.pollInterval) {
-                    clearInterval(this.pollInterval);
-                    this.pollInterval = null;
-                }
-                this.update_status = 'Layer analysis timeout - jobs took too long to complete';
-                this.has_errors = true;
-                this.is_processing = false;
-                this.pendingJobs = null;
-                return;
-            }
-            
+            this.pollJobStatusInProgress = true;
             try {
+                // Check if user cancelled the import
+                if (this.is_cancelled) {
+                    console.log('Import cancelled, stopping job polling');
+                    if (this.pollInterval) {
+                        clearInterval(this.pollInterval);
+                        this.pollInterval = null;
+                    }
+                    this.pendingJobs = null;
+                    this.is_processing = false;
+                    return;
+                }
+                
+                // Check for timeout
+                const elapsedTime = Date.now() - this.pendingJobs.startTime;
+                if (elapsedTime > this.pendingJobs.maxPollTime) {
+                    console.error('Job polling timeout after', elapsedTime, 'ms');
+                    if (this.pollInterval) {
+                        clearInterval(this.pollInterval);
+                        this.pollInterval = null;
+                    }
+                    this.update_status = 'Layer analysis timeout - jobs took too long to complete';
+                    this.has_errors = true;
+                    this.is_processing = false;
+                    this.pendingJobs = null;
+                    return;
+                }
+                
+                // Normalize job_id to string so number vs string from API don't count as different jobs
+                const completedJobIdSet = new Set(
+                    (this.pendingJobs.completedJobs || []).map(c => String(c.job_id))
+                );
                 const pendingJobs = this.pendingJobs.jobs.filter(job => 
-                    job.job_id && !this.pendingJobs.completedJobs.find(completed => completed.job_id === job.job_id)
+                    job.job_id && !completedJobIdSet.has(String(job.job_id))
                 );
                 
                 if (pendingJobs.length === 0) {
@@ -471,38 +480,41 @@ Vue.component('geospatial-feature-import', {
                         const jobData = statusResult.data && statusResult.data.data ? statusResult.data.data : statusResult.data;
                         
                         if (jobStatus === 'done') {
-                            this.pendingJobs.completedJobs.push(job);
-                            
-                            // Extract layers from data.layers array
-                            // Handle both string array and object array formats
-                            if (jobData && jobData.layers && jobData.layers.length > 0) {
-                                const layers = jobData.layers.map(layerItem => {
-                                    // Handle both string and object formats
-                                    if (typeof layerItem === 'string') {
-                                        return {
-                                            id: layerItem,
-                                            name: layerItem,
-                                            file_path: job.file_path,
-                                            file_info: jobData.file_info,
-                                            bounding_box: jobData.bounding_box,
-                                            type: jobData.type,
-                                            processing_recommendations: jobData.processing_recommendations
-                                        };
-                                    } else {
-                                        // Already an object, ensure it has required fields
-                                        return {
-                                            id: layerItem.id || layerItem.name,
-                                            name: layerItem.name || layerItem.layer_name || layerItem.id,
-                                            file_path: layerItem.file_path || job.file_path,
-                                            file_info: layerItem.file_info || jobData.file_info,
-                                            bounding_box: layerItem.bounding_box || jobData.bounding_box,
-                                            type: layerItem.type || jobData.type,
-                                            processing_recommendations: layerItem.processing_recommendations || jobData.processing_recommendations
-                                        };
-                                    }
-                                });
+                            const jobIdStr = String(job.job_id);
+                            // Only add layers once per job (avoids duplicates from type mismatch or concurrent polls)
+                            if (!completedJobIdSet.has(jobIdStr)) {
+                                completedJobIdSet.add(jobIdStr);
+                                this.pendingJobs.completedJobs.push(job);
                                 
-                                this.pendingJobs.allLayers = this.pendingJobs.allLayers.concat(layers);
+                                // Extract layers from data.layers array
+                                if (jobData && jobData.layers && jobData.layers.length > 0) {
+                                    const layers = jobData.layers.map(layerItem => {
+                                        // Handle both string and object formats
+                                        if (typeof layerItem === 'string') {
+                                            return {
+                                                id: layerItem,
+                                                name: layerItem,
+                                                file_path: job.file_path,
+                                                file_info: jobData.file_info,
+                                                bounding_box: jobData.bounding_box,
+                                                type: jobData.type,
+                                                processing_recommendations: jobData.processing_recommendations
+                                            };
+                                        } else {
+                                            // Already an object, ensure it has required fields
+                                            return {
+                                                id: layerItem.id || layerItem.name,
+                                                name: layerItem.name || layerItem.layer_name || layerItem.id,
+                                                file_path: layerItem.file_path || job.file_path,
+                                                file_info: layerItem.file_info || jobData.file_info,
+                                                bounding_box: layerItem.bounding_box || jobData.bounding_box,
+                                                type: layerItem.type || jobData.type,
+                                                processing_recommendations: layerItem.processing_recommendations || jobData.processing_recommendations
+                                            };
+                                        }
+                                    });
+                                    this.pendingJobs.allLayers = this.pendingJobs.allLayers.concat(layers);
+                                }
                             }
                         } else if (jobStatus === 'failed' || jobStatus === 'error') {
                             console.error(`Job ${job.job_id} failed with status:`, jobStatus);
@@ -537,6 +549,8 @@ Vue.component('geospatial-feature-import', {
                 this.has_errors = true;
                 this.is_processing = false;
                 this.pendingJobs = null;
+            } finally {
+                this.pollJobStatusInProgress = false;
             }
         },
         
