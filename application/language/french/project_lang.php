@@ -25,6 +25,14 @@ $lang['Tags']="Tags";
 $lang['Add tag']="Ajouter un tag";
 $lang['Select a project']="Sélectionner un projet";
 $lang['add_tags_placeholder']="Saisir un ou plusieurs tags (un par ligne ou séparés par des virgules)";
+$lang['tag_name']="Tag";
+$lang['remove_unused_tags']="Supprimer les tags inutilisés";
+$lang['confirm_delete_tag']="Êtes-vous sûr de vouloir supprimer ce tag ?";
+$lang['tag_deleted']="Tag supprimé.";
+$lang['confirm_remove_unused_tags']="Supprimer tous les tags qui ne sont utilisés par aucun projet ?";
+$lang['unused_tags_removed']="{n} tag(s) inutilisé(s) supprimé(s).";
+$lang['core']="Principal";
+$lang['search_tags_placeholder']="Rechercher des tags...";
 
 $lang['upload_thumbnail']="Télécharger la vignette";
 $lang['thumbnail']="Vignette";

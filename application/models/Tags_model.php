@@ -147,7 +147,9 @@ class Tags_model extends CI_Model {
     }
 
     /**
-     * Delete a tag (and its project assignments)
+     * Delete a tag
+     * 
+     * Only deletes the tag if it is not used by any project.
      *
      * @param int $id Tag ID
      * @return bool Success
@@ -155,10 +157,95 @@ class Tags_model extends CI_Model {
     public function delete($id)
     {
         $id = (int) $id;
+
+        //check if the tag is used by any project
+        if ($this->check_project_tag_used($id)) {
+            throw new Exception('TAG_IN_USE: Tag is in use and cannot be deleted.');
+        }
+
         $this->db->where('tag_id', $id);
         $this->db->delete($this->table_project_tags);
         $this->db->where('id', $id);
         return $this->db->delete($this->table_tags);
+    }
+
+    /**
+     * Get all tags with project count (paginated).
+     * project_count = number of projects using the tag.
+     *
+     * @param array $filters Optional: is_core (0|1), search (substring on tag)
+     * @param int|null $limit Limit (default 50)
+     * @param int $offset Offset
+     * @return array Keys: total (int), tags (array with id, tag, is_core, project_count), offset (int), limit (int)
+     */
+    public function get_all_with_counts($filters = array(), $limit = 50, $offset = 0)
+    {
+        $limit = $limit === null || $limit < 1 ? 50 : (int) $limit;
+        $offset = (int) $offset;
+
+        $sub_project = 'SELECT tag_id, COUNT(DISTINCT sid) AS project_count FROM ' . $this->db->dbprefix($this->table_project_tags) . ' GROUP BY tag_id';
+
+        $this->db->from($this->table_tags . ' t');
+        $this->db->join('(' . $sub_project . ') pc', 'pc.tag_id = t.id', 'left');
+        if (isset($filters['is_core']) && $filters['is_core'] !== null && $filters['is_core'] !== '') {
+            $this->db->where('t.is_core', (int) $filters['is_core']);
+        }
+        if (!empty($filters['search'])) {
+            $this->db->like('t.tag', $this->normalize_tag($filters['search']));
+        }
+        $total = $this->db->count_all_results('', false);
+
+        $this->db->reset_query();
+        $this->db->select('t.id, t.tag, t.is_core, COALESCE(pc.project_count, 0) AS project_count');
+        $this->db->from($this->table_tags . ' t');
+        $this->db->join('(' . $sub_project . ') pc', 'pc.tag_id = t.id', 'left');
+        if (isset($filters['is_core']) && $filters['is_core'] !== null && $filters['is_core'] !== '') {
+            $this->db->where('t.is_core', (int) $filters['is_core']);
+        }
+        if (!empty($filters['search'])) {
+            $this->db->like('t.tag', $this->normalize_tag($filters['search']));
+        }
+        $this->db->order_by('t.tag', 'ASC');
+        $this->db->limit($limit, $offset);
+        $q = $this->db->get();
+        $tags = $q->result_array();
+
+        foreach ($tags as &$row) {
+            $row['project_count'] = (int) $row['project_count'];
+        }
+
+        return array(
+            'total'  => $total,
+            'tags'   => $tags,
+            'offset' => $offset,
+            'limit'  => $limit,
+        );
+    }
+
+    /**
+     * Delete all tags that are not used by any project.
+     *
+     * @return int Number of tags deleted
+     */
+    public function delete_unused()
+    {
+        $used = $this->db->select('tag_id')->from($this->table_project_tags)->get()->result_array();
+        $used_ids = array_unique(array_map(function ($r) {
+            return (int) $r['tag_id'];
+        }, $used));
+
+        $this->db->from($this->table_tags);
+        if (!empty($used_ids)) {
+            $this->db->where_not_in('id', $used_ids);
+        }
+        $to_delete = $this->db->get()->result_array();
+        $deleted = 0;
+        foreach ($to_delete as $row) {
+            if ($this->delete($row['id'])) {
+                $deleted++;
+            }
+        }
+        return $deleted;
     }
 
     // -------------------------------------------------------------------------
@@ -352,6 +439,20 @@ class Tags_model extends CI_Model {
         return $output;
     }
 
+    
+    /**
+     * 
+     * Check if a tag is used by any project.
+     * 
+     * @param int $tag_id Tag ID
+     * @return bool
+     */
+        public function check_project_tag_used($tag_id)
+        {
+            $this->db->select('sid')->from($this->table_project_tags)->where('tag_id', (int) $tag_id);
+            $result = $this->db->get()->result_array();
+            return count($result) > 0;
+        }
 
     /**
      * Check if a tag is already assigned to a project.
@@ -458,7 +559,13 @@ class Tags_model extends CI_Model {
     {
         $this->db->where('sid', (int) $sid);
         $this->db->where('tag_id', (int) $tag_id);
-        return $this->db->delete($this->table_project_tags);
+        $result=$this->db->delete($this->table_project_tags);
+
+        if ($result) {
+            // Delete tag if it is not used by any project
+            $this->delete($tag_id);
+        }
+        return $result;
     }
 
     /**

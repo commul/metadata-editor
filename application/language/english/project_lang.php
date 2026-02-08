@@ -414,6 +414,14 @@ $lang['Tags']="Tags";
 $lang['Add tag']="Add tag";
 $lang['Select a project']="Select a project";
 $lang['add_tags_placeholder']="Enter one or more tags (one per line or comma-separated)";
+$lang['tag_name']="Tag";
+$lang['remove_unused_tags']="Remove unused tags";
+$lang['confirm_delete_tag']="Are you sure you want to delete the tag?";
+$lang['tag_deleted']="Tag deleted.";
+$lang['confirm_remove_unused_tags']="Remove all tags that are not used by any project?";
+$lang['unused_tags_removed']="{n} unused tag(s) removed.";
+$lang['core']="Core";
+$lang['search_tags_placeholder']="Search tags...";
 
 // User actions - missing translations
 $lang['add']="Add";

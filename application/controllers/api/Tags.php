@@ -48,8 +48,11 @@ class Tags extends MY_REST_Controller {
             }
             $limit = $this->input->get('limit') ? (int) $this->input->get('limit') : null;
             $offset = (int) $this->input->get('offset');
+            $with_counts = $this->input->get('with_counts') === '1' || $this->input->get('with_counts') === 'true';
 
-            $result = $this->Tags_model->get_all($filters, $limit, $offset);
+            $result = $with_counts
+                ? $this->Tags_model->get_all_with_counts($filters, $limit, $offset)
+                : $this->Tags_model->get_all($filters, $limit, $offset);
 
             $response = array(
                 'status'  => 'success',
@@ -151,6 +154,59 @@ class Tags extends MY_REST_Controller {
                 'tags'    => $this->Tags_model->get_tags_by_project($sid),
             );
             $this->set_response($response, REST_Controller::HTTP_OK);
+        } catch (Exception $e) {
+            $this->set_response(array(
+                'status'  => 'failed',
+                'message' => $e->getMessage(),
+            ), REST_Controller::HTTP_BAD_REQUEST);
+        }
+    }
+
+    /**
+     * Delete a tag by ID. Removes the tag and all project assignments.
+     * POST /api/tags/delete/{id}
+     */
+    public function delete_tag_post($id = null)
+    {
+        try {
+            $this->has_access($resource_ = 'editor', $privilege = 'edit');
+            $id = (int) $id;
+
+            if ($id < 1) {
+                throw new Exception('Invalid tag ID');
+            }
+
+            if (!$this->Tags_model->tag_exists($id)) {
+                throw new Exception('Tag not found');
+            }
+            
+            $this->Tags_model->delete($id);
+            $this->set_response(array(
+                'status'  => 'success',
+                'message' => 'Tag deleted',
+            ), REST_Controller::HTTP_OK);
+        } catch (Exception $e) {
+            $this->set_response(array(
+                'status'  => 'failed',
+                'message' => $e->getMessage(),
+            ), REST_Controller::HTTP_BAD_REQUEST);
+        }
+    }
+
+    /**
+     * Delete all tags that are not used by any project.
+     * POST /api/tags/remove_unused
+     */
+    public function remove_unused_post()
+    {
+        try {
+            $this->has_access($resource_ = 'editor', $privilege = 'edit');
+            $deleted = $this->Tags_model->delete_unused();
+            $this->set_response(array(
+                'status'  => 'success',
+                'message' => $deleted ? $deleted . ' unused tag(s) removed' : 'No unused tags',
+                'deleted' => $deleted,
+            ), REST_Controller::HTTP_OK);
         } catch (Exception $e) {
             $this->set_response(array(
                 'status'  => 'failed',
