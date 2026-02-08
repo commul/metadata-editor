@@ -458,6 +458,14 @@ Vue.component('geospatial-feature-edit', {
                 if (this.$store && this.$store.dispatch) {
                     this.$store.dispatch('loadGeospatialFeatures', { dataset_id: vm.getProjectId() });
                 }
+                
+                // Reload map
+                this.$nextTick(() => {
+                    this.destroyMap();
+                    if (this.hasMapData) {
+                        this.$nextTick(() => this.initializeMap());
+                    }
+                });
             })
             .catch(error => {
                 this.errors = error.response?.data?.message || 'Failed to update feature';

@@ -387,12 +387,27 @@ Vue.component('indicator-dsd', {
                 return;
             }
             Vue.set(this.columns, this.edit_item, column);
-            // Trigger save when edit form emits changes (label, value_label_column, etc.)
-            // so edits are persisted; the deep watch on activeColumn may not fire when
-            // the same object reference is mutated by the child.
-            if (column && column.id && JSON.stringify(column) !== JSON.stringify(this.column_copy)) {
+            if (column && column.id) {
                 this.saveColumnDebounce();
             }
+        },
+        OnValueLabelColumnChange: function(newValue) {
+            if (this.edit_item === null) return;
+            var col = this.columns[this.edit_item];
+            if (!col) return;
+            if (!col.metadata) {
+                Vue.set(col, 'metadata', {});
+            }
+            Vue.set(col.metadata, 'value_label_column', newValue == null ? '' : String(newValue));
+            if (col.id && this.columnHasChanges(col)) {
+                this.saveColumnDebounce();
+            }
+        },
+        columnHasChanges: function(column) {
+            if (!column || !this.column_copy) return false;
+            var a = JSON.stringify(column);
+            var b = JSON.stringify(this.column_copy);
+            return a !== b;
         },
         validateDSD: async function(autoExpand = false) {
             this.isValidating = true;
@@ -937,7 +952,8 @@ Vue.component('indicator-dsd', {
                         <div v-else>
                             <indicator-dsd-edit 
                                 :column="activeColumn" 
-                                @input="OnColumnUpdate" 
+                                @input="OnColumnUpdate"
+                                @value-label-column-change="OnValueLabelColumnChange"
                                 :index_key="edit_item"
                             ></indicator-dsd-edit>
                         </div>

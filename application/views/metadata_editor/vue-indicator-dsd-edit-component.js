@@ -91,10 +91,13 @@ Vue.component('indicator-dsd-edit', {
             });
         },
         onValueLabelColumnInput: function(value) {
+            var val = value == null ? '' : String(value);
             if (!this.column.metadata) {
                 Vue.set(this.column, 'metadata', {});
             }
-            Vue.set(this.column.metadata, 'value_label_column', value == null ? '' : String(value));
+            Vue.set(this.column.metadata, 'value_label_column', val);
+            // Emit both so parent can sync and save; dedicated event ensures value_label_column is never missed
+            this.$emit('value-label-column-change', val);
             var self = this;
             this.$nextTick(function() {
                 self.$emit('input', self.column);
