@@ -380,6 +380,9 @@ class Indicator_dsd extends MY_REST_Controller
 				'skipped' => $result['skipped'],
 				'errors' => $result['errors']
 			);
+			if (isset($result['rows_imported'])) {
+				$response['rows_imported'] = (int) $result['rows_imported'];
+			}
 
 			// Include file information if file was stored
 			if (isset($result['file_id'])) {

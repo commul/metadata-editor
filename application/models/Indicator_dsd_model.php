@@ -509,7 +509,133 @@ class Indicator_dsd_model extends CI_Model {
      * @throws Exception if validation fails
      * 
      **/
-    private function validate_indicator_id($csv_file_path, $indicator_id_column, $project_idno)
+    /**
+     * Normalize CSV column names: replace spaces and dots with underscores, ensure uniqueness.
+     * Matches frontend logic so column_mappings (with normalized names) match the file after rewrite.
+     *
+     * @param array $raw_names Original header strings from CSV
+     * @return array Normalized, unique column names
+     */
+    private function normalize_csv_column_names($raw_names)
+    {
+        $normalized = array();
+        foreach ($raw_names as $name) {
+            $n = trim((string) $name);
+            $n = preg_replace('/[\s.]+/', '_', $n);
+            $n = trim($n, '_');
+            $normalized[] = $n !== '' ? $n : 'column';
+        }
+        $seen = array();
+        $out = array();
+        foreach ($normalized as $name) {
+            $key = strtoupper($name);
+            if (isset($seen[$key])) {
+                $suffix = 2;
+                do {
+                    $candidate = $name . '_' . $suffix;
+                    $key = strtoupper($candidate);
+                    $suffix++;
+                } while (isset($seen[$key]));
+                $name = $candidate;
+            }
+            $seen[$key] = true;
+            $out[] = $name;
+        }
+        return $out;
+    }
+
+    /**
+     * Find length of the first CSV line in content (respects quoted fields with commas/newlines).
+     *
+     * @param string $content Full file content
+     * @return array [length of first line including line ending, line ending string]
+     */
+    private function find_first_csv_line_length($content)
+    {
+        $len = strlen($content);
+        $in_quotes = false;
+        $i = 0;
+        while ($i < $len) {
+            $c = $content[$i];
+            if ($c === '"') {
+                if ($in_quotes && $i + 1 < $len && $content[$i + 1] === '"') {
+                    $i += 2;
+                    continue;
+                }
+                $in_quotes = !$in_quotes;
+                $i++;
+                continue;
+            }
+            if (!$in_quotes && ($c === "\n" || $c === "\r")) {
+                $line_end_len = ($c === "\r" && $i + 1 < $len && $content[$i + 1] === "\n") ? 2 : 1;
+                return array($i + $line_end_len, substr($content, $i, $line_end_len));
+            }
+            $i++;
+        }
+        return array($len, "\n");
+    }
+
+    /**
+     * Build a single CSV line from values (quotes values that contain comma, quote, or newline).
+     *
+     * @param array $values
+     * @return string
+     */
+    private function csv_line_from_values($values)
+    {
+        $out = array();
+        foreach ($values as $v) {
+            $v = (string) $v;
+            if (strpbrk($v, ",\"\r\n") !== false) {
+                $v = '"' . str_replace('"', '""', $v) . '"';
+            }
+            $out[] = $v;
+        }
+        return implode(',', $out);
+    }
+
+    /**
+     * Rewrite only the first line of the CSV with normalized column names (spaces/dots -> underscores).
+     * Rest of the file is unchanged. Faster than re-writing the entire file.
+     *
+     * @param string $csv_file_path Path to the CSV file
+     * @return array Normalized headers (same length as original)
+     */
+    private function rewrite_csv_with_normalized_headers($csv_file_path)
+    {
+        $content = file_get_contents($csv_file_path);
+        if ($content === false) {
+            throw new Exception("Failed to read CSV file");
+        }
+        list($first_line_len, $line_ending) = $this->find_first_csv_line_length($content);
+        $first_line = substr($content, 0, $first_line_len - strlen($line_ending));
+        $rest = substr($content, $first_line_len);
+
+        $headers = str_getcsv($first_line);
+        if (empty($headers)) {
+            throw new Exception("CSV file has no header row");
+        }
+        $normalized_headers = $this->normalize_csv_column_names($headers);
+        $new_first_line = $this->csv_line_from_values($normalized_headers);
+
+        $new_content = $new_first_line . $line_ending . $rest;
+        if (file_put_contents($csv_file_path, $new_content) === false) {
+            throw new Exception("Failed to rewrite CSV with normalized column names");
+        }
+        return $normalized_headers;
+    }
+
+    /**
+     * Filter CSV to only rows where indicator_id column matches project IDNO (case-insensitive).
+     * Overwrites the file with header + matching rows only, so the stored CSV stays clean.
+     *
+     * @param string $csv_file_path Path to the CSV file (with normalized headers)
+     * @param string $indicator_id_column CSV column name for indicator_id
+     * @param string $project_idno Project indicator IDNO to keep
+     * @return int Number of rows kept
+     * @throws Exception if no rows match or file cannot be written
+     */
+    private function filter_csv_to_matching_indicator_id($csv_file_path, $indicator_id_column, $project_idno)
     {
         if (empty($project_idno)) {
             throw new Exception("Indicator IDNO is not available");
@@ -517,31 +643,35 @@ class Indicator_dsd_model extends CI_Model {
 
         $csv = Reader::createFromPath($csv_file_path, 'r');
         $csv->setHeaderOffset(0);
-        
-        $row_number = 1; // Start at 1 (header is row 0)
+        $headers = $csv->getHeader();
         $project_idno_upper = strtoupper(trim($project_idno));
-        
+
+        $matching = array();
         foreach ($csv->getRecords() as $record) {
-            $row_number++;
-            
-            // Get indicator_id value
             $indicator_id = isset($record[$indicator_id_column]) ? trim($record[$indicator_id_column]) : '';
-            
-            // Check empty
-            if (empty($indicator_id)) {
-                throw new Exception("Indicator ID is empty in row {$row_number}");
+            if ($indicator_id !== '' && strtoupper($indicator_id) === $project_idno_upper) {
+                $row = array();
+                foreach ($headers as $h) {
+                    $row[] = isset($record[$h]) ? $record[$h] : '';
+                }
+                $matching[] = $row;
             }
-            
-            // Check match (case-insensitive)
-            $indicator_id_upper = strtoupper($indicator_id);
-            if ($indicator_id_upper !== $project_idno_upper) {
-                throw new Exception("Indicator ID '{$indicator_id}' in row {$row_number} does not match indicator IDNO '{$project_idno}'");
-            }
-            
-            // Continue to next row (early stop only on error)
         }
-        
-        return true;
+        unset($csv);
+
+        if (empty($matching)) {
+            throw new Exception("No rows match indicator IDNO '{$project_idno}'. Please add at least one row with matching indicator ID, or check the indicator IDNO.");
+        }
+
+        $lines = array($this->csv_line_from_values($headers));
+        foreach ($matching as $row) {
+            $lines[] = $this->csv_line_from_values($row);
+        }
+        $content = implode("\n", $lines);
+        if (file_put_contents($csv_file_path, $content) === false) {
+            throw new Exception("Failed to write filtered CSV file");
+        }
+        return count($matching);
     }
 
     public function import_csv($sid, $csv_file_path, $column_mappings, $overwrite_existing = 0, $skip_existing = 0, $user_id = null, $indicator_idno = null, $required_field_label_columns = array())
@@ -552,19 +682,18 @@ class Indicator_dsd_model extends CI_Model {
             'created' => 0,
             'updated' => 0,
             'skipped' => 0,
-            'errors' => array()
+            'errors' => array(),
+            'rows_imported' => 0
         );
 
         if (!file_exists($csv_file_path)) {
             throw new Exception("CSV file not found");
         }
 
-        // Read CSV headers
-        $csv = Reader::createFromPath($csv_file_path, 'r');
-        $csv->setHeaderOffset(0);
-        $headers = $csv->getHeader();
+        // Normalize column names in the CSV (first line only: spaces/dots -> underscores) and overwrite file
+        $headers = $this->rewrite_csv_with_normalized_headers($csv_file_path);
 
-        // Validate column mappings match CSV headers
+        // Validate column mappings match CSV headers (normalized)
         $csv_columns = array_map('strtolower', $headers);
         foreach ($column_mappings as $mapping) {
             $csv_col = strtolower($mapping['csvColumn']);
@@ -595,9 +724,9 @@ class Indicator_dsd_model extends CI_Model {
             return $result;
         }
         
-        // Validate indicator_id values (early stop on first mismatch)
+        // Keep only rows where indicator_id matches project IDNO; rewrite CSV so stored file is clean
         try {
-            $this->validate_indicator_id(
+            $result['rows_imported'] = $this->filter_csv_to_matching_indicator_id(
                 $csv_file_path,
                 $indicator_id_mapping['csvColumn'],
                 $project_idno

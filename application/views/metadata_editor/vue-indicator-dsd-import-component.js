@@ -134,8 +134,10 @@ Vue.component('indicator-dsd-import', {
 
             // Parse header
             const headerLine = lines[0];
-            const headers = this.parseCSVLine(headerLine);
-            
+            const rawHeaders = this.parseCSVLine(headerLine);
+            // Normalize column names: replace . and spaces with underscores, then ensure uniqueness
+            const headers = this.normalizeCSVColumnNames(rawHeaders);
+
             // Validate column names
             const validationResult = this.validateColumnNames(headers);
             if (!validationResult.valid) {
@@ -197,6 +199,28 @@ Vue.component('indicator-dsd-import', {
             
             values.push(current.trim());
             return values;
+        },
+        /** Convert . and spaces in column names to underscores; ensure unique names (append _2, _3 for duplicates). */
+        normalizeCSVColumnNames: function(rawNames) {
+            const normalized = rawNames.map((name) => {
+                const n = String(name || '').trim().replace(/[\s.]+/g, '_').replace(/^_+|_+$/g, '');
+                return n || 'column';
+            });
+            const seen = {};
+            return normalized.map((name) => {
+                let key = name.toUpperCase();
+                let out = name;
+                if (seen[key]) {
+                    let suffix = 2;
+                    do {
+                        out = name + '_' + suffix;
+                        key = out.toUpperCase();
+                        suffix++;
+                    } while (seen[key]);
+                }
+                seen[key] = true;
+                return out;
+            });
         },
         validateColumnNames: function(columnNames) {
             const errors = [];
@@ -360,11 +384,13 @@ Vue.component('indicator-dsd-import', {
                                 const pop = popRes.data || {};
                                 if (pop.updated !== undefined && pop.updated > 0) {
                                     this.importStatus = 'Import completed. Code lists populated.';
-                                    const message = `CSV imported: ${response.data.created || 0} created, ${response.data.updated || 0} updated. Code lists populated for ${pop.updated} columns.`;
+                                    const rowsMsg = response.data.rows_imported != null ? ` ${response.data.rows_imported} rows imported.` : '';
+                                    const message = `CSV imported: ${response.data.created || 0} created, ${response.data.updated || 0} updated.${rowsMsg} Code lists populated for ${pop.updated} columns.`;
                                     EventBus.$emit('onSuccess', message);
                                 } else {
                                     this.importStatus = 'Import completed successfully!';
-                                    const message = `CSV imported successfully: ${response.data.created || 0} created, ${response.data.updated || 0} updated`;
+                                    const rowsMsg = response.data.rows_imported != null ? ` ${response.data.rows_imported} rows imported.` : '';
+                                    const message = `CSV imported successfully: ${response.data.created || 0} created, ${response.data.updated || 0} updated.${rowsMsg}`;
                                     EventBus.$emit('onSuccess', message);
                                 }
                             } catch (popErr) {
@@ -374,7 +400,8 @@ Vue.component('indicator-dsd-import', {
                             }
                         } else {
                             this.importStatus = 'Import completed successfully!';
-                            const message = `CSV imported successfully: ${response.data.created || 0} created, ${response.data.updated || 0} updated`;
+                            const rowsMsg = response.data.rows_imported != null ? ` ${response.data.rows_imported} rows imported.` : '';
+                            const message = `CSV imported successfully: ${response.data.created || 0} created, ${response.data.updated || 0} updated.${rowsMsg}`;
                             EventBus.$emit('onSuccess', message);
                         }
                         this.importProgress = 100;

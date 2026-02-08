@@ -639,5 +639,7 @@ $lang['select_one_or_more_geography']='Select one or more to load chart';
 $lang['no_geography_options']='No geography options. Populate code lists from CSV first.';
 $lang['rows_found']='rows found';
 $lang['showing_first']='showing first';
+$lang['no_columns_found']='No Data!';
+$lang['no_column_selected']='Click on a column to edit';
 /* End of file project_lang.php */
 /* Location: ./application/language/english/project_lang.php */

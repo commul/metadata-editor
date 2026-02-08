@@ -821,8 +821,7 @@ Vue.component('indicator-dsd', {
                     <div class="pa-2" style="border-bottom: 1px solid #e0e0e0; background: #f5f5f5;">
                         <div class="d-flex justify-space-between align-center">
                             <div>
-                                <strong v-if="activeColumn">{{activeColumn.name}}</strong>
-                                <span v-else class="text-muted">{{$t("select_column_to_edit") || "Select a column to edit"}}</span>
+                                <strong v-if="activeColumn">{{activeColumn.name}}</strong>                                
                             </div>
                             <div v-if="activeColumn">
                                 <v-btn 
