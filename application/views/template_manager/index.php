@@ -554,7 +554,7 @@
       data() {
         return {
           user_template_info: user_template_info,
-          initiallyOpen: [],
+          initiallyOpen: ['template_root'],
           tree_active_items: [],
           is_dirty: false,
           treeSearchQuery: '',

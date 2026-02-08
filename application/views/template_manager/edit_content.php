@@ -113,12 +113,7 @@
                 </div>
             </div>
         </div>
-    </div>
-    <div v-else class="m-3 p-3">
-        <div class="text-secondary font-small mt-2">
-            {{$t("all_section_containers_added") || "All section containers from the core template have been added."}}
-        </div>
-    </div>
+    </div>    
 </div>
 
 <!-- Show description editing when description node is selected -->
