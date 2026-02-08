@@ -23,7 +23,8 @@ class Geospatial_processor {
         'jp2',                      // JPEG2000
         'asc', 'dem',               // ASCII Grid, DEM
         'bil', 'bip', 'bsq',        // Band Interleaved formats
-        'dt0', 'dt1', 'dt2'         // DTED formats
+        'dt0', 'dt1', 'dt2',         // DTED formats
+        'xsl'
     );
 
     private $required_shapefile_extensions = array('shp', 'shx', 'dbf');
