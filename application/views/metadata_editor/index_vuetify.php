@@ -14,6 +14,7 @@
   <!-- Leaflet CSS -->
   <link rel="stylesheet" href="<?php echo base_url();?>vue-app/assets/leaflet.css" />
   <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, minimal-ui">
+  <style>[v-cloak]{display:none !important;}</style>
 </head>
 
 <?php

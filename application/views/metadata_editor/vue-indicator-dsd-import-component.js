@@ -23,13 +23,66 @@ Vue.component('indicator-dsd-import', {
             editableStudyIdno: '', // Editable study IDNO
             csvPreviewView: 'data', // 'data' = table with rows, 'column' = vertical list of fields for mapping
             // CSV column name to use as value label for each required field (for value_labels generation)
-            requiredFieldLabelColumns: { indicator_id: '', geography: '', time_period: '', observation_value: '' }
+            requiredFieldLabelColumns: { indicator_id: '', geography: '', time_period: '', observation_value: '' },
+            hasUnsavedChanges: false
         }
     },
     created: async function() {
         await this.loadExistingColumns();
         // Initialize editable study IDNO
         this.editableStudyIdno = this.StudyIDNO || '';
+    },
+    mounted() {
+        this._boundBeforeUnload = this.handleBeforeUnload.bind(this);
+        window.addEventListener('beforeunload', this._boundBeforeUnload);
+
+        // Track hash changes (Vue Router hash mode) to warn about losing selections
+        this._lastHash = window.location.hash || '';
+        this._ignoreHashChange = false;
+        this._boundHashChange = this.handleHashChange.bind(this);
+        window.addEventListener('hashchange', this._boundHashChange);
+
+        // Register a router guard as a fallback for hash-only route updates
+        if (this.$router && Array.isArray(this.$router.beforeHooks)) {
+            this._routeGuard = (to, from, next) => {
+                if (!this.shouldWarnBeforeUnload()) {
+                    return next();
+                }
+                if (!this.showUnsavedMessage()) {
+                    // Best-effort revert hash if it changed
+                    if (from && typeof from.hash === 'string') {
+                        this._ignoreHashChange = true;
+                        window.location.hash = from.hash || '';
+                    }
+                    return next(false);
+                }
+                return next();
+            };
+            this.$router.beforeHooks.push(this._routeGuard);
+        }
+    },
+    beforeDestroy() {
+        window.removeEventListener('beforeunload', this._boundBeforeUnload);
+        window.removeEventListener('hashchange', this._boundHashChange);
+        if (this._routeGuard && this.$router && Array.isArray(this.$router.beforeHooks)) {
+            const idx = this.$router.beforeHooks.indexOf(this._routeGuard);
+            if (idx > -1) {
+                this.$router.beforeHooks.splice(idx, 1);
+            }
+        }
+    },
+    beforeRouteLeave(to, from, next) {
+        if (!this.showUnsavedMessage()) {
+            return next(false);
+        }
+        return next();
+    },
+    beforeRouteUpdate(to, from, next) {
+        // Triggered on hash changes or in-place route updates when component is reused
+        if (!this.showUnsavedMessage()) {
+            return next(false);
+        }
+        return next();
     },
         watch: {
         columnMappings: {
@@ -40,6 +93,7 @@ Vue.component('indicator-dsd-import', {
                     this.$nextTick(() => {
                         this.validateIndicatorId();
                     });
+                    this.hasUnsavedChanges = true;
                 }
             }
         },
@@ -50,6 +104,7 @@ Vue.component('indicator-dsd-import', {
                     this.validateIndicatorId();
                 });
             }
+            this.hasUnsavedChanges = true;
         },
         step(newStep) {
             // Validate when entering step 2 (preview)
@@ -168,6 +223,9 @@ Vue.component('indicator-dsd-import', {
 
             // Initialize column mappings
             this.initializeColumnMappings();
+
+            // Mark that there are unsaved changes once a CSV has been parsed
+            this.hasUnsavedChanges = true;
 
             this.step = 2; // Move to preview step
         },
@@ -408,6 +466,7 @@ Vue.component('indicator-dsd-import', {
                             EventBus.$emit('onSuccess', message);
                         }
                         this.importProgress = 100;
+                        this.hasUnsavedChanges = false;
                         setTimeout(() => {
                             this.$router.push('/indicator-dsd');
                         }, hasLabelColumns ? 2000 : 1500);
@@ -452,8 +511,11 @@ Vue.component('indicator-dsd-import', {
             this.editableStudyIdno = this.StudyIDNO || '';
             this.csvPreviewView = 'data';
             this.requiredFieldLabelColumns = { indicator_id: '', geography: '', time_period: '', observation_value: '' };
+            this.hasUnsavedChanges = false;
         },
         cancel: function() {
+            // Allow Cancel to navigate away without prompting for unsaved changes
+            this.hasUnsavedChanges = false;
             this.$router.push('/indicator-dsd');
         },
         toggleSelectAll: function() {
@@ -461,6 +523,7 @@ Vue.component('indicator-dsd-import', {
             this.columnMappings.forEach(m => {
                 m.selected = value;
             });
+            this.hasUnsavedChanges = true;
         },
         setRequiredFieldMapping: function(fieldKey, csvColumn) {
             // Clear current mapping for this field type
@@ -476,9 +539,11 @@ Vue.component('indicator-dsd-import', {
                 }
             }
             this.$nextTick(() => this.validateIndicatorId());
+            this.hasUnsavedChanges = true;
         },
         setRequiredFieldLabelColumn: function(fieldKey, csvColumn) {
             this.$set(this.requiredFieldLabelColumns, fieldKey, csvColumn || '');
+            this.hasUnsavedChanges = true;
         },
         isRequiredFieldMapped: function(mapping) {
             if (!mapping || !mapping.selected) return false;
@@ -512,47 +577,55 @@ Vue.component('indicator-dsd-import', {
                 return this.indicatorIdValidation;
             }
             
-            // 3. Validate sample rows (first 10 or all if fewer)
-            if (!this.csvData || !this.csvData.rows || this.csvData.rows.length === 0) {
-                this.indicatorIdValidation = {
-                    valid: false,
-                    error: 'No CSV data available for validation'
-                };
-                return this.indicatorIdValidation;
-            }
-            
-            const sampleRows = this.csvData.rows.slice(0, Math.min(10, this.csvData.rows.length));
-            const csvColumn = indicatorIdMapping.csvColumn;
-            
-            for (let i = 0; i < sampleRows.length; i++) {
-                const row = sampleRows[i];
-                const indicatorId = row[csvColumn];
-                
-                // Check empty
-                if (!indicatorId || String(indicatorId).trim() === '') {
-                    this.indicatorIdValidation = {
-                        valid: false,
-                        error: `Indicator ID is empty in row ${i + 2}` // +2 because row 1 is header
-                    };
-                    return this.indicatorIdValidation;
-                }
-                
-                // Check match (case-insensitive)
-                const indicatorIdUpper = String(indicatorId).trim().toUpperCase();
-                const studyIdnoUpper = String(studyIdno).trim().toUpperCase();
-                
-                if (indicatorIdUpper !== studyIdnoUpper) {
-                    this.indicatorIdValidation = {
-                        valid: false,
-                        error: `Indicator ID '${indicatorId}' in row ${i + 2} does not match indicator IDNO '${studyIdno}'`
-                    };
-                    return this.indicatorIdValidation;
-                }
-            }
-            
             // All validations passed
             this.indicatorIdValidation = { valid: true };
             return this.indicatorIdValidation;
+        },
+        shouldWarnBeforeUnload: function() {
+            // Warn only when there are unsaved changes and we are not mid-import
+            return this.hasUnsavedChanges && !this.isProcessing;
+        },
+        showUnsavedMessage: function() {
+            if (!this.shouldWarnBeforeUnload()) {
+                return true;
+            }
+            return confirm(this.getUnsavedChangesMessage());
+        },
+        getUnsavedChangesMessage: function() {
+            return this.$t('unsaved_changes_warning') || 'You have unsaved changes. Are you sure you want to leave this page?';
+        },
+        handleBeforeUnload: function(event) {
+            if (!this.shouldWarnBeforeUnload()) {
+                return;
+            }
+            const message = this.getUnsavedChangesMessage();
+            event.preventDefault();
+            event.returnValue = message;
+            return message;
+        },
+        handleHashChange: function(event) {
+            if (this._ignoreHashChange) {
+                // Skip synthetic hash change we triggered to revert navigation
+                this._ignoreHashChange = false;
+                this._lastHash = window.location.hash || '';
+                return;
+            }
+
+            if (!this.shouldWarnBeforeUnload()) {
+                this._lastHash = window.location.hash || '';
+                return;
+            }
+
+            const confirmLeave = this.showUnsavedMessage();
+            if (!confirmLeave) {
+                // Revert to the previous hash to keep the user on the current view
+                this._ignoreHashChange = true;
+                window.location.hash = this._lastHash || '';
+                return;
+            }
+
+            // Accepted navigation; remember new hash
+            this._lastHash = window.location.hash || '';
         }
     },
     computed: {

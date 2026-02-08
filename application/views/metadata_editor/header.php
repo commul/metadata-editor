@@ -8,7 +8,7 @@
             <template v-else>
                 <v-icon style="font-size:x-large;">mdi-file-tree</v-icon>
             </template>
-            <strong>{{Title}}</strong>            
+            <strong v-cloak>{{Title}}</strong>            
         </div>
         <!--<div>{{ProjectMetadata.idno}} </div>-->        
     </div>

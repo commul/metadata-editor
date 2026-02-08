@@ -12,11 +12,11 @@
         <pane min-size="15" max-size="35" size="20" class="editor-sidebar">
             <!--left -->
 
-            <div class="container-fluid-x  pt-2 pb-3 editor-sidebar editor-sidebar-container" >
+            <div class="container-fluid-x  pt-2 pb-3 editor-sidebar editor-sidebar-container" v-cloak>
 
 
             <div class="editor-sidebar-header pa-5 pt-0">
-            <div class="editor-sidebar-header-icons d-flex justify-center align-center mb-5" >
+            <div class="editor-sidebar-header-icons d-flex justify-center align-center mb-5">
                 
                 <div class="text-center pa-2" >
                     <v-btn text outlined title="Show mandatory fields" :class="{ active: show_fields_mandatory }" @click="toggleFields('mandatory')">
@@ -142,7 +142,7 @@
                     prominent
                     type="warning"
                 >
-                    <div>                        
+                    <div v-cloak>
                         <div class="ml-2">
                             <strong>{{$t('project_locked')}}</strong><br>
                             {{$t('project_locked_message')}}
