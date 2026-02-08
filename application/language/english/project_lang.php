@@ -622,5 +622,20 @@ $lang['all_categories_deleted'] = "All {count} categories have been deleted.";
 $lang['columns_in_db_not_in_csv_help'] = "Variables found in metadata that are not present in the data file.";
 $lang['metadata_columns_diff'] = "Metadata columns mismatch";
 
+
+// DSD
+$lang['data_structure_definition']="Data Structure Definition";
+$lang['data_preview']="Data Preview";
+$lang['chart_visualization']="Visualization";
+$lang['import_csv_data_structure']='Import CSV';
+$lang['import_csv_description']='Import CSV to create the data structure definition';
+$lang['select_csv_file']='Select CSV file';
+$lang['required_fields']='Required fields';
+$lang['field_label']='Field label';
+$lang['mapping']='Mapping';
+$lang['timeseries_visualization']='Timeseries visualization';
+$lang['time_period']='Time period';
+$lang['select_one_or_more_geography']='Select one or more to load chart';
+$lang['no_geography_options']='No geography options. Populate code lists from CSV first.';
 /* End of file project_lang.php */
 /* Location: ./application/language/english/project_lang.php */

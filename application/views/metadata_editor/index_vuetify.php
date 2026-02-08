@@ -1,6 +1,7 @@
 <!DOCTYPE html >
 <html>
 <head>
+  <link rel="icon" href="<?php echo base_url();?>favicon.ico">
   <link href="https://fonts.googleapis.com/css?family=Roboto:100,300,400,500,700,900" rel="stylesheet">
   <link href="<?php echo base_url();?>vue-app/assets/mdi.min.css" rel="stylesheet">
   <link href="<?php echo base_url();?>vue-app/assets/vuetify.min.css" rel="stylesheet">
@@ -111,6 +112,8 @@
   <link rel="stylesheet" href="<?php echo base_url(); ?>vue-app/assets/vue-json-pretty.min.css">
   <!-- Leaflet JS -->
   <script src="<?php echo base_url();?>vue-app/assets/leaflet.js"></script>
+  <!-- Chart.js for data visualization -->
+  <script src="<?php echo base_url();?>vue-app/assets/chart.min.js"></script>
   <link href="<?php echo base_url();?>vue-app/assets/styles.css" rel="stylesheet">
 
 
@@ -159,6 +162,9 @@
                     secondary: '#b0bec5',
                     accent: '#8c9eff',
                     error: '#b71c1c',
+                    success: '#4caf50',
+                    info: '#2196f3',
+                    warning: '#ff9800',
                 },
             },
             },
@@ -208,6 +214,7 @@
             variable:'mdi-file-table-outline',
             resource: 'mdi-folder-text',
             'file-manager':'mdi-folder-network',
+            chart: 'mdi-chart-box'
           },
         tree: [],
         items: [],
@@ -319,6 +326,20 @@
         },
         DataFiles(){
           return this.$store.state.data_files;
+        },
+        IndicatorDataFile(){
+          // Get the single datafile for indicator project (file_id: INDICATOR_DATA)
+          const dataFiles = this.$store.state.data_files;
+          if (!dataFiles || dataFiles.length === 0) {
+            return null;
+          }
+          // Try to find by fixed file_id first
+          const file = dataFiles.find(f => f.file_id === 'INDICATOR_DATA');
+          if (file) {
+            return file;
+          }
+          // Fallback: return first file (for migration)
+          return dataFiles.length > 0 ? dataFiles[0] : null;
         },
         MetadataTypes(){
           return this.$store.state.metadata_types;
@@ -921,6 +942,43 @@
             });
 
           }
+
+          if (this.dataset_type=='indicator' || this.dataset_type=='timeseries'){
+            tree_data.push({
+              title: this.$t('data_structure_definition'),
+              type: 'indicator-dsd-container',
+              file: 'database',
+              key:'indicator-dsd-container',
+              items:(() => {
+                const items = [
+                  {
+                    title: this.$t('data_structure_definition'),
+                    type: 'indicator-dsd',
+                    file: 'database',
+                    key:'indicator-dsd'
+                  }
+                ];
+                // Add data preview only if datafile exists
+                //if (this.IndicatorDataFile) {
+                  items.push({
+                    title: this.$t('data_preview'),
+                    type: 'data-preview',
+                    file: 'txt',
+                    key:'data-preview',
+                    datafile: this.IndicatorDataFile // Attach datafile for routing
+                  });
+                //}
+                // Add chart visualization
+                items.push({
+                  title: this.$t('chart_visualization'),
+                  type: 'indicator-dsd-chart',
+                  file: 'chart',
+                  key:'indicator-dsd-chart'
+                });
+                return items;
+              })()
+            });
+          }
           
           tree_data.push({
               title: this.$t('external-resources'),
@@ -966,7 +1024,13 @@
             this.setTreeActiveNode(this.$route.path);
           }
           else if (this.$route.path.startsWith("/data-explorer/")){
-            this.setTreeActiveNode(this.$route.path);
+            // For indicators, set active node to data-preview
+            if (this.dataset_type=='indicator' || this.dataset_type=='timeseries'){
+              this.initiallyOpen.push("indicator-dsd-container");
+              this.setTreeActiveNode("data-preview");
+            } else {
+              this.setTreeActiveNode(this.$route.path);
+            }
           }
           else if (this.$route.path.startsWith("/external-resources")){
             this.initiallyOpen=["external-resources"];
@@ -975,6 +1039,13 @@
           else if (this.$route.path.startsWith("/geospatial-features")){
             // Handle geospatial features initialization on page load
             this.setTreeActiveNode(this.$route.path);
+          }
+          else if (this.$route.path.startsWith("/indicator-dsd")){
+            if (this.$route.path.startsWith("/indicator-dsd-chart")){
+              this.setTreeActiveNode("indicator-dsd-chart");
+            } else {
+              this.setTreeActiveNode("indicator-dsd");
+            }
           }
           else{
             let active_node_name=this.$route.path;
@@ -1118,6 +1189,27 @@
 
           if (node.type=='geospatial-gallery'){
             router.push('/geospatial-gallery');
+            return;
+          }
+
+          if (node.type=='indicator-dsd'){
+            router.push('/indicator-dsd');
+            return;
+          }
+
+          if (node.type=='indicator-dsd-chart'){
+            router.push('/indicator-dsd-chart');
+            return;
+          }
+
+          if (node.type=='data-preview'){
+            // For indicators, route to data explorer with the indicator datafile
+            if (node.datafile && node.datafile.file_id) {
+              router.push('/data-explorer/' + node.datafile.file_id);
+            } else {
+              // If no datafile, show message or redirect to import
+              EventBus.$emit('onFail', this.$t('no_data_file') || 'No data file found. Please import CSV data first.');
+            }
             return;
           }
 

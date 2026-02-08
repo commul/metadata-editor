@@ -2161,6 +2161,7 @@
             "id": "dsd_container",
             "key": "dsd_container",
             "title": "Data structure definition",
+            "is_custom":true,
             "items": [
                 {
                     "key": "data_structure",
