@@ -85,7 +85,20 @@ Vue.component('indicator-dsd-edit', {
     },
     methods: {
         OnValueUpdate: function() {
-            this.$emit('input', this.column);
+            var self = this;
+            this.$nextTick(function() {
+                self.$emit('input', self.column);
+            });
+        },
+        onValueLabelColumnInput: function(value) {
+            if (!this.column.metadata) {
+                Vue.set(this.column, 'metadata', {});
+            }
+            Vue.set(this.column.metadata, 'value_label_column', value == null ? '' : String(value));
+            var self = this;
+            this.$nextTick(function() {
+                self.$emit('input', self.column);
+            });
         },
         onCodeListInput: function(newList) {
             var list = newList && Array.isArray(newList) ? newList : [];
@@ -141,6 +154,7 @@ Vue.component('indicator-dsd-edit', {
                             type="text" 
                             class="form-control form-control-sm" 
                             v-model="column.name" 
+                            @input="OnValueUpdate"
                             :pattern="'^[a-zA-Z0-9_]*$'"
                             maxlength="100"
                             required
@@ -155,6 +169,7 @@ Vue.component('indicator-dsd-edit', {
                             type="text" 
                             class="form-control form-control-sm" 
                             v-model="column.label" 
+                            @input="OnValueUpdate"
                         />
                     </div>
 
@@ -164,6 +179,7 @@ Vue.component('indicator-dsd-edit', {
                         <textarea 
                             class="form-control form-control-sm" 
                             v-model="column.description" 
+                            @input="OnValueUpdate"
                             rows="3"
                         ></textarea>
                     </div>
@@ -173,6 +189,7 @@ Vue.component('indicator-dsd-edit', {
                         <label>{{$t("data_type") || "Data Type"}} <span class="text-danger">*</span></label>
                         <select 
                             v-model="column.data_type" 
+                            @change="OnValueUpdate"
                             class="form-control form-control-sm form-field-dropdown"
                             required
                         >
@@ -188,6 +205,7 @@ Vue.component('indicator-dsd-edit', {
                         <label>{{$t("column_type") || "Column Type"}} <span class="text-danger">*</span></label>
                         <select 
                             v-model="column.column_type" 
+                            @change="OnValueUpdate"
                             class="form-control form-control-sm form-field-dropdown"
                             required
                         >
@@ -204,7 +222,9 @@ Vue.component('indicator-dsd-edit', {
                         <input 
                             type="text" 
                             class="form-control form-control-sm" 
-                            v-model="column.metadata.value_label_column" 
+                            :value="(column.metadata && column.metadata.value_label_column) || ''"
+                            @input="onValueLabelColumnInput($event.target.value)"
+                            @blur="OnValueUpdate"
                             :placeholder="$t('value_label_column_placeholder') || 'CSV column name for labels'"
                         />
                         <small class="form-text text-muted">{{$t("value_label_column_hint") || "Optional: column name in the data file that holds labels for this field (used for value_labels)"}}</small>
@@ -215,6 +235,7 @@ Vue.component('indicator-dsd-edit', {
                         <label>{{$t("time_period_format") || "Time Period Format"}}</label>
                         <select 
                             v-model="column.time_period_format" 
+                            @change="OnValueUpdate"
                             class="form-control form-control-sm form-field-dropdown"
                         >
                             <option value="">-</option>
@@ -260,6 +281,7 @@ Vue.component('indicator-dsd-edit', {
                                     type="text" 
                                     class="form-control form-control-sm" 
                                     v-model="column.code_list_reference.uri" 
+                                    @input="OnValueUpdate"
                                     placeholder="https://..."
                                 />
                             </div>
@@ -269,6 +291,7 @@ Vue.component('indicator-dsd-edit', {
                                     type="text" 
                                     class="form-control form-control-sm" 
                                     v-model="column.code_list_reference.id" 
+                                    @input="OnValueUpdate"
                                 />
                             </div>
                             <div class="form-group form-field">
@@ -277,6 +300,7 @@ Vue.component('indicator-dsd-edit', {
                                     type="text" 
                                     class="form-control form-control-sm" 
                                     v-model="column.code_list_reference.name" 
+                                    @input="OnValueUpdate"
                                 />
                             </div>
                             <div class="form-group form-field">
@@ -285,6 +309,7 @@ Vue.component('indicator-dsd-edit', {
                                     type="text" 
                                     class="form-control form-control-sm" 
                                     v-model="column.code_list_reference.version" 
+                                    @input="OnValueUpdate"
                                 />
                             </div>
                             <div class="form-group form-field">
@@ -292,6 +317,7 @@ Vue.component('indicator-dsd-edit', {
                                 <textarea 
                                     class="form-control form-control-sm" 
                                     v-model="column.code_list_reference.note" 
+                                    @input="OnValueUpdate"
                                     rows="2"
                                 ></textarea>
                             </div>

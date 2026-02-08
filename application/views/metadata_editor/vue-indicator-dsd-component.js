@@ -185,9 +185,12 @@ Vue.component('indicator-dsd', {
                 vm.isPopulatingCodeLists = false;
             }
         },
-        saveColumnDebounce: _.debounce(function(data) {
-            this.saveColumn(data);
-        }, 500),
+        saveColumnDebounce: _.debounce(function() {
+            // Save current column from state so we always send latest (e.g. metadata.value_label_column)
+            if (this.edit_item !== null && this.columns[this.edit_item]) {
+                this.saveColumn(this.columns[this.edit_item]);
+            }
+        }, 300),
         validateDSDDebounce: _.debounce(function() {
             if (this.columns.length > 0) {
                 this.validateDSD();
@@ -195,15 +198,29 @@ Vue.component('indicator-dsd', {
         }, 1000),
         saveColumn: function(data) {
             const vm = this;
-            let url = CI.base_url + '/api/indicator_dsd/update/' + vm.dataset_id + '/' + data.id;
+            // Use current column from state so value_label_column and all edits are included
+            var col = (vm.edit_item !== null && vm.columns[vm.edit_item]) ? vm.columns[vm.edit_item] : data;
+            let url = CI.base_url + '/api/indicator_dsd/update/' + vm.dataset_id + '/' + col.id;
 
-            // Exclude sort_order from updates - it should be managed separately
-            const updateData = Object.assign({}, data);
+            const updateData = _.cloneDeep(col);
             if (updateData.hasOwnProperty('sort_order')) {
                 delete updateData.sort_order;
             }
+            // Always build metadata from current column so value_label_column is never lost
+            var meta = col.metadata;
+            var val = (meta && meta.hasOwnProperty('value_label_column')) ? meta.value_label_column : '';
+            updateData.metadata = { value_label_column: val != null ? String(val) : '' };
+            if (meta && typeof meta === 'object' && !Array.isArray(meta)) {
+                for (var k in meta) {
+                    if (k !== 'value_label_column' && Object.prototype.hasOwnProperty.call(meta, k)) {
+                        updateData.metadata[k] = meta[k];
+                    }
+                }
+            }
 
-            axios.post(url, updateData)
+            axios.post(url, updateData, {
+                headers: { 'Content-Type': 'application/json' }
+            })
                 .then(function (response) {
                     EventBus.$emit('onSuccess', 'Column saved!');
                     // Update column_copy only after successful save
@@ -370,6 +387,12 @@ Vue.component('indicator-dsd', {
                 return;
             }
             Vue.set(this.columns, this.edit_item, column);
+            // Trigger save when edit form emits changes (label, value_label_column, etc.)
+            // so edits are persisted; the deep watch on activeColumn may not fire when
+            // the same object reference is mutated by the child.
+            if (column && column.id && JSON.stringify(column) !== JSON.stringify(this.column_copy)) {
+                this.saveColumnDebounce();
+            }
         },
         validateDSD: async function(autoExpand = false) {
             this.isValidating = true;
@@ -423,8 +446,6 @@ Vue.component('indicator-dsd', {
         },
         filteredColumns: function() {
             let filtered = this.columns;
-            
-            // Apply search filter
             if (this.column_search !== '') {
                 filtered = filtered.filter((item) => {
                     return (item.name + (item.label || ''))
@@ -432,15 +453,48 @@ Vue.component('indicator-dsd', {
                         .includes(this.column_search.toUpperCase());
                 });
             }
-            
-            // Apply sorting by sort_order
-            filtered = [...filtered].sort((a, b) => {
-                const aVal = a.sort_order !== null && a.sort_order !== undefined ? a.sort_order : 999999;
-                const bVal = b.sort_order !== null && b.sort_order !== undefined ? b.sort_order : 999999;
-                return this.sortOrder === 'asc' ? aVal - bVal : bVal - aVal;
-            });
-            
             return filtered;
+        },
+        /** Core column types in display order (for "Core fields" group) */
+        coreColumnTypesOrder: function() {
+            return ['indicator_id', 'geography', 'time_period', 'observation_value', 'measure', 'periodicity'];
+        },
+        /** Columns organized by group: Core, Dimensions, Attributes, Annotations, Others */
+        groupedColumns: function() {
+            var coreOrder = this.coreColumnTypesOrder;
+            var list = this.filteredColumns;
+            var core = [], dimensions = [], attributes = [], annotations = [], others = [];
+            list.forEach(function(col) {
+                var t = col.column_type;
+                if (coreOrder.indexOf(t) >= 0) core.push(col);
+                else if (t === 'dimension') dimensions.push(col);
+                else if (t === 'attribute') attributes.push(col);
+                else if (t === 'annotation') annotations.push(col);
+                else others.push(col);
+            });
+            core.sort(function(a, b) {
+                return coreOrder.indexOf(a.column_type) - coreOrder.indexOf(b.column_type);
+            });
+            var groups = [];
+            if (core.length) {
+                groups.push({ groupKey: 'core', groupLabel: this.$t('dsd_group_core') || 'Core fields', columns: core });
+            }
+            if (dimensions.length) {
+                groups.push({ groupKey: 'dimensions', groupLabel: this.$t('dsd_group_dimensions') || 'Dimensions', columns: dimensions });
+            }
+            if (attributes.length) {
+                groups.push({ groupKey: 'attributes', groupLabel: this.$t('dsd_group_attributes') || 'Attributes', columns: attributes });
+            }
+            if (annotations.length) {
+                groups.push({ groupKey: 'annotations', groupLabel: this.$t('dsd_group_annotations') || 'Annotations', columns: annotations });
+            }
+            if (others.length) {
+                groups.push({ groupKey: 'others', groupLabel: this.$t('dsd_group_others') || 'Others', columns: others });
+            }
+            return groups;
+        },
+        hasGroupedColumns: function() {
+            return this.groupedColumns.some(function(g) { return g.columns.length > 0; });
         },
         allColumnsSelected: function() {
             return this.filteredColumns.length > 0 && 
@@ -745,17 +799,21 @@ Vue.component('indicator-dsd', {
                             <v-progress-circular indeterminate color="primary"></v-progress-circular>
                             <div class="mt-2">{{$t("loading") || "Loading"}}...</div>
                         </div>
-                        <div v-else-if="filteredColumns.length === 0" class="pa-4 text-center text-muted">
+                        <div v-else-if="!hasGroupedColumns" class="pa-4 text-center text-muted">
                             {{$t("no_columns_found") || "No columns found"}}
                         </div>
                         <v-list v-else dense>
-                            <v-list-item
-                                v-for="(column, index) in filteredColumns"
-                                :key="column.id || index"
-                                @click="editColumnByColumn(column)"
-                                :class="columnActiveClass(index, column)"
-                                :style="getRowStyle(column)"
-                            >
+                            <template v-for="group in groupedColumns">
+                                <v-subheader :key="group.groupKey" class="font-weight-bold text-uppercase" style="height: 36px;">
+                                    {{group.groupLabel}}
+                                </v-subheader>
+                                <v-list-item
+                                    v-for="column in group.columns"
+                                    :key="column.id"
+                                    @click="editColumnByColumn(column)"
+                                    :class="columnActiveClass(0, column)"
+                                    :style="getRowStyle(column)"
+                                >
                                 <v-list-item-action class="mr-2" @click.stop>
                                     <v-checkbox
                                         :input-value="isColumnSelected(column.id)"
@@ -810,7 +868,8 @@ Vue.component('indicator-dsd', {
                                         {{column.column_type}}
                                     </v-chip>
                                 </v-list-item-action>
-                            </v-list-item>
+                                </v-list-item>
+                            </template>
                         </v-list>
                     </div>
                 </div>
