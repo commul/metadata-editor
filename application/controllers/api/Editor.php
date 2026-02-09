@@ -146,12 +146,13 @@ class Editor extends MY_REST_Controller
 				}
 			}
 
-			$result=$this->Editor_model->get_row($sid);
-			array_walk($result, 'unix_date_to_gmt_row',array('created','changed'));
+			$result=$this->Editor_model->get_row($sid);			
 				
 			if(!$result){
 				throw new Exception("PROJECT_NOT_FOUND");
 			}
+
+			array_walk($result, 'unix_date_to_gmt_row',array('created','changed'));
 
 			$response=array(
 				'status'=>'success',
