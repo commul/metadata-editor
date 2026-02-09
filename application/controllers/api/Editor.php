@@ -318,12 +318,17 @@ class Editor extends MY_REST_Controller
 			}
 
 			$this->Editor_model->create_project_folder($dataset_id);
+			$this->audit_log->log_event($obj_type='project',
+				$obj_id=$dataset_id,
+				$action='create',
+				$metadata=null, 
+				$user_id=$user_id, 
+				$obj_ref_id=null);						
 			
 			if (!empty($project_options)){
 				$this->_update_project_metadata($type, $dataset_id, $project_options, false, $this->api_user(), $user_id);
 			}
-
-			$this->audit_log->log_event($obj_type='project',$obj_id=$dataset_id,$action='create', $user_id);						
+						
 			$this->_add_project_to_collections($dataset_id, $collection_ids, $user_id);
 			
 			$response=array(

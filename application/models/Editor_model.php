@@ -876,6 +876,11 @@ class Editor_model extends CI_Model {
 			}
 			
 			$value = array_data_get($data, $path);
+
+			if (empty($value)){
+				return null;
+			}
+
 			if ($value !== null && $value !== '' && $value !== false) {
 				return $value;
 			}

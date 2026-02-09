@@ -78,6 +78,7 @@ class Audit_log_model extends CI_Model {
 		$obj_type = isset($options['obj_type']) ? $options['obj_type'] : '';
 		$obj_id = isset($options['obj_id']) ? $options['obj_id'] : '';
 		$user_id = isset($options['user_id']) ? $options['user_id'] : '';
+		$action_type = isset($options['action_type']) ? $options['action_type'] : '';
 		$obj_ref_id = isset($options['obj_ref_id']) ? $options['obj_ref_id'] : '';
 		$exclude_metadata = isset($options['exclude_metadata']) ? $options['exclude_metadata'] : false;
 
@@ -97,6 +98,10 @@ class Audit_log_model extends CI_Model {
 
 		if (!empty($obj_id)){
 			$this->db->where('audit_logs.obj_id', $obj_id);
+		}
+
+		if (!empty($action_type)){
+			$this->db->where('audit_logs.action_type', $action_type);
 		}
 
 		if (!empty($obj_ref_id)){
@@ -156,6 +161,7 @@ class Audit_log_model extends CI_Model {
 		$obj_type = isset($options['obj_type']) ? $options['obj_type'] : '';
 		$obj_id = isset($options['obj_id']) ? $options['obj_id'] : '';
 		$user_id = isset($options['user_id']) ? $options['user_id'] : '';
+		$action_type = isset($options['action_type']) ? $options['action_type'] : '';
 		$obj_ref_id = isset($options['obj_ref_id']) ? $options['obj_ref_id'] : '';		
 
 		$this->db->from('audit_logs');
@@ -170,6 +176,10 @@ class Audit_log_model extends CI_Model {
 
 		if (!empty($obj_id)){
 			$this->db->where('audit_logs.obj_id', $obj_id);
+		}
+
+		if (!empty($action_type)){
+			$this->db->where('audit_logs.action_type', $action_type);
 		}
 
 		if (!empty($obj_ref_id)){
