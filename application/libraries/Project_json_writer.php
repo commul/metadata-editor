@@ -298,6 +298,12 @@ class Project_json_writer
 				$output['description']['feature_catalogue'] = $merged_feature_catalogue;
 			}
 		}
+
+		// Indicator/timeseries: export data structure definition as data_structure
+		if (in_array($project['type'], array('indicator', 'timeseries'))) {
+			$this->ci->load->library('Indicator_util');
+			$output['data_structure'] = $this->ci->indicator_util->get_data_structure_for_project($sid);
+		}
 		
 		$encoder = new \Violet\StreamingJsonEncoder\StreamJsonEncoder(
 			$output,

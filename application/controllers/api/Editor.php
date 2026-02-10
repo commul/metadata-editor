@@ -246,6 +246,12 @@ class Editor extends MY_REST_Controller
 		$options['changed_by'] = $user_id;
 		$options['changed'] = date("U");
 		
+		// Indicator/timeseries: import data_structure into DSD table and remove from metadata
+		if (in_array($type, array('indicator', 'timeseries')) && isset($options['data_structure']) && is_array($options['data_structure'])) {
+			$this->load->library('Indicator_util');
+			$this->indicator_util->import_data_structure_for_project($id, $options['data_structure'], $user_id);
+			unset($options['data_structure']);
+		}
 		
 		$this->load->library('ImportJsonMetadata');
 		
@@ -258,9 +264,6 @@ class Editor extends MY_REST_Controller
 		$this->importjsonmetadata->process_project_metadata($type, $id, $options, $validate, $import_options);		
 		$this->Editor_model->create_project_folder($id);
 	}
-
-	
-
 
 	/**
 	 * 
@@ -1156,8 +1159,6 @@ class Editor extends MY_REST_Controller
 	{
 		try{
 			$user_id=$this->get_api_user_id();
-			$this->has_access($resource_='editor',$privilege='view');
-
 			$options = $this->input->get();
 			$result=$this->project_search->get_facets($user_id, $options);
 

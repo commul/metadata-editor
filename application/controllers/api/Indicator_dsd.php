@@ -36,6 +36,7 @@ class Indicator_dsd extends MY_REST_Controller
 	function index_get($sid = null)
 	{
 		try{
+			$sid = $this->get_sid($sid);
 			$this->editor_acl->user_has_project_access($sid, $permission = 'view', $this->api_user);
 			
 			$detailed = (int)$this->input->get("detailed");
@@ -80,6 +81,7 @@ class Indicator_dsd extends MY_REST_Controller
 	function single_get($sid = null, $id = null)
 	{
 		try{
+			$sid = $this->get_sid($sid);
 			$this->editor_acl->user_has_project_access($sid, $permission = 'view', $this->api_user);
 
 			if (!$id) {
@@ -117,6 +119,7 @@ class Indicator_dsd extends MY_REST_Controller
 	function index_post($sid = null)
 	{
 		try{
+			$sid = $this->get_sid($sid);
 			$this->editor_acl->user_has_project_access($sid, $permission = 'edit', $this->api_user);
 			
 			$options = (array)$this->raw_json_input();
@@ -173,6 +176,7 @@ class Indicator_dsd extends MY_REST_Controller
 	function update_post($sid = null, $id = null)
 	{
 		try{
+			$sid = $this->get_sid($sid);
 			$this->editor_acl->user_has_project_access($sid, $permission = 'edit', $this->api_user);
 			
 			if (!$id) {
@@ -318,6 +322,7 @@ class Indicator_dsd extends MY_REST_Controller
 	function import_post($sid = null)
 	{
 		try{
+			$sid = $this->get_sid($sid);
 			$this->editor_acl->user_has_project_access($sid, $permission = 'edit', $this->api_user);
 			
 			// Validate file upload
@@ -374,6 +379,7 @@ class Indicator_dsd extends MY_REST_Controller
 
 			$response = array(
 				'status' => 'success',
+				'sid' => $sid,
 				'message' => 'CSV imported successfully',
 				'created' => $result['created'],
 				'updated' => $result['updated'],
@@ -411,6 +417,7 @@ class Indicator_dsd extends MY_REST_Controller
 	function validate_get($sid = null)
 	{
 		try{
+			$sid = $this->get_sid($sid);
 			$this->editor_acl->user_has_project_access($sid, $permission = 'view', $this->api_user);
 			
 			$result = $this->Indicator_dsd_model->validate_dsd($sid);
@@ -446,6 +453,7 @@ class Indicator_dsd extends MY_REST_Controller
 	function chart_data_get($sid = null)
 	{
 		try{
+			$sid = $this->get_sid($sid);
 			$this->editor_acl->user_has_project_access($sid, $permission = 'view', $this->api_user);
 			
 			// Get filter parameters
@@ -495,6 +503,7 @@ class Indicator_dsd extends MY_REST_Controller
 	function populate_code_lists_post($sid = null)
 	{
 		try {
+			$sid = $this->get_sid($sid);
 			$this->editor_acl->user_has_project_access($sid, $permission = 'edit', $this->api_user);
 
 			$user_id = $this->get_api_user_id();
