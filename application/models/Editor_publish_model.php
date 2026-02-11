@@ -37,12 +37,23 @@ class Editor_publish_model extends ci_model {
 			throw new Exception("Project not found");
 		}
 
+		var_dump($options);
+
 		$project_type=$project['type'];
-		
-		// change to 'survey' for NADA compatibility
-		if ($project_type == 'microdata') {
-			$project_type = 'survey';
+
+		//project mappings for NADA
+		$mappings=array(
+			'microdata'=>'survey',
+			'indicator'=>'timeseries',
+			'indicator-db'=>'timeseries-db'			
+		);
+
+		if (array_key_exists($project_type, $mappings))
+		{
+			$project_type=$mappings[$project_type];
 		}
+		
+
 		$catalog_url=$conn_info['url'].'/index.php/api/datasets/create/'.$project_type;
 		$catalog_api_key=$conn_info['api_key'];
 		
