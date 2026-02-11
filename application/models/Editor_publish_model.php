@@ -37,8 +37,6 @@ class Editor_publish_model extends ci_model {
 			throw new Exception("Project not found");
 		}
 
-		var_dump($options);
-
 		$project_type=$project['type'];
 
 		//project mappings for NADA
