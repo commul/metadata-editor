@@ -969,6 +969,7 @@ class Editor_datafile_model extends CI_Model {
 			$metadata = $this->Editor_model->decode_metadata(isset($row['metadata']) ? $row['metadata'] : '');
 			if (is_array($metadata)) {
 				$metadata['fid'] = $new_file_id;
+				$metadata['file_id'] = $new_file_id;
 				$metadata['vid'] = $new_vid;
 			}
 

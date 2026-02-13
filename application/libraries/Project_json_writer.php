@@ -324,9 +324,52 @@ class Project_json_writer
 		unset($variable['metadata']['uid']);
 		unset($variable['metadata']['sid']);
 
-		$var_catgry_labels=isset($variable['metadata']["var_catgry_labels"]) 
-			? $variable['metadata']["var_catgry_labels"]
-			: array();
+		// Read var_catgry_labels from metadata
+		$raw_labels = isset($variable['metadata']['var_catgry_labels'])
+			? $variable['metadata']['var_catgry_labels']
+			: (isset($variable['var_catgry_labels']) ? $variable['var_catgry_labels'] : array());
+		$var_catgry_labels = is_array($raw_labels) ? $raw_labels : (array)$raw_labels;
+		// Ensure sequential array for iteration
+		$var_catgry_labels = array_values($var_catgry_labels);
+
+		// Replace var_catgry with list from var_catgry_labels ONLY
+		$missing_values = array();
+		if (isset($variable['metadata']['var_invalrng']['values']) && is_array($variable['metadata']['var_invalrng']['values'])) {
+			$missing_values = array_map('strval', $variable['metadata']['var_invalrng']['values']);
+		}
+		$catgry_by_value = array();
+		if (isset($variable['metadata']['var_catgry']) && is_array($variable['metadata']['var_catgry'])) {
+			foreach ($variable['metadata']['var_catgry'] as $cat) {
+				if (isset($cat['value'])) {
+					$catgry_by_value[(string)$cat['value']] = $cat;
+				}
+			}
+		}
+		if (count($var_catgry_labels) > 0) {
+			$export_catgry = array();
+			foreach ($var_catgry_labels as $label_item) {
+				$label_item = is_array($label_item) ? $label_item : (array)$label_item;
+				if (!array_key_exists('value', $label_item)) {
+					continue;
+				}
+				$value_str = (string)$label_item['value'];
+				$label = isset($label_item['labl']) ? $label_item['labl'] : '';
+				$is_missing = in_array($value_str, $missing_values, true) ? '1' : '0';
+				$stats = array();
+				if (isset($catgry_by_value[$value_str]['stats']) && is_array($catgry_by_value[$value_str]['stats'])) {
+					$stats = $catgry_by_value[$value_str]['stats'];
+				}
+				$export_catgry[] = array(
+					'value' => $value_str,
+					'labl' => $label,
+					'is_missing' => $is_missing,
+					'stats' => $stats
+				);
+			}
+			$variable['metadata']['var_catgry'] = $export_catgry;
+		} else {
+			unset($variable['metadata']['var_catgry']);
+		}
 
 		//process summary statistics
 		$sum_stats_options = isset($variable['metadata']['sum_stats_options']) ? $variable['metadata']['sum_stats_options'] : [];
@@ -401,57 +444,6 @@ class Project_json_writer
 			}
 		}
 
-		// Get missing values from var_invalrng.values
-		$missing_values = array();
-		if (isset($variable['metadata']['var_invalrng']['values']) && 
-			is_array($variable['metadata']['var_invalrng']['values'])) {
-			$missing_values = array_map('strval', $variable['metadata']['var_invalrng']['values']);
-		}
-
-		//merge var_catgry_labels into var_catgry
-		if (is_array($var_catgry_labels) && !empty($var_catgry_labels)){
-			
-			// If var_catgry does not exist, create categories from var_catgry_labels
-			if (!isset($variable['metadata']['var_catgry']) || !is_array($variable['metadata']['var_catgry']) || empty($variable['metadata']['var_catgry'])){
-				$variable['metadata']['var_catgry'] = [];
-				foreach($var_catgry_labels as $label_item){
-					if (isset($label_item['value'])) {
-						$value_str = (string)$label_item['value'];
-						$label = isset($label_item['labl']) ? $label_item['labl'] : '';
-						$is_missing = in_array($value_str, $missing_values, true) ? '1' : '0';
-						
-						$variable['metadata']['var_catgry'][] = [
-							'value' => $value_str,
-							'labl' => $label,
-							'is_missing' => $is_missing,
-							'stats' => []
-						];
-					}
-				}
-			}
-			// If var_catgry exists, update labels from var_catgry_labels by matching value
-			else {
-				foreach($variable['metadata']['var_catgry'] as $cat_idx => $cat) {
-					if (isset($cat['value'])) {
-						$cat_value_str = (string)$cat['value'];
-						
-						// Find matching label in var_catgry_labels
-						foreach($var_catgry_labels as $label_item) {
-							if (isset($label_item['value']) && (string)$label_item['value'] === $cat_value_str) {
-								// Update label from var_catgry_labels
-								if (isset($label_item['labl'])) {
-									$variable['metadata']['var_catgry'][$cat_idx]['labl'] = $label_item['labl'];
-								}
-								// Update is_missing based on var_invalrng.values
-								$variable['metadata']['var_catgry'][$cat_idx]['is_missing'] = in_array($cat_value_str, $missing_values, true) ? '1' : '0';
-								break;
-							}
-						}
-					}
-				}
-			}
-		}
-
 		//var_std_catgry field - array to object + use first row only
 		if (isset($variable['metadata']['var_std_catgry']) && is_array($variable['metadata']['var_std_catgry']) ){
 			if (isset($variable['metadata']['var_std_catgry'][0])){
@@ -511,7 +503,13 @@ class Project_json_writer
 
 		// Convert numeric strings to actual numbers in statistical fields only
 		$variable['metadata'] = $this->convert_statistics_to_numeric($variable['metadata']);
-		
+
+		// Use fid and file_id in exported metadata to match the DB column.		
+		if (isset($variable['fid'])) {
+			$variable['metadata']['fid'] = $variable['fid'];
+			$variable['metadata']['file_id'] = $variable['fid'];
+		}
+
 		array_remove_empty($variable);
 		return $variable;
 	}
