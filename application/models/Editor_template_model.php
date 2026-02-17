@@ -831,10 +831,11 @@ class Editor_template_model extends ci_model {
 			throw new Exception("Project does not have a template");
 		}
 
-		$template=$this->get_template_by_uid($result['template_uid']);
+		$template_uid = $result['template_uid'];
+		$template=$this->get_template_by_uid($template_uid);
 
 		if (!$template){
-			throw new Exception("Template not found");
+			throw new Exception("Template not found: " . $template_uid);
 		}
 
 		return $template;
