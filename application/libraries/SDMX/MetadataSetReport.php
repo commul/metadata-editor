@@ -182,15 +182,61 @@ class MetadataSetReport
 
 		if ($validator->isValid()) {
 			return true;
-		} else {			
-			/*foreach ($validator->getErrors() as $error) {
-				echo sprintf("[%s] %s\n", $error['property'], $error['message']);
-			}*/
-
-//			var_dump($validator->getErrors());
-
-			throw new ValidationException("SCHEMA_VALIDATION_FAILED: ", $validator->getErrors());
+		} else {
+			$errors = $this->enrich_errors_with_value($data, $validator->getErrors());
+			throw new ValidationException("SCHEMA_VALIDATION_FAILED", $errors);
 		}
+	}
+
+
+	/**
+	 * Resolve a JSON pointer (RFC 6901) against data and return the value.
+	 * e.g. "/meta/id" -> $data['meta']['id']
+	 *
+	 * @param array|object $data
+	 * @param string $pointer e.g. "/meta/id"
+	 * @return mixed|null
+	 */
+	private function get_value_by_pointer($data, $pointer)
+	{
+		if ($pointer === '' || $pointer === null) {
+			return $data;
+		}
+		$parts = explode('/', trim($pointer, '/'));
+		$current = $data;
+		foreach ($parts as $key) {
+			$key = str_replace(['~1', '~0'], ['/', '~'], $key);
+			if (!is_array($current) && !is_object($current)) {
+				return null;
+			}
+			$current = is_object($current) ? (array) $current : $current;
+			if (!array_key_exists($key, $current)) {
+				return null;
+			}
+			$current = $current[$key];
+		}
+		return $current;
+	}
+
+
+	/**
+	 * Add the invalid value to each error using the error's pointer.
+	 *
+	 * @param array $data The validated data
+	 * @param array $errors Errors from JsonSchema\Validator::getErrors()
+	 * @return array
+	 */
+	private function enrich_errors_with_value($data, $errors)
+	{
+		$enriched = [];
+		foreach ($errors as $err) {
+			$pointer = isset($err['pointer']) ? $err['pointer'] : null;
+			if ($pointer !== null) {
+				$err['value'] = $this->get_value_by_pointer($data, $pointer);
+			}
+			$enriched[] = $err;
+		}
+		return $enriched;
 	}
 
 }
