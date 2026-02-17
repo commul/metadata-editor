@@ -612,6 +612,13 @@ $lang['all_categories_deleted'] = "Barcha {count} kategoriyalar o'chirildi.";
 $lang['columns_in_db_not_in_csv_help'] = "Metadatalarda topilgan, lekin ma'lumotlar faylida mavjud bo'lmagan o'zgaruvchilar.";
 $lang['metadata_columns_diff'] = "Metadatalar ustunlari mos kelmasligi";
 
+$lang['value_label_column'] = "Qiymat yorliqli ustun";
+$lang['value_label_column_placeholder'] = "Yorliqlarni o'z ichiga olgan ustun nomi";
+$lang['value_label_column_hint'] = "Ixtiyoriy: ushbu maydon uchun yorliqlarni o'z ichiga olgan ma'lumotlar faylidagi ustun nomi (value_labels uchun ishlatiladi)";
+$lang['code_list'] = "Kod ro'yxati";
+$lang['code_list_reference'] = "Kod ro'yxati havolasi";
+$lang['uri'] = "URI";
+
 /* End of file project_lang.php */
 /* Location: ./application/language/uzbek/project_lang.php */
 

@@ -653,6 +653,15 @@ $lang['dsd_group_dimensions']='Dimensions';
 $lang['dsd_group_attributes']='Attributes';
 $lang['dsd_group_annotations']='Annotations';
 $lang['dsd_group_others']='Others';
+$lang['validation_passed']='Validation passed';
+$lang['validation_failed']='Validation failed';
+$lang['dsd_validation']='DSD validation';
+$lang['value_label_column']='Value label column';
+$lang['value_label_column_placeholder']='Column name containing labels';
+$lang['value_label_column_hint']='Optional: column name in the data file that holds labels for this field (used for value_labels)';
+$lang['code_list']='Code list';
+$lang['code_list_reference']='Code list reference';
+$lang['uri']='URI';
 // DSD import – required field labels and shared labels
 $lang['indicator_idno']='Indicator IDNO';
 $lang['indicator_id']='Indicator ID';
@@ -666,6 +675,7 @@ $lang['type_to_search']='Type to search...';
 $lang['map_fields']='Map fields';
 $lang['data_view']='Data';
 $lang['columns']='Columns';
+$lang['add_column']='Add column';
 $lang['csv_field']='CSV field';
 $lang['column_type']='Column type';
 $lang['data_type']='Data type';
@@ -674,6 +684,7 @@ $lang['some_columns_exist']='Some columns already exist in the data structure';
 $lang['overwrite_existing_columns']='Overwrite existing columns';
 $lang['skip_existing_columns']='Skip existing columns';
 $lang['upload_another']='Upload Another File';
+
 
 /* End of file project_lang.php */
 /* Location: ./application/language/english/project_lang.php */

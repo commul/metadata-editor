@@ -570,15 +570,7 @@ Vue.component('indicator-dsd', {
                             {{$t("validate") || "Validate"}}
                         </v-btn>
                         <v-btn 
-                            color="primary" 
-                            class="mr-2" 
-                            @click="addColumn"
-                            small
-                        >
-                            <v-icon left small>mdi-plus</v-icon>
-                            {{$t("create_new") || "Create New"}}
-                        </v-btn>
-                        <v-btn 
+                            v-if="typeof dsd_temporary_features_enabled !== 'undefined' && dsd_temporary_features_enabled"
                             color="primary"                              
                             @click="importColumns"
                             small
@@ -587,6 +579,7 @@ Vue.component('indicator-dsd', {
                             {{$t("import") || "Import"}}
                         </v-btn>
                         <v-btn 
+                            v-if="typeof dsd_temporary_features_enabled !== 'undefined' && dsd_temporary_features_enabled"
                             color="primary" 
                             class="ml-2"
                             @click="populateCodeLists"
@@ -753,8 +746,7 @@ Vue.component('indicator-dsd', {
                                 class="mt-0"
                             ></v-text-field>
                             
-                            <!-- Spacer to push sort toggle to the right -->
-                            <v-spacer></v-spacer>
+                            
                             
                             <!-- Sort Direction Toggle -->
                             <v-btn
@@ -886,6 +878,20 @@ Vue.component('indicator-dsd', {
                                 </v-list-item>
                             </template>
                         </v-list>
+                    </div>
+                    
+                    <!-- Footer: Add column -->
+                    <div class="pa-1" style="border-top: 1px solid #e0e0e0; background: #fff;">
+                        <v-btn
+                            small
+                            color="primary"
+                            @click="addColumn"
+                            block
+                            class="mt-0"
+                        >
+                            <v-icon left small>mdi-plus</v-icon>
+                            {{$t("add_column") || "Add column"}}
+                        </v-btn>
                     </div>
                 </div>
 

@@ -959,8 +959,7 @@
                     key:'indicator-dsd'
                   }
                 ];
-                // Add data preview only if datafile exists
-                //if (this.IndicatorDataFile) {
+                if (typeof dsd_temporary_features_enabled !== 'undefined' && dsd_temporary_features_enabled) {
                   items.push({
                     title: this.$t('data_preview'),
                     type: 'data-preview',
@@ -968,14 +967,13 @@
                     key:'data-preview',
                     datafile: this.IndicatorDataFile // Attach datafile for routing
                   });
-                //}
-                // Add chart visualization
-                items.push({
-                  title: this.$t('chart_visualization'),
-                  type: 'indicator-dsd-chart',
-                  file: 'chart',
-                  key:'indicator-dsd-chart'
-                });
+                  items.push({
+                    title: this.$t('chart_visualization'),
+                    type: 'indicator-dsd-chart',
+                    file: 'chart',
+                    key:'indicator-dsd-chart'
+                  });
+                }
                 return items;
               })()
             });

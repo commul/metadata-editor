@@ -568,5 +568,12 @@ $lang['all_categories_deleted'] = "Se han eliminado todas las {count} categoría
 $lang['columns_in_db_not_in_csv_help'] = "Variables encontradas en los metadatos que no están presentes en el archivo de datos.";
 $lang['metadata_columns_diff'] = "Discrepancia de columnas de metadatos";
 
+$lang['value_label_column'] = "Columna de etiquetas de valor";
+$lang['value_label_column_placeholder'] = "Nombre de la columna que contiene las etiquetas";
+$lang['value_label_column_hint'] = "Opcional: nombre de la columna en el archivo de datos que contiene las etiquetas de este campo (usado para value_labels)";
+$lang['code_list'] = "Lista de códigos";
+$lang['code_list_reference'] = "Referencia de lista de códigos";
+$lang['uri'] = "URI";
+
 /* End of file project_lang.php */
 /* Location: ./application/language/spanish/project_lang.php */

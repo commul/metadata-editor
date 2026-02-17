@@ -161,8 +161,7 @@ Vue.component('indicator-dsd-edit', {
                             :pattern="'^[a-zA-Z0-9_]*$'"
                             maxlength="100"
                             required
-                        />
-                        <small class="form-text text-muted">{{$t("column_name_hint") || "Alphanumeric and underscore only"}}</small>
+                        />                        
                     </div>
 
                     <!-- Label -->

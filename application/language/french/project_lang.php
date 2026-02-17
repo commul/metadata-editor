@@ -576,5 +576,12 @@ $lang['all_categories_deleted'] = "Toutes les {count} catégories ont été supp
 $lang['columns_in_db_not_in_csv_help'] = "Variables présentes dans les métadonnées mais absentes du fichier de données.";
 $lang['metadata_columns_diff'] = "Écart des colonnes de métadonnées";
 
+$lang['value_label_column'] = "Colonne d'étiquettes de valeur";
+$lang['value_label_column_placeholder'] = "Nom de la colonne contenant les étiquettes";
+$lang['value_label_column_hint'] = "Optionnel : nom de la colonne dans le fichier de données qui contient les étiquettes pour ce champ (utilisé pour value_labels)";
+$lang['code_list'] = "Liste de codes";
+$lang['code_list_reference'] = "Référence de liste de codes";
+$lang['uri'] = "URI";
+
 /* End of file project_lang.php */
 /* Location: ./application/language/french/project_lang.php */

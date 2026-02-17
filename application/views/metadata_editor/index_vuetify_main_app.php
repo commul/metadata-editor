@@ -266,6 +266,9 @@
         let project_type='<?php echo isset($type) ? $type : '';?>';
         let user_has_edit_access=<?php echo $user_has_edit_access ? 'true' : 'false';?>;
 
+        // DSD features
+        var dsd_temporary_features_enabled = false;
+
         //Define route components
         const main = {props:['element_id'],template: '<div><form-main/></div>' }
         const Home = { template: '<div><summary-component/> </div>' }
