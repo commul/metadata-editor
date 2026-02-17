@@ -104,10 +104,10 @@ class Editor_model extends CI_Model {
 
 
 	/**
+	 * Create folder for project.
 	 * 
-	 * 
-	 * create folder for project
-	 * 
+	 * Use a bucketed path (e.g. storage/10000/hash, storage/20000/hash) by project id
+	 * 	 
 	 */
 	function create_project_folder($sid)
 	{
@@ -115,29 +115,33 @@ class Editor_model extends CI_Model {
 			throw new Exception("create_project_folder::invalid sid");
 		}
 
-		$storage_root=$this->get_storage_path();
-		$project_folder=$storage_root.'/'.nada_hash($sid);
+		$storage_root = $this->get_storage_path();
+		$bucket_size = 5000;
+		$bucket = (int) (ceil($sid / $bucket_size) * $bucket_size);
+		$relative_dirpath = $bucket . '/' . nada_hash($sid);
 
-        //create the repo folder and survey folder
-        @mkdir($project_folder, 0777, $recursive=true);
+		$project_folder = $storage_root . '/' . $relative_dirpath;
 
-        if(!file_exists($project_folder)){
-            throw new Exception("EDITOR_STORAGE_FOLDER_NOT_CREATED:".$storage_root);
-        }
+		// create bucket folder and project folder (recursive)
+		@mkdir($project_folder, 0777, true);
 
-        if(!file_exists($project_folder)){
-            throw new Exception("PROJECT_FOLDER_NOT_CREATED::CHECK-PERMISSIONS-OR-PATH: ".$project_folder);
-        }
+		if (!file_exists($project_folder)){
+			throw new Exception("EDITOR_STORAGE_FOLDER_NOT_CREATED:" . $storage_root);
+		}
 
-		//update db with project folder path
-		$options=array(
-			'dirpath'=>nada_hash($sid)
+		if (!file_exists($project_folder)){
+			throw new Exception("PROJECT_FOLDER_NOT_CREATED::CHECK-PERMISSIONS-OR-PATH: " . $project_folder);
+		}
+
+		// update db with project folder path
+		$options = array(
+			'dirpath' => $relative_dirpath
 		);
 
-		$this->db->where("id",$sid);
-		$this->db->update("editor_projects",$options);
+		$this->db->where("id", $sid);
+		$this->db->update("editor_projects", $options);
 
-        return nada_hash($sid);
+		return $relative_dirpath;
 	}
 	
 	
