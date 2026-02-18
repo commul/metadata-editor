@@ -2,6 +2,8 @@
 
 $config['acl_system_roles'] = ['user','admin'];
 
+$config['acl_debug'] = false;
+
 //give full access to admin to everything
 $config['acl_system_role_permissions'] = [
     'user'=>[
@@ -13,8 +15,7 @@ $config['acl_system_role_permissions'] = [
         'role'=>'admin',
         'resource'=>null, //full access to all resources
         'permissions'=>null //allowed all permissions
-    ],
-    
+    ]    
 ];
 
 
@@ -30,7 +31,7 @@ $config['acl_permissions'] = [
     ],
     "editor"=>[ 
         "title" => "Editor",
-        "description"=> "Allow user to manage projects",
+        "description"=> "Alow users to manage own projects",
         "permissions"=>[
             [
                 "permission" => "view"
@@ -45,14 +46,39 @@ $config['acl_permissions'] = [
                 "permission" => "publish"
             ],
             [
-                "permission" => "admin"
+                "permission" => "admin",
+                "sub_permissions"=>["view","edit","delete","publish"]
             ]
         ]
     ],
+    /*     
+    // TODO: implement project manager role
+    "project_manager"=>[ 
+        "title" => "Project manager",
+        "description"=> "Global access to all projects",
+        "permissions"=>[
+            [
+                "permission" => "view"
+            ],
+            [
+                "permission" => "edit"
+            ],
+            [
+                "permission" => "delete"
+            ],
+            [
+                "permission" => "publish"
+            ],
+            [
+                "permission" => "admin",
+                "sub_permissions"=>["view","edit","delete","publish"]
+            ]
+        ]
+    ],*/
 
     "template_manager"=>[ 
         "title" => "Template manager",
-        "description"=> "Allow user to manage templates",
+        "description"=> "Global access to all templates",
         "permissions"=>[
             [
                 "permission" => "view"
@@ -134,8 +160,28 @@ $config['acl_permissions'] = [
             ]
         ]
     ],
-    
-   
+
+    "tag"=>[ 
+        "title" => "Tag",
+        "description"=> "Allow user to manage tags",
+        "permissions"=>[
+            [
+                "permission" => "view"
+            ],
+            [
+                "permission" => "edit",
+                "sub_permissions"=>["view"]
+            ],
+            [
+                "permission" => "delete",
+                "sub_permissions"=>["view"]
+            ],
+            [
+                "permission" => "admin",
+                "sub_permissions"=>["view","edit","delete"]
+            ]
+        ]
+    ],
     
     "configurations"=>[ 
         "title" => "Site configurations",

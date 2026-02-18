@@ -14,7 +14,7 @@ class Tags extends MY_Controller {
 
     public function index()
     {
-        $this->editor_acl->has_access_or_die($resource_ = 'editor', $privilege = 'view');
+        $this->editor_acl->has_access_or_die($resource_ = 'tag', $privilege = 'view');
         $options = array(
             'translations' => $this->lang->language
         );

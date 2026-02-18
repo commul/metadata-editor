@@ -37,7 +37,7 @@ class Tags extends MY_REST_Controller {
     public function index_get()
     {
         try {
-            $this->has_access($resource_ = 'editor', $privilege = 'view');
+            $this->has_access($resource_ = 'tag', $privilege = 'view');
 
             $filters = array();
             if ($this->input->get('is_core') !== null && $this->input->get('is_core') !== '') {
@@ -163,13 +163,16 @@ class Tags extends MY_REST_Controller {
     }
 
     /**
-     * Delete a tag by ID. Removes the tag and all project assignments.
-     * POST /api/tags/delete/{id}
+     * 
+     * Delete a tag by ID
+     * 
+     * - Only deletes the tag if it is not used by any project.
+     * 
      */
     public function delete_tag_post($id = null)
     {
         try {
-            $this->has_access($resource_ = 'editor', $privilege = 'edit');
+            $this->has_access($resource_ = 'tag', $privilege = 'delete');
             $id = (int) $id;
 
             if ($id < 1) {
@@ -194,13 +197,14 @@ class Tags extends MY_REST_Controller {
     }
 
     /**
+     * 
      * Delete all tags that are not used by any project.
-     * POST /api/tags/remove_unused
+     * 
      */
     public function remove_unused_post()
     {
         try {
-            $this->has_access($resource_ = 'editor', $privilege = 'edit');
+            $this->has_access($resource_ = 'tag', $privilege = 'delete');
             $deleted = $this->Tags_model->delete_unused();
             $this->set_response(array(
                 'status'  => 'success',

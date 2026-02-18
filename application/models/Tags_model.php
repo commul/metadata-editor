@@ -569,9 +569,9 @@ class Tags_model extends CI_Model {
     }
 
     /**
-     * Normalize tag: trim, strip accents, lowercase, replace spaces with dash, strip special chars, max 50 chars.
-     * Accents are folded (é→e, ü→u) via Unicode NFD + remove combining marks; requires intl.
-     * Spaces/whitespace become a single dash; then parenthesis, brackets, quotes, &lt; &gt;, etc. are removed.
+     * Normalize tag: trim, normalize whitespace, strip special chars, max 50 chars.
+     * Preserves accented characters (é, ü, ñ, etc.) and all Unicode letters.
+     * Multiple spaces are collapsed to single space. Parenthesis, brackets, quotes, &lt; &gt;, etc. are removed.
      *
      * @param string $tag
      * @return string
@@ -582,22 +582,21 @@ class Tags_model extends CI_Model {
         if ($tag === '') {
             return '';
         }
-        // Fold accents: café → cafe, naïve → naive (requires intl extension)
-        if (class_exists('Normalizer', false)) {
-            $tag = \Normalizer::normalize($tag, \Normalizer::NFD);
-            $tag = preg_replace('/\p{M}/u', '', $tag);
-        }
-        //$tag = mb_strtolower($tag, 'UTF-8');
-        // Replace spaces (and other whitespace) with dash
-        $tag = preg_replace('/\s+/u', '-', $tag);
-        // Remove ()[]{}'"<> and any character not letter, digit, hyphen, underscore
-        $tag = preg_replace('/[^\p{L}0-9_\-]/u', '', $tag);
+                
+        // Normalize multiple spaces/whitespace to single space
+        $tag = preg_replace('/\s+/u', ' ', $tag);
+        // Keep letters (including accented), digits, hyphen, underscore, and space
+        $tag = preg_replace('/[^\p{L}0-9_\-\s]/u', '', $tag);
+        $tag = trim($tag);
+
         if ($tag === '') {
             return '';
         }
+
         if (strlen($tag) > 50) {
             return substr($tag, 0, 50);
         }
+        
         return $tag;
     }
 }

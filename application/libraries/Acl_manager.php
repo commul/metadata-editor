@@ -16,6 +16,7 @@ class Acl_manager
 	{
 		log_message('debug', "Acl_manager Class Initialized.");
 		$this->ci =& get_instance();
+		$this->ci->load->library('Form_validation');
 		//$this->ci->load->model('Permissions_model');
 		//$this->ci->load->model('repository_model');
 
