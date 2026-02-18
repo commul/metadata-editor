@@ -909,8 +909,6 @@ CREATE TABLE `tags` (
   UNIQUE KEY `tag_UNIQUE` (`tag`),
   KEY `idx_is_core` (`is_core`)
 ) DEFAULT CHARSET=utf8mb4;
-
-
 CREATE TABLE `project_tags` (
   `id` int NOT NULL AUTO_INCREMENT,
   `sid` int NOT NULL,
@@ -919,8 +917,6 @@ CREATE TABLE `project_tags` (
   UNIQUE KEY `unq_sid_tag` (`sid`,`tag_id`),
   KEY `idx_tag_id` (`tag_id`)
 ) DEFAULT CHARSET=utf8mb4;
-
-
 CREATE TABLE `indicator_dsd` (
   `id` int NOT NULL AUTO_INCREMENT,
   `sid` int NOT NULL,
