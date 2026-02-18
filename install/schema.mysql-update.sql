@@ -177,7 +177,7 @@ ALTER TABLE `editor_collection_access` RENAME TO `editor_collection_project_acl`
 
 -- 2025/09/10
 -- Add interval_type field to editor_variables table
-ALTER TABLE `editor_variables` ADD COLUMN `interval_type` varchar(20) DEFAULT NULL;
+ALTER TABLE `editor_variables` ADD COLUMN `interval_type` enum('discrete','contin') DEFAULT NULL;
 
 
 -- 2025/09/17

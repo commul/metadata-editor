@@ -564,7 +564,7 @@ CREATE TABLE `editor_template_acl` (
   `user_id` int NOT NULL,
   `created` int DEFAULT NULL,
   PRIMARY KEY (`id`)
-)  AUTO_INCREMENT=1;
+)  AUTO_INCREMENT=1 DEFAULT CHARSET=utf8mb4;
 
 
 create table editor_project_owners (
