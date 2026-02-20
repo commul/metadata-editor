@@ -74,7 +74,7 @@ $lang['forgot_password_verification']="¿Ha olvidado su contraseña de usuario?"
 $lang['account_activation']="Activación de cuenta";
 $lang['callback_country_invalid']="El campo País es obligatorio";
 $lang['log_in']="Ingresar";
-$lang['site_login_privacy_terms']="La información que ingrese al momento de registrarse en este catálogo será utilizada de acuerdo a los términos de la institución <a href=\"http://www.ejemplo.org/politica\" target=\"_blank\">Política de Privacidad</a>. ";
+$lang['site_login_privacy_terms']="La información que proporcione al registrarse o iniciar sesión será utilizada de acuerdo con nuestra Política de Privacidad.";
 $lang['impersonate_user']="Probar acceso con otro usuario";
 $lang['impersonate_msg']="Seleccionar el usuario de la lista para probar el acceso con dicho usuario";
 $lang['general_user_accounts']="Cuentas de usuario general (acceso no administrador)";

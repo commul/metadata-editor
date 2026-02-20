@@ -38,7 +38,6 @@
             <h5 class="mb-1"><?php echo t('select_language_to_translate'); ?></h5>
             <select class="form-control-sm" name="lang" id="lang">
                 <?php foreach ($languages as $lang): ?>
-                <?php if ($lang === 'english') continue; ?>
                 <option value="<?php echo $lang; ?>" <?php echo ($language == $lang) ? 'selected="selected"' : ''; ?> ><?php echo ucfirst($lang); ?></option>
                 <?php endforeach;?>
             </select>

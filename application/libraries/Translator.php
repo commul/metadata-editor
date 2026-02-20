@@ -160,6 +160,15 @@ class Translator{
 
 		$all = array_values(array_unique(array_merge($app_langs, $user_langs)));
 		sort($all);
+
+		// Pin English first as it is the base language
+		$english_key = array_search('english', $all);
+		if ($english_key !== false)
+		{
+			array_splice($all, $english_key, 1);
+			array_unshift($all, 'english');
+		}
+
 		return $all;
 	}
 	

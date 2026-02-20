@@ -46,13 +46,6 @@ class Translate extends MY_Controller {
 			show_error("NO_LANGUAGE_SELECTED");
 		}
 
-		// English is the base language and is not editable via the UI
-		if ($language === 'english')
-		{
-			$this->session->set_flashdata('translate_error', 'English is the base language and cannot be edited here.');
-			redirect('admin/translate'); exit;
-		}
-	
 		//check if language exists
 		if (!$this->translator->language_exists($language))
 		{

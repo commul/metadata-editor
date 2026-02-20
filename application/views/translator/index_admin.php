@@ -59,11 +59,7 @@
                 <?php endif;?>
             </td>
             <td>
-                <?php if ($lang !== 'english'): ?>
-                    <?php echo anchor('admin/translate/edit/'.$lang, t('edit'));?> | <?php echo anchor('admin/translate/download/'.$lang, t('download'));?>
-                <?php else: ?>
-                    <?php echo anchor('admin/translate/download/'.$lang, t('download'));?>
-                <?php endif; ?>
+                <?php echo anchor('admin/translate/edit/'.$lang, t('edit'));?> | <?php echo anchor('admin/translate/download/'.$lang, t('download'));?>
             </td>
         </tr>
     <?php endforeach;?>
