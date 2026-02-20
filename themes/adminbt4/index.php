@@ -7,20 +7,14 @@ if (!headers_sent()) {
 ?>
 <?php //include_once APPPATH.'/config/site_menus.php'; ?>
 <?php
-//build a list of links for available languages
-$languages=$this->config->item("supported_languages");
-
-$lang_list='';
-if ($languages!==FALSE)
-{
-	if (count($languages)>1)
-	{
-		foreach($languages as $language)
-		{
-			$lang_list.='| <span> '.anchor('switch_language/'.$language.'/?destination=admin', strtoupper($language)).' </span>';
-		}
-	}
-}
+//build language switcher for admin navbar
+$_adm_languages    = $this->config->item('supported_languages');  // flat folder-name array
+$_adm_lang_codes   = $this->config->item('language_codes');       // keyed by folder name
+$_adm_current_lang = $this->session->userdata('language') ?: $this->config->item('language');
+$_adm_lang_label   = (isset($_adm_lang_codes[$_adm_current_lang]['display']))
+    ? $_adm_lang_codes[$_adm_current_lang]['display']
+    : ucfirst($_adm_current_lang);
+$_adm_show_switcher = is_array($_adm_languages) && count($_adm_languages) > 1;
 
 $this->load->helper('site_menu');
 $site_navigation_menu=get_site_menu();
@@ -159,6 +153,25 @@ $site_navigation_menu=get_site_menu();
     </ul>
     <ul class="nav navbar-nav navbar-right float-right pull-right">
       <li class="divider-vertical"></li>
+      <?php if ($_adm_show_switcher): ?>
+      <li class="nav-item dropdown">
+        <a class="nav-link dropdown-toggle" href="#" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
+          <i class="fas fa-language"></i> <?php echo htmlspecialchars($_adm_lang_label); ?>
+        </a>
+        <ul class="dropdown-menu dropdown-menu-right">
+          <?php foreach ($_adm_languages as $_adm_folder):
+            if (!isset($_adm_lang_codes[$_adm_folder])) continue;
+            $_adm_info = $_adm_lang_codes[$_adm_folder];
+          ?>
+          <li>
+            <a class="dropdown-item" href="<?php echo site_url('switch_language/' . $_adm_folder . '?destination=admin'); ?>">
+              <?php echo htmlspecialchars($_adm_info['display']); ?>
+            </a>
+          </li>
+          <?php endforeach; ?>
+        </ul>
+      </li>
+      <?php endif; ?>
       <li class="dropdown">
       <?php $user=strtoupper($this->session->userdata('username'));?>
       <?php if ($user):?>

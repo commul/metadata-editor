@@ -23,5 +23,13 @@ $config['cache_disabled'] = 1;
 //site's default language
 $config['language'] = 'english';
 
+//enabled languages (JSON array)
+$config['supported_languages'] = json_encode(array(
+    array('folder' => 'english', 'code' => 'en', 'display' => 'English',  'direction' => 'ltr'),
+    array('folder' => 'french',  'code' => 'fr', 'display' => 'Français', 'direction' => 'ltr'),
+    array('folder' => 'spanish', 'code' => 'es', 'display' => 'Español',  'direction' => 'ltr'),
+    array('folder' => 'uzbek',   'code' => 'uz', 'display' => 'Uzbek',    'direction' => 'ltr'),
+));
+
 /* End of file config.php */
 /* Location: ./system/application/config/config.php */

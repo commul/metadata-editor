@@ -19,7 +19,7 @@ class Site_configurations{
 		$settings=$this->ci->configurations_model->load();
 		
 		//list of settings stored in db in JSON format
-		$json_formatted=array('admin_allowed_ip','admin_allowed_hosts');
+		$json_formatted=array('admin_allowed_ip','admin_allowed_hosts','supported_languages');
 		
 		//update the config array with values from DB
 		if ($settings)
@@ -39,6 +39,33 @@ class Site_configurations{
 				{
 					$this->ci->config->set_item($setting['name'], $setting['value']);
 				}	
+			}
+		}
+
+		// Build language_codes from new supported_languages object format
+		$lang_data = $this->ci->config->item('supported_languages');
+		if (is_array($lang_data) && !empty($lang_data)) {
+			$first = $lang_data[0];
+			// New format: each entry has a 'folder' key (object or array)
+			if ((is_array($first) && isset($first['folder'])) ||
+			    (is_object($first) && isset($first->folder))) {
+				$language_codes = array();
+				$folder_names   = array();
+				foreach ($lang_data as $entry) {
+					$entry  = is_array($entry) ? $entry : (array)$entry;
+					$folder = isset($entry['folder']) ? $entry['folder'] : null;
+					if (!$folder) continue;
+					$folder_names[] = $folder;
+					$language_codes[$folder] = array(
+						'name'          => $folder,
+						'language_file' => $folder,
+						'display'       => isset($entry['display'])   ? $entry['display']   : ucfirst($folder),
+						'code'          => isset($entry['code'])      ? $entry['code']      : '',
+						'direction'     => isset($entry['direction']) ? $entry['direction'] : 'ltr',
+					);
+				}
+				$this->ci->config->set_item('language_codes',      $language_codes);
+				$this->ci->config->set_item('supported_languages', $folder_names);
 			}
 		}
 		

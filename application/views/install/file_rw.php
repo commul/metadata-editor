@@ -1,7 +1,7 @@
 <?php
 	
 	$test_folders=array(
-				'datafiles'=>'Catalog',
+				'datafiles'=>'Data',
 				$this->config->item('log_path')=>'Log',
 	);
 	

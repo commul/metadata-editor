@@ -1,13 +1,13 @@
 <?php 
 
 $lang['title_configurations']="Site Configurations";
-$lang['general_site_settings']="General site settings";
-$lang['website_title']="Website title";
 $lang['website_url']="Website URL";
 $lang['default_home_page']="Default home page";
-$lang['webmaster_name']="Webmaster name";
-$lang['webmaster_email']="Webmaster email";
 $lang['language']="Language";
+$lang['enabled_languages']="Enabled languages";
+$lang['enabled_languages_note']="Enabling multiple languages allows users to switch the UI language on the frontend. If a selected language folder is missing at runtime, the backend will fall back to English.";
+$lang['default_language']="Default language";
+$lang['default_language_note']="Used when no user preference is set";
 $lang['cache_folder']="Cache folder";
 $lang['survey_catalog_settings']="Survey catalog settings";
 $lang['catalog_folder']="Catalog folder";
@@ -20,12 +20,7 @@ $lang['topic_search']="Topic filter";
 $lang['year_search']="Year filter";
 $lang['website_theme_name']="Website theme name";
 $lang['data_catalog_page_size']="Catalog search page size";
-$lang['site_login']="Site login";
-$lang['password_protect_website']="Password protected website";
-$lang['login_timeout_in_min']="Login timeout (in minutes)";
-$lang['min_password_length']="Minimum password length";
-$lang['require_all_users_to_login']="Requires all users to login to access the website";
-$lang['login_not_required']="Login is not required to view the site";
+
 $lang['mail_settings']="SMTP settings";
 $lang['select_mail_protocol']="Protocol for sending emails";
 $lang['smtp_host']="Host name";
@@ -73,6 +68,34 @@ $lang['collection_search_weight']="Collection filter";
 $lang['instruction_weight']="Weights control the order of the filters. Filters are sorted by weights in ascending order.";
 $lang['edit_email_settings']="To configure email, see <em>config/email.php</em> file.";
 $lang['test_email_configurations']="Test email configurations";
+
+$lang['editor_storage_settings']="Storage";
+$lang['editor_storage_path']="Storage path";
+$lang['editor_storage_path_note']="Root folder for all editor data files";
+$lang['editor_storage_path_inside_app_warning']="The storage path is inside the application folder. It is recommended to use a folder outside the application root to keep data safe during upgrades.";
+$lang['editor_user_schema_path']="User schema path";
+$lang['editor_data_api_url']="FAST API URL";
+$lang['editor_project_sharing']="Project sharing";
+$lang['editor_storage_config_file_note']="These settings are read-only and configured in <em>config/editor.php</em>";
+
+$lang['builtin_analytics_settings']="Built-in Analytics";
+$lang['analytics_enabled']="Analytics enabled";
+$lang['analytics_track_hash_changes']="Track hash changes";
+$lang['analytics_track_hash_changes_note']="When enabled, tracks URL hash (#) changes in addition to full page loads";
+$lang['analytics_config_file_note']="These settings are read-only and configured in <em>config/analytics.php</em>";
+$lang['yes']="Yes";
+$lang['no']="No";
+
+$lang['support_and_updates']="Support &amp; Updates";
+$lang['installed_version']="Installed version";
+$lang['latest_version']="Latest version";
+$lang['check_for_updates']="Check for updates";
+$lang['update_available']="Update available";
+$lang['view_release']="View release";
+$lang['up_to_date']="You are running the latest version";
+$lang['update_check_failed']="Could not check for updates (network error or API rate limit)";
+$lang['support']="Support";
+$lang['github_releases']="GitHub releases &amp; changelog";
 
 
 /* End of file configurations_lang.php */

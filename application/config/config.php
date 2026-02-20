@@ -80,44 +80,6 @@ $config['url_suffix'] = '';
 */
 $config['language']	= "english";
 
-//List of supported languages. type language name in lower case
-$config['supported_languages']=array("english","french","spanish", "uzbek");
-
-$config['language_codes']=[
-    'english'=>
-        [
-            'name'=>'english',
-            'language_file'=>'english',
-            'display'=>'English',
-            'code'=>'en',
-            'direction'=>'ltr'
-        ],
-    'french'=>
-        [
-            'name'=>'french',
-            'language_file'=>'french',
-            'display'=>'Français',
-            'code'=>'fr',
-            'direction'=>'ltr'
-        ],
-    'spanish'=>
-        [
-            'name'=>'spanish',
-            'language_file'=>'spanish',
-            'display'=>'Español',
-            'code'=>'es',
-            'direction'=>'ltr'
-        ],
-    'uzbek'=>
-        [
-            'name'=>'uzbek',
-            'language_file'=>'uzbek',
-            'display'=>'O‘zbekcha',
-            'code'=>'uz',
-            'direction'=>'ltr'
-        ],
-];
-
 /*
 |--------------------------------------------------------------------------
 | Allowed IP addresses to access site administration
@@ -266,7 +228,7 @@ $config['directory_trigger'] = 'd';
 | your log files will fill up very fast.
 |
 */
-$config['log_threshold'] = 1;
+$config['log_threshold'] = 0;
 
 /*
 |--------------------------------------------------------------------------

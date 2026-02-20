@@ -1,13 +1,13 @@
 <?php 
 
 $lang['title_configurations']="Configuraciones del sitio";
-$lang['general_site_settings']="Configuración general del sitio";
-$lang['website_title']="Título del sitio web";
 $lang['website_url']="URL del sitio web";
 $lang['default_home_page']="Página de inicio predeterminada";
-$lang['webmaster_name']="Nombre del webmaster";
-$lang['webmaster_email']="Correo electrónico del webmaster";
 $lang['language']="Idioma";
+$lang['enabled_languages']="Idiomas habilitados";
+$lang['enabled_languages_note']="Al habilitar varios idiomas, los usuarios pueden cambiar el idioma de la interfaz en el sitio público. Si la carpeta de un idioma seleccionado no existe, el sistema usará el inglés como alternativa.";
+$lang['default_language']="Idioma predeterminado";
+$lang['default_language_note']="Utilizado cuando no hay preferencia de usuario configurada";
 $lang['cache_folder']="Carpeta de caché";
 $lang['survey_catalog_settings']="Configuración del catálogo de encuestas";
 $lang['catalog_folder']="Carpeta del catálogo";
@@ -20,12 +20,7 @@ $lang['topic_search']="Filtro de temas";
 $lang['year_search']="Filtro por año";
 $lang['website_theme_name']="Nombre del tema del sitio web";
 $lang['data_catalog_page_size']="Tamaño de la página de búsqueda del catálogo";
-$lang['site_login']="Inicio de sesión";
-$lang['password_protect_website']="Sitio web protegido con contraseña";
-$lang['login_timeout_in_min']="Tiempo de espera de inicio de sesión (en minutos)"; 
-$lang['min_password_length']="Longitud mínima de la contraseña";
-$lang['require_all_users_to_login']="Requiere que todos los usuarios inicien sesión para acceder al sitio web";
-$lang['login_not_required']="No es necesario iniciar sesión para ver el sitio";
+
 $lang['mail_settings']="Configuración SMTP";
 $lang['select_mail_protocol']="Protocolo para enviar correos electrónicos";
 $lang['smtp_host']="Nombre del host";
@@ -73,5 +68,33 @@ $lang['collection_search_weight']="Filtro de colección";
 $lang['instruction_weight']="Los pesos controlan el orden de los filtros. Los filtros se ordenan por peso en orden ascendente."; 
 $lang['edit_email_settings']="Para configurar el correo electrónico, consulte el archivo <em>config/email.php</em>.";
 $lang['test_email_configurations']="Probar configuraciones de correo electrónico";
+
+$lang['editor_storage_settings']="Almacenamiento";
+$lang['editor_storage_path']="Ruta de almacenamiento";
+$lang['editor_storage_path_note']="Carpeta raíz para todos los archivos de datos del editor";
+$lang['editor_storage_path_inside_app_warning']="La ruta de almacenamiento está dentro de la carpeta de la aplicación. Se recomienda utilizar una carpeta fuera de la raíz de la aplicación para proteger los datos durante las actualizaciones.";
+$lang['editor_user_schema_path']="Ruta de esquemas de usuario";
+$lang['editor_data_api_url']="URL de la API de datos";
+$lang['editor_project_sharing']="Compartir proyectos";
+$lang['editor_storage_config_file_note']="Estas configuraciones son de solo lectura y se configuran en <em>config/editor.php</em>";
+
+$lang['builtin_analytics_settings']="Análisis integrado";
+$lang['analytics_enabled']="Análisis habilitado";
+$lang['analytics_track_hash_changes']="Rastrear cambios de hash";
+$lang['analytics_track_hash_changes_note']="Cuando está habilitado, rastrea los cambios de hash (#) en la URL además de las cargas de página completas";
+$lang['analytics_config_file_note']="Estas configuraciones son de solo lectura y se configuran en <em>config/analytics.php</em>";
+$lang['yes']="Sí";
+$lang['no']="No";
+
+$lang['support_and_updates']="Soporte y actualizaciones";
+$lang['installed_version']="Versión instalada";
+$lang['latest_version']="Última versión";
+$lang['check_for_updates']="Buscar actualizaciones";
+$lang['update_available']="Actualización disponible";
+$lang['view_release']="Ver versión";
+$lang['up_to_date']="Está ejecutando la última versión";
+$lang['update_check_failed']="No se pudo verificar actualizaciones (error de red o límite de API)";
+$lang['support']="Soporte";
+$lang['github_releases']="Versiones y registro de cambios en GitHub";
 /* End of file configurations_lang.php */
 /* Location: ./application/language/english/configurations_lang.php */

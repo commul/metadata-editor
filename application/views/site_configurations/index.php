@@ -43,62 +43,158 @@ h2{font-size:1.2em;font-weight:bold;border-bottom:1px solid gainsboro;padding-bo
 	<input class="btn btn-primary" type="submit" value="<?php echo t('update');?>" name="submit"/>
 </div>
 
-<fieldset class="field-expanded  ">
-        <legend><i class="fas fa-cogs mr-3" style="color:#007bff;"></i><?php echo t('general_site_settings');?></legend>
-    <div class="field">
-            <label for="<?php echo 'website_title'; ?>"><?php echo t('website_title');?></label>
-            <input class="form-control" name="website_title" type="text" id="website_title"  value="<?php echo get_form_value('website_title',isset($website_title) ? $website_title : ''); ?>"/>
-    </div>    
-    <div class="field">
-            <label for="<?php echo 'website_webmaster_name'; ?>"><?php echo t('webmaster_name');?></label>
-            <input class="form-control" name="website_webmaster_name" type="text" id="website_webmaster_name"  value="<?php echo get_form_value('website_webmaster_name',isset($website_webmaster_name) ? $website_webmaster_name : ''); ?>"/>
-    </div>    
-    <div class="field">
-            <label for="<?php echo 'website_webmaster_email'; ?>"><?php echo t('webmaster_email');?></label>
-            <input class="form-control" name="website_webmaster_email" type="text" id="website_webmaster_email"  value="<?php echo get_form_value('website_webmaster_email',isset($website_webmaster_email) ? $website_webmaster_email : ''); ?>"/>
-    </div>    
-</fieldset>
-
 <fieldset class="field-expanded ">
 	<legend><i class="fas fa-language mr-3" style="color:#007bff;"></i><?php echo t('language');?></legend>
-    <div class="field">
-            <label for="<?php echo 'language'; ?>"><?php echo t('language');?></label>
-            <?php echo form_dropdown('language', get_languages(), get_form_value("language",isset($language) ? $language: '')); ?> 
-    </div>
+
+	<?php
+		$_avail  = isset($available_folders) && is_array($available_folders) ? $available_folders : array();
+		$_map    = isset($lang_mapping)       && is_array($lang_mapping)       ? $lang_mapping       : array();
+		$_iso    = isset($iso_languages)      && is_array($iso_languages)      ? $iso_languages      : array();
+	?>
+
+	<div class="field">
+		<label for="language"><?php echo t('default_language');?></label>
+		<?php
+			$_def_opts = array();
+			foreach ($_avail as $_folder) {
+				$_di = isset($_map[$_folder]) ? $_map[$_folder] : null;
+				$_def_opts[$_folder] = $_di && !empty($_di['display']) ? $_di['display'] : ucfirst($_folder);
+			}
+			echo form_dropdown('language', $_def_opts, get_form_value('language', isset($language) ? $language : 'english'));
+		?>
+		<span class="field-note"><?php echo t('default_language_note');?></span>
+	</div>
+
+	<div class="field">
+		<label><?php echo t('enabled_languages');?></label>
+		<span class="field-note"><?php echo t('enabled_languages_note');?></span>
+		<div class="table-responsive mt-2">
+			<table class="table table-sm table-bordered" id="languages-table">
+				<thead class="thead-light">
+					<tr>
+						<th style="width:60px;" class="text-center">Enabled</th>
+						<th>Folder</th>
+						<th>ISO Language</th>
+						<th>Display Name</th>
+						<th>Direction</th>
+					</tr>
+				</thead>
+				<tbody>
+					<?php foreach ($_avail as $_folder):
+					$_curr       = isset($_map[$_folder]) ? $_map[$_folder] : null;
+					$_curr_code  = ($_curr && isset($_curr['code']))      ? $_curr['code']      : '';
+					$_curr_disp  = ($_curr && isset($_curr['display']))   ? $_curr['display']   : '';
+					$_curr_dir   = ($_curr && isset($_curr['direction'])) ? $_curr['direction'] : '';
+					$_is_enabled = ($_curr !== null);
+					?>
+					<tr>
+						<td class="text-center align-middle">
+							<input type="checkbox" name="lang_enabled[<?php echo $_folder; ?>]" value="1"<?php echo $_is_enabled ? ' checked' : ''; ?>>
+						</td>
+						<td class="align-middle"><code><?php echo htmlspecialchars($_folder); ?></code></td>
+						<td>
+							<select name="lang_code[<?php echo $_folder; ?>]" class="form-control form-control-sm iso-select" data-folder="<?php echo htmlspecialchars($_folder); ?>">
+								<option value="">-- select --</option>
+								<?php foreach ($_iso as $_code => $_info): ?>
+									<option value="<?php echo htmlspecialchars($_code); ?>"<?php echo ($_curr_code === $_code) ? ' selected' : ''; ?>>
+										<?php echo htmlspecialchars($_info['name']); ?> — <?php echo htmlspecialchars($_info['display']); ?> (<?php echo htmlspecialchars($_code); ?>)
+									</option>
+								<?php endforeach; ?>
+							</select>
+						</td>
+						<td class="align-middle"><span id="lang_display_<?php echo $_folder; ?>"><?php echo htmlspecialchars($_curr_disp); ?></span></td>
+						<td class="align-middle"><span id="lang_dir_<?php echo $_folder; ?>"><?php echo htmlspecialchars($_curr_dir); ?></span></td>
+					</tr>
+					<?php endforeach; ?>
+				</tbody>
+			</table>
+		</div>
+	</div>
+
+	<script>
+	(function() {
+		var isoData = <?php echo json_encode($_iso); ?>;
+		$(document).on('change', '.iso-select', function() {
+			var folder = $(this).data('folder');
+			var code   = $(this).val();
+			var info   = isoData[code];
+			$('#lang_display_' + folder).text(info ? info.display    : '');
+			$('#lang_dir_'     + folder).text(info ? info.direction  : '');
+		});
+	})();
+	</script>
+
 </fieldset>
 
 
 <fieldset class="field-expanded ">
-	<legend><i class="fas fa-user-circle mr-3" style="color:#007bff;"></i><?php echo t('site_login');?></legend>
-    <div class="field">
-            <label style="height:50px;" for="<?php echo 'site_password_protect'; ?>"><?php echo t('password_protect_website');?></label>
-            <div>
-                <input type="radio"  name="site_password_protect" value="yes" <?php echo ($site_password_protect=='yes') ? 'checked="checked"' : ''; ?>/> <?php echo t('require_all_users_to_login');?><br/>
-                <input type="radio"  name="site_password_protect" value="no" <?php echo ($site_password_protect!='yes') ? 'checked="checked"' : ''; ?>/> <?php echo t('login_not_required');?>
-            </div>
-    </div>
-    
-    <div class="field">
-            <label for="<?php echo 'login_timeout'; ?>"><?php echo t('login_timeout_in_min');?></label>
-            <input class="form-control" name="login_timeout" type="text" id="login_timeout"  value="<?php echo get_form_value('login_timeout',isset($login_timeout) ? $login_timeout : ''); ?>"/>
-    </div>
-    
-    <div class="field">
-            <label for="<?php echo 'min_password_length'; ?>"><?php echo t('min_password_length');?></label>
-            <input class="form-control" name="min_password_length" type="text" id="min_password_length"  value="<?php echo get_form_value('min_password_length',isset($min_password_length) ? $min_password_length : ''); ?>"/>
-    </div>
+	<legend><i class="fas fa-folder-open mr-3" style="color:#007bff;"></i><?php echo t('editor_storage_settings');?></legend>
+	<div class="field">
+		<label><?php echo t('editor_storage_path');?></label>
+		<code><?php echo isset($editor_storage_path) ? htmlspecialchars($editor_storage_path) : ''; ?></code>
+		<span class="field-note"><?php echo t('editor_storage_path_note');?></span>
+		<?php
+			$_sp      = isset($editor_storage_path) ? $editor_storage_path : '';
+			$_appRoot = rtrim(realpath(FCPATH), DIRECTORY_SEPARATOR);
+			// Resolve relative paths against the web root
+			$_spAbs   = (!empty($_sp) && $_sp[0] !== '/') ? FCPATH . ltrim($_sp, '/') : $_sp;
+			// Try realpath (works when path exists); fall back to normalised string check
+			$_spResolved = !empty($_spAbs) ? (realpath($_spAbs) ?: $_spAbs) : '';
+			$_spNorm     = rtrim(str_replace('\\', '/', $_spResolved), '/');
+			$_rootNorm   = rtrim(str_replace('\\', '/', $_appRoot), '/');
+			$_pathIsInApp = !empty($_spNorm) && strpos($_spNorm . '/', $_rootNorm . '/') === 0;
+			if ($_pathIsInApp):
+		?>
+		<div class="alert alert-warning mt-2 mb-0 py-2 px-3" style="clear:both;">
+			<i class="fas fa-exclamation-triangle mr-1"></i>
+			<?php echo t('editor_storage_path_inside_app_warning'); ?>
+		</div>
+		<?php endif; ?>
+	</div>
+	<div class="field">
+		<label><?php echo t('editor_user_schema_path');?></label>
+		<code><?php echo isset($editor_user_schema_path) ? htmlspecialchars($editor_user_schema_path) : ''; ?></code>
+	</div>
+	<div class="field">
+		<label><?php echo t('editor_data_api_url');?></label>
+		<code><?php echo isset($editor_data_api_url) ? htmlspecialchars($editor_data_api_url) : ''; ?></code>
+	</div>
+	<div class="field">
+		<label><?php echo t('editor_project_sharing');?></label>
+		<?php if (!empty($editor_project_sharing)): ?>
+			<span class="text-success"><i class="fas fa-check-circle"></i> <?php echo t('yes');?></span>
+		<?php else: ?>
+			<span class="text-muted"><?php echo t('no');?></span>
+		<?php endif; ?>
+	</div>
+	<div class="field">
+		<span class="field-note"><?php echo t('editor_storage_config_file_note');?></span>
+	</div>
 </fieldset>
 
 
 <fieldset class="field-expanded ">
-
-        <legend><i class="fas fa-chart-line mr-3" style="color:#007bff;"></i><?php echo t('Google Analytics');?></legend>
-    
-    <div class="field">
-            <label for="google_analytics"><?php echo t('Google analytics UA code');?></label>
-            <input class="form-control" name="google_ua_code" type="text" id="google_analytics" placeholder="UA-XXXXXXXX-X"  value="<?php echo get_form_value('google_ua_code',isset($google_ua_code) ? $google_ua_code : ''); ?>"/>
-    </div>
-    
+	<legend><i class="fas fa-chart-bar mr-3" style="color:#007bff;"></i><?php echo t('builtin_analytics_settings');?></legend>
+	<div class="field">
+		<label><?php echo t('analytics_enabled');?></label>
+		<?php if (!empty($analytics_enabled)): ?>
+			<span class="text-success"><i class="fas fa-check-circle"></i> <?php echo t('yes');?></span>
+		<?php else: ?>
+			<span class="text-muted"><?php echo t('no');?></span>
+		<?php endif; ?>
+	</div>
+	<div class="field">
+		<label><?php echo t('analytics_track_hash_changes');?></label>
+		<?php if (!empty($analytics_track_hash_changes)): ?>
+			<span class="text-success"><i class="fas fa-check-circle"></i> <?php echo t('yes');?></span>
+		<?php else: ?>
+			<span class="text-muted"><?php echo t('no');?></span>
+		<?php endif; ?>
+		<span class="field-note"><?php echo t('analytics_track_hash_changes_note');?></span>
+	</div>
+	<div class="field">
+		<span class="field-note"><?php echo t('analytics_config_file_note');?></span>
+	</div>
 </fieldset>
 
 
@@ -142,11 +238,86 @@ h2{font-size:1.2em;font-weight:bold;border-bottom:1px solid gainsboro;padding-bo
     <?php endif;?>
 </fieldset>
 
-<div style="text-align:right;">
-	<input class="btn btn-primary" type="submit" value="<?php echo t('update');?>" name="submit"/>
-</div>
-
 <?php echo form_close();?>
+
+<fieldset class="field-expanded">
+	<legend><i class="fas fa-life-ring mr-3" style="color:#007bff;"></i><?php echo t('support_and_updates');?></legend>
+
+	<div class="field">
+		<label><?php echo t('installed_version');?></label>
+		<span><strong><?php echo APP_VERSION; ?></strong></span>
+	</div>
+
+	<div class="field">
+		<label><?php echo t('latest_version');?></label>
+		<button type="button" class="btn btn-sm btn-outline-secondary" id="btn-check-updates">
+			<i class="fas fa-sync-alt mr-1"></i><?php echo t('check_for_updates');?>
+		</button>
+		<span id="update-status" class="ml-2"></span>
+	</div>
+
+	<div class="field">
+		<label><?php echo t('support');?></label>
+		<div>
+			<a href="https://github.com/worldbank/metadata-editor/releases" target="_blank" rel="noopener">
+				<i class="fab fa-github mr-1"></i><?php echo t('github_releases');?>
+			</a>
+			<span class="mx-2 text-muted">&bull;</span>
+			<a href="mailto:datatools@worldbank.org">
+				<i class="fas fa-envelope mr-1"></i>datatools@worldbank.org
+			</a>
+		</div>
+	</div>
+
+</fieldset>
+
+<script>
+(function() {
+	var currentVersion = '<?php echo APP_VERSION; ?>';
+
+	function parseSemver(v) {
+		var m = v.replace(/^v/, '').match(/^(\d+)\.(\d+)\.(\d+)/);
+		return m ? [parseInt(m[1]), parseInt(m[2]), parseInt(m[3])] : null;
+	}
+
+	function semverGt(a, b) {
+		for (var i = 0; i < 3; i++) {
+			if (a[i] > b[i]) return true;
+			if (a[i] < b[i]) return false;
+		}
+		return false;
+	}
+
+	$('#btn-check-updates').on('click', function() {
+		var $btn    = $(this);
+		var $status = $('#update-status');
+		$btn.prop('disabled', true).find('i').addClass('fa-spin');
+		$status.html('');
+
+		fetch('https://api.github.com/repos/worldbank/metadata-editor/releases/latest', {
+			headers: { 'Accept': 'application/vnd.github+json' }
+		})
+		.then(function(r) { return r.ok ? r.json() : Promise.reject(r.status); })
+		.then(function(data) {
+			var latest  = (data.tag_name || '').replace(/^v/, '');
+			var cur     = parseSemver(currentVersion);
+			var lat     = parseSemver(latest);
+			if (!lat) throw 'parse';
+			if (semverGt(lat, cur)) {
+				$status.html('<span class="text-warning"><i class="fas fa-arrow-circle-up mr-1"></i><?php echo t('update_available');?> &nbsp;<strong>v' + latest + '</strong> &mdash; <a href="' + (data.html_url || 'https://github.com/worldbank/metadata-editor/releases') + '" target="_blank" rel="noopener"><?php echo t('view_release');?></a></span>');
+			} else {
+				$status.html('<span class="text-success"><i class="fas fa-check-circle mr-1"></i><?php echo t('up_to_date');?></span>');
+			}
+		})
+		.catch(function() {
+			$status.html('<span class="text-muted"><i class="fas fa-exclamation-circle mr-1"></i><?php echo t('update_check_failed');?></span>');
+		})
+		.finally(function() {
+			$btn.prop('disabled', false).find('i').removeClass('fa-spin');
+		});
+	});
+})();
+</script>
 </div>
 <script type="text/javascript">
 	function toggle_file_url(field_show,field_hide){

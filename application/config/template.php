@@ -79,8 +79,8 @@ $template['base_url']=defined('JS_BASE_URL') ? JS_BASE_URL : base_url();
 |--------------------------------------------------------------------------
 */
 //installer template file with only the body and no layout
-$template['installer']['template'] = '../../themes/nada52/installer';
-$template['installer']['theme_folder'] = 'nada52';
+$template['installer']['template'] = '../../themes/installer/installer';
+$template['installer']['theme_folder'] = 'installer';
 
 
 //blank template file with only the body and no layout
