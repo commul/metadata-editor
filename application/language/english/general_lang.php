@@ -542,5 +542,31 @@ $lang['Last 30 days']='Last 30 days';
 $lang['No data available']='No data available';
 $lang['showing %d-%d of %d']='Showing %s-%s of %s';
 
+// Translator / Translation editor
+$lang['base_language'] = 'Base language';
+$lang['select_language_to_translate'] = 'Select language to translate';
+$lang['translator_help_title'] = 'How to use the Translation editor';
+$lang['translator_help_text'] = 'Use the left pane to select the language and translation file to start editing.';
+$lang['files_missing'] = 'files missing';
+$lang['keys_translated'] = 'keys translated';
+$lang['completion'] = 'Completion';
+$lang['source'] = 'Source';
+$lang['lang_official'] = 'Official';
+$lang['lang_official_title'] = 'Shipped with the application. Your edits will be saved separately and will not affect the official files.';
+$lang['lang_modified'] = 'Modified';
+$lang['lang_modified_title'] = 'Official language with user customisations saved in the userdata folder.';
+$lang['lang_custom'] = 'Custom';
+$lang['lang_custom_title'] = 'User-created language, not part of the official application.';
+$lang['create_new_language'] = 'Create new language';
+$lang['language_name'] = 'Language name';
+$lang['language_name_hint'] = 'Lowercase letters, digits and underscores only (e.g. arabic, pt_br).';
+$lang['editing_user_copy'] = 'You are editing your saved copy. The original application file is unchanged.';
+$lang['first_edit_notice'] = 'No saved copy yet — saving will create your own copy in the userdata folder without touching the application files.';
+$lang['all_languages'] = 'All languages';
+$lang['all_files'] = 'All files';
+$lang['import_language'] = 'Import language';
+$lang['import_language_hint'] = 'Upload a zip file exported from this application. The zip must contain a single top-level folder named after the language (e.g. french/) with JSON translation files inside (e.g. general_lang.json). Each file is validated: only known keys from the English language files are imported, and all values are checked for safety before being saved.';
+$lang['import_zip_label'] = 'Language zip file';
+
 /* End of file general_lang.php */
 /* Location: ./application/language/english/general_lang.php */

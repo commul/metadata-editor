@@ -37,7 +37,7 @@ $lang['disabled']="Deshabilitado";
 $lang['install_database']="Instalar base de datos";
 $lang['create_user']="Crear cuenta";
 $lang['installer_title']="Editor de instalación";
-$lang['time_zone_is_required']="Vea cómo <a target=&quot;_blank&quot; href=&quot;%s&quot;>configurar</a> y seleccionar la <a target=&quot;_blank&quot; href=&quot;%s&quot;>zona horaria</a> correcta";
+$lang['time_zone_is_required']="Vea cómo <a target=\"_blank\" href=\"%s\">configurar</a> y seleccionar la <a target=\"_blank\" href=\"%s\">zona horaria</a> correcta";
 $lang['not_set']="No establecido";
 
 /* End of file install_lang.php */

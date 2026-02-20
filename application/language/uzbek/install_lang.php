@@ -37,7 +37,7 @@ $lang['disabled']="O'chirilgan";
 $lang['install_database']="Ma'lumotlar bazasini o'rnatish";
 $lang['create_user']="Hisob yaratish";
 $lang['installer_title']="Muharrir o'rnatuvchisi";
-$lang['time_zone_is_required']="Qanday <a target=&quot;_blank&quot; href=&quot;%s&quot;>sozlash</a> va to'g'ri <a target=&quot;_blank&quot; href=&quot;%s&quot;>vaqt mintaqasini</a> tanlashni ko'ring";
+$lang['time_zone_is_required']="Qanday <a target=\"_blank\" href=\"%s\">sozlash</a> va to'g'ri <a target=\"_blank\" href=\"%s\">vaqt mintaqasini</a> tanlashni ko'ring";
 $lang['not_set']="Belgilanmagan";
 
 /* End of file install_lang.php */
