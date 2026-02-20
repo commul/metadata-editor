@@ -378,15 +378,30 @@ class Install extends CI_Controller {
 				$conn_id = @mysql_connect($this->db->hostname, $this->db->username, $this->db->password, TRUE);
 			break;
 		case 'mysqli':
-			// Try to connect to the specific database first
-			$conn_id = @mysqli_connect($this->db->hostname, $this->db->username, $this->db->password, $this->db->database);
-			
+			$mysqli_obj = mysqli_init();
+
+			// Apply SSL if configured in database.php encrypt array
+			if (is_array($this->db->encrypt)) {
+				$ssl = $this->db->encrypt;
+				$mysqli_obj->ssl_set(
+					isset($ssl['ssl_key'])    ? $ssl['ssl_key']    : NULL,
+					isset($ssl['ssl_cert'])   ? $ssl['ssl_cert']   : NULL,
+					isset($ssl['ssl_ca'])     ? $ssl['ssl_ca']     : NULL,
+					isset($ssl['ssl_capath']) ? $ssl['ssl_capath'] : NULL,
+					isset($ssl['ssl_cipher']) ? $ssl['ssl_cipher'] : NULL
+				);
+			}
+
+			$connected = @$mysqli_obj->real_connect($this->db->hostname, $this->db->username, $this->db->password, $this->db->database);
+
 			// If that fails, try to create the database
-			if (!$conn_id) {
+			if (!$connected) {
 				$this->_create_database_if_not_exists();
 				// Try connecting again after creating the database
-				$conn_id = @mysqli_connect($this->db->hostname, $this->db->username, $this->db->password, $this->db->database);
+				$connected = @$mysqli_obj->real_connect($this->db->hostname, $this->db->username, $this->db->password, $this->db->database);
 			}
+
+			$conn_id = $connected ? $mysqli_obj : FALSE;
 		break;
 			case 'postgre':
 				$conn_id=@pg_connect("host={$this->db->hostname} user={$this->db->username} password={$this->db->password} connect_timeout=5 dbname=postgres");
@@ -490,11 +505,25 @@ class Install extends CI_Controller {
 	private function _create_database_if_not_exists()
 	{
 		$dbName = $this->db->database;
-		
+
+		$mysqli = mysqli_init();
+
+		// Apply SSL if configured in database.php encrypt array
+		if (is_array($this->db->encrypt)) {
+			$ssl = $this->db->encrypt;
+			$mysqli->ssl_set(
+				isset($ssl['ssl_key'])    ? $ssl['ssl_key']    : NULL,
+				isset($ssl['ssl_cert'])   ? $ssl['ssl_cert']   : NULL,
+				isset($ssl['ssl_ca'])     ? $ssl['ssl_ca']     : NULL,
+				isset($ssl['ssl_capath']) ? $ssl['ssl_capath'] : NULL,
+				isset($ssl['ssl_cipher']) ? $ssl['ssl_cipher'] : NULL
+			);
+		}
+
 		// Connect to MySQL server without selecting a database
-		$mysqli = @new mysqli($this->db->hostname, $this->db->username, $this->db->password, '');
-		
-		if ($mysqli->connect_error) {
+		$connected = @$mysqli->real_connect($this->db->hostname, $this->db->username, $this->db->password, '');
+
+		if (!$connected) {
 			log_message('error', 'MySQL connection failed: ' . $mysqli->connect_error);
 			return; // Don't show error, let the normal flow handle it
 		}
