@@ -15,6 +15,7 @@ class Files extends MY_REST_Controller
 		
 		$this->load->library("Editor_acl");
 		$this->is_authenticated_or_die();
+		$this->api_user=$this->api_user();
 	}
 
 	//override authentication to support both session authentication + api keys

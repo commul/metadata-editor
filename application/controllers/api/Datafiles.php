@@ -130,6 +130,40 @@ class Datafiles extends MY_REST_Controller
 	}
 
 	/**
+	 * Get invalid variable names (Stata/SPSS rules) for a data file.
+	 * GET api/datafiles/invalid_variable_names/{sid}/{file_id}
+	 */
+	function invalid_variable_names_get($sid = null, $file_id = null)
+	{
+		try {
+			$sid = $this->get_sid($sid);
+			$this->editor_acl->user_has_project_access($sid, $permission = 'view', $this->api_user);
+
+			if (!$file_id) {
+				throw new Exception("Missing required parameter: file_id");
+			}
+
+			$datafile = $this->Editor_datafile_model->data_file_by_id($sid, $file_id);
+			if (!$datafile) {
+				throw new Exception("Data file not found");
+			}
+
+			$invalid_names = $this->Editor_variable_model->get_invalid_variable_names($sid, $file_id);
+
+			$result = array(
+				'status' => 'success',
+				'invalid_names' => $invalid_names
+			);
+			$this->set_response($result, REST_Controller::HTTP_OK);
+		} catch (Exception $e) {
+			$this->set_response(array(
+				'status' => 'failed',
+				'message' => $e->getMessage()
+			), REST_Controller::HTTP_BAD_REQUEST);
+		}
+	}
+
+	/**
 	 * 
 	 * 
 	 * Create or update a data file
@@ -505,7 +539,7 @@ class Datafiles extends MY_REST_Controller
 	 */
 	function download_tmp_file_get($sid=null,$fid=null,$type=null)
 	{
-		try{			
+		try{
 			if (!$sid || !$fid || !$type){
 				throw new Exception("Missing required parameters");
 			}
@@ -518,16 +552,39 @@ class Datafiles extends MY_REST_Controller
 			}
 
 			$this->editor_acl->user_has_project_access($sid,$permission='edit',$this->api_user);
-			$tmp_file_info=$this->Editor_datafile_model->get_tmp_file_info($sid,$fid,$type);
+
+			$filename_param = $this->input->get('filename');
+			if ($filename_param !== null && $filename_param !== '') {
+				$safe_name = basename($filename_param);
+				if ($safe_name === '' || strpos($filename_param, '..') !== false) {
+					throw new Exception("Invalid filename");
+				}
+				$project_folder = $this->Editor_model->get_project_folder($sid);
+				if (!$project_folder) {
+					throw new Exception("Project folder not found");
+				}
+				$tmp_dir = rtrim($project_folder, DIRECTORY_SEPARATOR) . DIRECTORY_SEPARATOR . 'data' . DIRECTORY_SEPARATOR . 'tmp' . DIRECTORY_SEPARATOR;
+				$tmp_dir_real = realpath($tmp_dir);
+				if ($tmp_dir_real === false || !is_dir($tmp_dir_real)) {
+					throw new Exception("File not found");
+				}
+				$filepath = $tmp_dir_real . DIRECTORY_SEPARATOR . $safe_name;
+				$resolved = realpath($filepath);
+				if ($resolved === false || !is_file($resolved) || strpos($resolved, $tmp_dir_real) !== 0) {
+					throw new Exception("File not found");
+				}
+				force_download2($resolved);
+				return;
+			}
+
+			$tmp_file_info = $this->Editor_datafile_model->get_tmp_file_info($sid, $fid, $type);
 
 			if (file_exists($tmp_file_info['filepath'])){
 				force_download2($tmp_file_info['filepath']);
-				#unlink($tmp_file_info['filepath']);
 			}
 			else{
 				throw new Exception("File not found");
 			}
-			
 		}
 		catch(Exception $e){
 			$error=array(

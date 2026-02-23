@@ -17,14 +17,17 @@ class Datafile_export
 	}
 	
 
-	/**
+    /**
      * 
      *  Create params for data dictionary export
      * 
-     * @ format - export format (sav, dta)
+     * @param int $sid Project id
+     * @param int $fid Data file id
+     * @param string $format Export format (sav, dta, csv, etc.)
+     * @param array $options Optional: 'export_options' => array (e.g. ['version' => 14] for .dta; extendable for other formats)
      * 
      */
-    function get_export_params($sid, $fid, $format)
+    function get_export_params($sid, $fid, $format, $options = array())
     {
         $datafile_path=$this->ci->Editor_datafile_model->get_file_csv_path($sid,$fid);
 
@@ -41,6 +44,20 @@ class Datafile_export
             'file_path'=> realpath($datafile_path),
 			'export_format'=>$format,
         );
+        if ($format === 'dta' && !empty($options['export_options']) && is_array($options['export_options'])) {
+            $params['export_options'] = $options['export_options'];
+            if (isset($params['export_options']['version'])) {
+                $v = (int) $params['export_options']['version'];
+                if ($v < 8 || $v > 15) {
+                    unset($params['export_options']['version']);
+                } else {
+                    $params['export_options']['version'] = $v;
+                }
+            }
+        }
+
+        $base_name = pathinfo($datafile_path, PATHINFO_FILENAME);
+        $params['output_filename'] = $this->build_output_filename($base_name, $format, isset($params['export_options']['version']) ? $params['export_options']['version'] : null);
 
         $dtype_map=array(
             //'numeric'=>'float',
@@ -148,6 +165,31 @@ class Datafile_export
         }
 
         return $params;
+    }
+
+    /**
+     * Build output_filename for FastAPI (no file extension).
+     * Pattern: filename_{STATA|SPSS|CSV|JSON|SAS}; for STATA: filename_STATA_{version}.
+     *
+     * @param string $base_name Filename without extension
+     * @param string $format Export format (dta, sav, csv, json, xpt)
+     * @param int|null $stata_version Stata version 8-15 when format is dta
+     * @return string
+     */
+    private function build_output_filename($base_name, $format, $stata_version = null)
+    {
+        $suffix = array(
+            'dta' => 'STATA',
+            'sav' => 'SPSS',
+            'csv' => 'CSV',
+            'json' => 'JSON',
+            'xpt' => 'SAS',
+        );
+        $label = isset($suffix[$format]) ? $suffix[$format] : strtoupper($format);
+        if ($format === 'dta' && $stata_version !== null && $stata_version >= 8 && $stata_version <= 15) {
+            return $base_name . '_' . $label . '_' . (int) $stata_version;
+        }
+        return $base_name . '_' . $label;
     }
 
     /**

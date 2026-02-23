@@ -536,16 +536,19 @@ class Data extends MY_REST_Controller
 			}
 
 			$format=$options['format'];
+			$export_options=isset($options['export_options']) && is_array($options['export_options']) ? $options['export_options'] : null;
 
 			$this->editor_acl->user_has_project_access($sid,$permission='edit',$this->api_user());
 
-			$api_response=$this->datautils->export_datafile_queue($sid,$file_id,$format);
+			$api_response=$this->datautils->export_datafile_queue($sid,$file_id,$format,$export_options);
 			$status_code=$api_response['status_code'];
 
-			//'request'=>$request_body,
 			$output=$api_response['response'];
 			$output['request']=$api_response['request'];
 			$output['status_code']=$api_response['status_code'];
+			if (!empty($api_response['request']['output_filename'])) {
+				$output['output_filename'] = $api_response['request']['output_filename'] . '.' . $format;
+			}
 
 			$this->set_response($output, $status_code);
 		}

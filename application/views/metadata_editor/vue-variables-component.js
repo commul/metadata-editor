@@ -88,9 +88,14 @@ Vue.component('variables', {
             is_navigating:false, //to ignore watch from triggering during navigation
             variables_loading:false, // true while loading variables for this file (on-demand load)
             spread_metadata_loading:false, // true while loading all variables for spread-metadata dialog
-            columns_diff: null, // result from api/datafiles/columns_diff: { in_sync, csv_exists, ... }
-            columns_diff_loading: false
-            
+            columns_diff: null,
+            invalid_names: [],
+            columns_diff_loading: false,
+            batchSumStatsOptionsDialog: false,
+            editingNameIndex: -1,
+            editingNameOld: '',
+            renameErrorDialog: false,
+            renameErrorMessage: ''
         }
     }, 
     created: async function(){
@@ -190,22 +195,37 @@ Vue.component('variables', {
             }
             vm.columns_diff_loading = true;
             vm.columns_diff = null;
-            var url = CI.base_url + '/api/datafiles/columns_diff/' + vm.ProjectID + '/' + encodeURIComponent(vm.fid);
-            axios.get(url)
-                .then(function(response) {
+            vm.invalid_names = [];
+            var base = CI.base_url + '/api/datafiles/';
+            var sid = vm.ProjectID;
+            var fid = encodeURIComponent(vm.fid);
+            Promise.all([
+                axios.get(base + 'columns_diff/' + sid + '/' + fid),
+                axios.get(base + 'invalid_variable_names/' + sid + '/' + fid)
+            ])
+                .then(function(responses) {
                     vm.columns_diff_loading = false;
-                    if (response.data && response.data.status === 'success' && response.data.columns_diff) {
-                        vm.columns_diff = response.data.columns_diff;
+                    if (responses[0].data && responses[0].data.status === 'success') {
+                        vm.columns_diff = responses[0].data.columns_diff || null;
+                    }
+                    if (responses[1].data && responses[1].data.status === 'success') {
+                        vm.invalid_names = responses[1].data.invalid_names || [];
                     }
                 })
                 .catch(function(err) {
                     vm.columns_diff_loading = false;
                     vm.columns_diff = null;
-                    console.log('columns_diff error', err);
+                    vm.invalid_names = [];
+                    console.log('columns_diff / invalid_variable_names error', err);
                 });
         },
         clearVariableSearch: function(){
             this.variable_search='';
+        },
+        reloadVariablesAfterBatchSumStats: function(){
+            var vm = this;
+            if (!vm.fid || !vm.ProjectID) return;
+            vm.$store.dispatch('loadVariables', { dataset_id: vm.ProjectID, fid: vm.fid });
         },
         scrollToVariableBottom: function(){            
             document.getElementById('variables-table').scrollTop= document.getElementById('variables-table').scrollHeight;
@@ -279,6 +299,51 @@ Vue.component('variables', {
                 vm.spread_metadata_loading = false;
             }
         },        
+        onVariableNameFocus: function(index) {
+            this.editingNameIndex = index;
+            this.editingNameOld = this.variables[index] && this.variables[index].name ? String(this.variables[index].name) : '';
+        },
+        validateVariableNameForRename: function(name) {
+            var n = (name && String(name).trim()) || '';
+            if (n === '') return { valid: false, message: 'Variable name is required.' };
+            if (n.length > 32) return { valid: false, message: 'Variable name cannot be longer than 32 characters.' };
+            if (!/^[a-zA-Z]/.test(n)) return { valid: false, message: 'Variable name must start with a letter (a-z, A-Z).' };
+            if (!/^[a-zA-Z0-9_]+$/.test(n)) return { valid: false, message: 'Variable name may only contain letters, numbers, and underscores. No spaces or special characters.' };
+            return { valid: true, message: '' };
+        },
+        onVariableNameBlur: function(index) {
+            var vm = this;
+            var variable = vm.variables[index];
+            if (!variable) return;
+            var newName = (variable.name && String(variable.name).trim()) || '';
+            if (vm.editingNameIndex !== index) return;
+            vm.editingNameIndex = -1;
+            if (newName === vm.editingNameOld) return;
+            if (!vm.editingNameOld) return;
+            var validation = vm.validateVariableNameForRename(newName);
+            if (!validation.valid) {
+                variable.name = vm.editingNameOld;
+                vm.renameErrorMessage = validation.message;
+                vm.renameErrorDialog = true;
+                return;
+            }
+            variable.name = newName;
+            // Save variable via update endpoint (validates name change and rewrites CSV when name changed)
+            var url = CI.base_url + '/api/variables/' + vm.dataset_id;
+            axios.post(url, variable)
+                .then(function (response) {
+                    EventBus.$emit('onSuccess', vm.$t('variable_renamed') || 'Variable renamed.');
+                    if (vm.edit_items.length === 1 && vm.edit_items[0] === index) {
+                        vm.variable_copy = _.cloneDeep(vm.variables[index]);
+                    }
+                })
+                .catch(function (error) {
+                    var msg = (error.response && error.response.data && error.response.data.message) ? error.response.data.message : (vm.$t('rename_failed') || 'Failed to rename variable.');
+                    variable.name = vm.editingNameOld;
+                    vm.renameErrorMessage = msg;
+                    vm.renameErrorDialog = true;
+                });
+        },
         changeCase: function()
         {
             var vm = this;
@@ -938,6 +1003,10 @@ Vue.component('variables', {
 
             return vars;
         },
+        variablesAllForFile(){
+            var vars = this.$store.getters.getVariablesByFid(this.fid);
+            return Array.isArray(vars) ? vars : [];
+        },
         columnsDiffCount(){
             if (!this.columns_diff || this.columns_diff.in_sync) return 0;
             var count = 0;
@@ -945,6 +1014,11 @@ Vue.component('variables', {
                 count += this.columns_diff.columns_in_db_not_in_csv.length;
             }
             return count;
+        },
+        validationIssueCount(){
+            var c = this.columnsDiffCount || 0;
+            var n = Array.isArray(this.invalid_names) ? this.invalid_names.length : 0;
+            return c + n;
         },
         columnsDiffTooltip(){
             if (!this.columns_diff || this.columns_diff.in_sync) return '';
@@ -954,15 +1028,19 @@ Vue.component('variables', {
                 count += this.columns_diff.columns_in_db_not_in_csv.length;
             }
 
-            /*
-            if (this.columns_diff.columns_to_remove_from_csv && this.columns_diff.columns_to_remove_from_csv.length) {
-                count += this.columns_diff.columns_to_remove_from_csv.length;
-            }
-            */
-
             if (count == 0) return '';
             var msg = this.$t('variables_vs_csv_mismatch_tooltip');
             return msg + " (" + count + ")";
+        },
+        validationTooltip(){
+            var parts = [];
+            if (this.columnsDiffCount > 0) {
+                parts.push((this.$t('variables_vs_csv_mismatch_tooltip') || 'Sync issues') + ' (' + this.columnsDiffCount + ')');
+            }
+            if (Array.isArray(this.invalid_names) && this.invalid_names.length > 0) {
+                parts.push((this.$t('invalid_variable_names') || 'Invalid names') + ' (' + this.invalid_names.length + ')');
+            }
+            return parts.length ? parts.join('; ') : '';
         },
         duplicateVariableNamesCount(){
             return Object.keys(this.duplicateVariableNames).length;
@@ -1049,12 +1127,12 @@ Vue.component('variables', {
                                             <span v-if="columns_diff_loading" class="mr-1">
                                                 <v-icon class="var-icon" style="opacity:0.6">mdi-sync</v-icon>
                                             </span>
-                                            <span v-else-if="columnsDiffCount>0" @click="$router.push('/variables-diff/' + fid)" style="cursor:pointer;">
+                                            <span v-else-if="validationIssueCount>0" @click="$router.push('/variables-validation/' + fid)" style="cursor:pointer;">
                                             <v-tooltip bottom color="red">
                                                 <template v-slot:activator="{ on, attrs }">
                                                     <v-icon aria-hidden="false" class="var-icon" style="color:red" v-bind="attrs" v-on="on">mdi-alert-box</v-icon>
                                                 </template>
-                                                <span>{{ columnsDiffTooltip }}</span>
+                                                <span>{{ validationTooltip }}</span>
                                             </v-tooltip>
                                             </span>
 
@@ -1073,6 +1151,11 @@ Vue.component('variables', {
 
                                             <span @click="deleteVariable" :title="$t('delete_selection')">
                                                 <v-icon aria-hidden="false" class="var-icon">mdi-trash-can-outline</v-icon>
+                                            </span>
+                                        </span>
+                                        <span v-show="variablesAllForFile.length > 0" class="ml-2">
+                                            <span @click="batchSumStatsOptionsDialog = true" :title="$t('batch_sum_stats_options')">
+                                                <v-icon aria-hidden="false" class="var-icon">mdi-tune-variant</v-icon>
                                             </span>
                                         </span>
                                     </div>
@@ -1104,8 +1187,14 @@ Vue.component('variables', {
                                         <td class="var-vid-td bg-secondary handle">V{{index+1}}</td>
 
                                         <td class="var-name-edit">
-                                            <!-- <div><input vonkeydown="onVariableKeydown($event,index,'var_name')" class="var-labl-edit" type="text" v-model="variable.name" ref="var_name" /></div> -->
-                                            {{variable.name}}
+                                            <input
+                                                class="var-labl-edit"
+                                                type="text"
+                                                v-model="variable.name"
+                                                @focus="onVariableNameFocus(index)"
+                                                @blur="onVariableNameBlur(index)"
+                                                @keydown.enter="$event.target.blur()"
+                                            />
                                         </td>
                                         <td>
                                             <div><input vonkeydown="onVariableKeydown($event,index,'var_labl')"  class="var-labl-edit" type="text" v-model="variable.labl" ref="var_labl"/></div>
@@ -1192,7 +1281,32 @@ Vue.component('variables', {
 
             <?php echo $this->load->view("metadata_editor/modal-dialog-changecase",null,true); ?>
             
-            <vue-dialog-component v-model="summaryStatsDialog"></vue-dialog-component> 
+            <vue-dialog-component v-model="summaryStatsDialog"></vue-dialog-component>
+
+            <dialog-batch-sum-stats-options
+                v-model="batchSumStatsOptionsDialog"
+                :file_id="fid"
+                :project_id="ProjectID"
+                :variables="variablesAllForFile"
+                @applied="reloadVariablesAfterBatchSumStats">
+            </dialog-batch-sum-stats-options>
+
+            <v-dialog v-model="renameErrorDialog" max-width="420" persistent content-class="rename-error-dialog">
+                <v-card>
+                    <v-card-title class="text-subtitle-1 font-weight-medium">
+                        {{ $t('rename_failed') || 'Cannot rename variable' }}
+                    </v-card-title>
+                    <v-card-text class="pt-2">
+                        {{ renameErrorMessage }}
+                    </v-card-text>
+                    <v-card-actions class="px-4 pb-4 pt-0">
+                        <v-spacer></v-spacer>
+                        <v-btn color="primary" text @click="renameErrorDialog = false">
+                            {{ $t('ok') || 'OK' }}
+                        </v-btn>
+                    </v-card-actions>
+                </v-card>
+            </v-dialog>
         </div>
     `
 })

@@ -57,7 +57,7 @@ class Editor_variable_model extends ci_model {
      */
     function chunk_read($sid,$start_uid=0, $limit=100)
     {
-        $this->db->select("uid,sid,fid,metadata");
+        $this->db->select("uid,sid,fid,name,labl,metadata");
         $this->db->order_by('uid');
         $this->db->limit($limit);
         $this->db->where("sid",$sid);
@@ -120,18 +120,22 @@ class Editor_variable_model extends ci_model {
     }
 
     /**
-     * Parse sum_stats_options based on variable data type
+     * Parse sum_stats_options based on variable data type.
+     * Defaults: freq only true for discrete variables; false for continuous numeric,
+     * string (character/fixed), and non-discrete date. User choices in the UI are
+     * always preserved (not overwritten on re-import).
      */
     private function parse_sum_stats_options($variable)
     {
         $data_type = isset($variable['var_format']['type']) ? $variable['var_format']['type'] : '';
-        $is_discrete = isset($variable['metadata']['var_intrvl']) && $variable['metadata']['var_intrvl'] === 'discrete';
-        
+        $var_intrvl = isset($variable['var_intrvl']) ? $variable['var_intrvl'] : (isset($variable['metadata']['var_intrvl']) ? $variable['metadata']['var_intrvl'] : null);
+        $is_discrete = ($var_intrvl === 'discrete');
+
         switch ($data_type) {
             case 'numeric':
                 return array(
                     'wgt' => true,
-                    'freq' => true,
+                    'freq' => $is_discrete,
                     'missing' => true,
                     'vald' => true,
                     'min' => true,
@@ -141,12 +145,12 @@ class Editor_variable_model extends ci_model {
                     'stdev' => true,
                     'stdev_wgt' => true
                 );
-                
+
             case 'character':
             case 'fixed':
                 return array(
                     'wgt' => false,
-                    'freq' => true,
+                    'freq' => false,
                     'missing' => true,
                     'vald' => true,
                     'min' => false,
@@ -156,11 +160,11 @@ class Editor_variable_model extends ci_model {
                     'stdev' => false,
                     'stdev_wgt' => false
                 );
-                
+
             case 'date':
                 return array(
                     'wgt' => false,
-                    'freq' => true,
+                    'freq' => $is_discrete,
                     'missing' => true,
                     'vald' => true,
                     'min' => true,
@@ -170,7 +174,7 @@ class Editor_variable_model extends ci_model {
                     'stdev' => false,
                     'stdev_wgt' => false
                 );
-                
+
             default:
                 return array(
                     'wgt' => false,
@@ -398,6 +402,8 @@ class Editor_variable_model extends ci_model {
         if ($metadata_detailed==true){
             foreach($variables as $key=>$variable){
                 if(isset($variable['metadata'])){
+                    $db_name = $variable['name'];
+                    $db_labl = isset($variable['labl']) ? $variable['labl'] : '';
                     $var_metadata=$this->Editor_model->decode_metadata($variable['metadata']);
                     unset($variable['metadata']);
                     foreach($exclude_metadata as $ex){
@@ -409,6 +415,8 @@ class Editor_variable_model extends ci_model {
                         unset($variable['var_catgry']['stats']);
                     }
                     $variables[$key]=array_merge($variable,$var_metadata);
+                    $variables[$key]['name'] = $db_name;
+                    $variables[$key]['labl'] = $db_labl;
                 }
             }
         }
@@ -567,6 +575,8 @@ class Editor_variable_model extends ci_model {
         if ($metadata_detailed==true){
             foreach($variables as $key=>$variable){
                 if(isset($variable['metadata'])){
+                    $db_name = $variable['name'];
+                    $db_labl = isset($variable['labl']) ? $variable['labl'] : '';
                     $var_metadata=$this->Editor_model->decode_metadata($variable['metadata']);
                     unset($variable['metadata']);
                     foreach($exclude_metadata as $ex){
@@ -578,6 +588,8 @@ class Editor_variable_model extends ci_model {
                         unset($variable['var_catgry']['stats']);
                     }
                     $variables[$key]=array_merge($variable,$var_metadata);
+                    $variables[$key]['name'] = $db_name;
+                    $variables[$key]['labl'] = $db_labl;
                 }
             }
         }
@@ -615,6 +627,114 @@ class Editor_variable_model extends ci_model {
 		$error_str=$this->form_validation->error_array_to_string($errors);
 		throw new ValidationException("VALIDATION_ERROR: ".$error_str, $errors);
     }
+
+	/**
+	 * Validate variable name for renaming (Stata/SPSS-style rules).
+	 * Rules: must start with a letter; only letters, numbers, underscores; no spaces, no dots; max 32 chars.
+	 * Use this for the rename flow; use a separate validation when importing data.
+	 *
+	 * @param string $name Variable name to validate
+	 * @return array ['valid' => bool, 'message' => string] empty message when valid
+	 */
+	public function validate_variable_name_for_rename($name)
+	{
+		$name = trim($name);
+		$max_len = 32;
+		if ($name === '') {
+			return array('valid' => false, 'message' => 'Variable name is required.', 'reason' => 'empty');
+		}
+		if (strlen($name) > $max_len) {
+			return array('valid' => false, 'message' => 'Variable name cannot be longer than ' . $max_len . ' characters.', 'reason' => 'too_long');
+		}
+		if (!preg_match('/^[a-zA-Z]/', $name)) {
+			$reason = (substr($name, 0, 1) === '_') ? 'leading_underscore' : 'starts_with_number';
+			return array('valid' => false, 'message' => 'Variable name must start with a letter (a-z, A-Z).', 'reason' => $reason);
+		}
+		if (!preg_match('/^[a-zA-Z0-9_]+$/', $name)) {
+			return array('valid' => false, 'message' => 'Variable name may only contain letters, numbers, and underscores. No spaces or special characters.', 'reason' => 'invalid_chars');
+		}
+		return array('valid' => true, 'message' => '', 'reason' => '');
+	}
+
+	/**
+	 * Get list of variables with invalid names (Stata/SPSS rules) for a file.
+	 *
+	 * @param int $sid Project ID
+	 * @param string $fid File ID
+	 * @return array [ ['name' => string, 'message' => string, 'reason' => string], ... ]
+	 */
+	public function get_invalid_variable_names($sid, $fid)
+	{
+		$names = $this->get_variable_names_by_file($sid, $fid);
+		$invalid = array();
+		foreach ($names as $name) {
+			$result = $this->validate_variable_name_for_rename($name);
+			if (!$result['valid']) {
+				$invalid[] = array(
+					'name' => $name,
+					'message' => $result['message'],
+					'reason' => isset($result['reason']) ? $result['reason'] : 'invalid'
+				);
+			}
+		}
+		return $invalid;
+	}
+
+	/**
+	 * Rename variables for a data file. Validates each new name (Stata/SPSS rules), updates DB, returns applied renames.
+	 * Caller is responsible for rewriting the CSV header (Editor_datafile_model->rewrite_csv_header).
+	 *
+	 * @param int $sid Project ID
+	 * @param string $fid File ID
+	 * @param array $renames Array of ['old_name' => string, 'new_name' => string]
+	 * @return array ['applied' => [['old_name'=>'','new_name'=>''], ...], 'errors' => [], 'rename_map' => [old=>new]]
+	 */
+	public function rename_variables($sid, $fid, $renames)
+	{
+		$this->Editor_model->check_project_editable($sid);
+		$existing_names = $this->get_variable_names_by_file($sid, $fid);
+		$names_in_use = array_flip($existing_names);
+		$applied = array();
+		$errors = array();
+		$rename_map = array();
+
+		foreach ($renames as $item) {
+			$old_name = isset($item['old_name']) ? trim($item['old_name']) : '';
+			$new_name = isset($item['new_name']) ? trim($item['new_name']) : '';
+			if ($old_name === '' || $new_name === '') {
+				$errors[] = array('old_name' => $old_name, 'new_name' => $new_name, 'message' => 'old_name and new_name are required.');
+				continue;
+			}
+			if ($old_name === $new_name) {
+				continue;
+			}
+			$valid = $this->validate_variable_name_for_rename($new_name);
+			if (!$valid['valid']) {
+				$errors[] = array('old_name' => $old_name, 'new_name' => $new_name, 'message' => $valid['message']);
+				continue;
+			}
+			if (!isset($names_in_use[$old_name])) {
+				$errors[] = array('old_name' => $old_name, 'new_name' => $new_name, 'message' => 'Variable not found.');
+				continue;
+			}
+			if (isset($names_in_use[$new_name])) {
+				$errors[] = array('old_name' => $old_name, 'new_name' => $new_name, 'message' => 'Another variable already has this name.');
+				continue;
+			}
+			$this->db->where('sid', $sid);
+			$this->db->where('fid', $fid);
+			$this->db->where('name', $old_name);
+			$this->db->update('editor_variables', array('name' => $new_name));
+			if ($this->db->affected_rows() > 0) {
+				$applied[] = array('old_name' => $old_name, 'new_name' => $new_name);
+				$rename_map[$old_name] = $new_name;
+				unset($names_in_use[$old_name]);
+				$names_in_use[$new_name] = true;
+			}
+		}
+
+		return array('applied' => $applied, 'errors' => $errors, 'rename_map' => $rename_map);
+	}
 
 
     /**
@@ -669,6 +789,9 @@ class Editor_variable_model extends ci_model {
                 unset($options[$key]);
             }
         }
+        if (isset($options['name'])) {
+            $options['name'] = trim($options['name']);
+        }
 
         $options['sid']=$sid;
 
@@ -698,7 +821,10 @@ class Editor_variable_model extends ci_model {
                 unset($options[$key]);
             }
         }
-                
+        if (isset($options['name'])) {
+            $options['name'] = trim($options['name']);
+        }
+
         $options['sid']=$sid;
         
 

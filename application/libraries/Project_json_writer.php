@@ -74,7 +74,7 @@ class Project_json_writer
 				$offset = 0;
 				$batch = 200;
 				do {
-					$writer->ci->db->select('uid,sid,fid,metadata');
+					$writer->ci->db->select('uid,sid,fid,name,labl,metadata');
 					$writer->ci->db->where('sid', (int)$sid);
 					$writer->ci->db->where('fid', $file_id);
 					$writer->ci->db->order_by('sort_order, uid');
@@ -323,6 +323,13 @@ class Project_json_writer
 		$sid=(int)$variable['sid'];
 		unset($variable['metadata']['uid']);
 		unset($variable['metadata']['sid']);
+		// Use name and label from DB column for export (not from metadata)
+		if (isset($variable['name'])) {
+			$variable['metadata']['name'] = $variable['name'];
+		}
+		if (array_key_exists('labl', $variable)) {
+			$variable['metadata']['labl'] = $variable['labl'];
+		}
 
 		// Read var_catgry_labels from metadata
 		$raw_labels = isset($variable['metadata']['var_catgry_labels'])

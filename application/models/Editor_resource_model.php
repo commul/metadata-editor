@@ -161,7 +161,64 @@ class Editor_resource_model extends ci_model {
 			throw new Exception('FILE_UPLOAD_FAILED: '. strip_tags($this->upload->display_errors()). ' Path: ' . $survey_folder_type);
 		}
 
-		return $this->upload->data();		
+		$data = $this->upload->data();
+		if ($file_type === 'data') {
+			$data = $this->normalize_data_file_extension_lowercase($survey_folder_type, $data);
+		}
+		return $data;
+	}
+
+	/**
+	 * For data files: rename uploaded file so extension is lowercase (e.g. .CSV -> .csv).
+	 * Avoids case-sensitivity issues when resolving the file later.
+	 *
+	 * @param string $dir Upload directory path
+	 * @param array $upload_data Result of $this->upload->data()
+	 * @return array Updated upload_data with file_name, full_path, etc. reflecting the new name
+	 */
+	private function normalize_data_file_extension_lowercase($dir, $upload_data)
+	{
+		$name = isset($upload_data['file_name']) ? $upload_data['file_name'] : '';
+		if ($name === '') {
+			return $upload_data;
+		}
+		$ext = pathinfo($name, PATHINFO_EXTENSION);
+		if ($ext === '') {
+			return $upload_data;
+		}
+		$ext_lower = strtolower($ext);
+		if ($ext_lower === $ext) {
+			return $upload_data;
+		}
+		$base = pathinfo($name, PATHINFO_FILENAME);
+		$new_name = $base . '.' . $ext_lower;
+		$old_path = $upload_data['full_path'];
+		$new_path = rtrim($dir, DIRECTORY_SEPARATOR) . DIRECTORY_SEPARATOR . $new_name;
+		if (file_exists($old_path) && @rename($old_path, $new_path)) {
+			$upload_data['file_name'] = $new_name;
+			$upload_data['full_path'] = $new_path;
+			$upload_data['file_ext'] = $ext_lower;
+			if (isset($upload_data['file_path'])) {
+				$upload_data['file_path'] = $dir;
+			}
+		}
+		return $upload_data;
+	}
+
+	/**
+	 * Return filename with extension lowercased (e.g. file.CSV -> file.csv).
+	 *
+	 * @param string $filename
+	 * @return string
+	 */
+	private function filename_with_lowercase_extension($filename)
+	{
+		$ext = pathinfo($filename, PATHINFO_EXTENSION);
+		if ($ext === '') {
+			return $filename;
+		}
+		$base = pathinfo($filename, PATHINFO_FILENAME);
+		return $base . '.' . strtolower($ext);
 	}
 
 	/**
@@ -222,9 +279,9 @@ class Editor_resource_model extends ci_model {
 			}
 		}
 		
-		// Use the sanitized filename from the upload library (already processed)
-		$final_filename = $sanitized_filename;
-		
+		// Use the sanitized filename; for data files force extension to lowercase (e.g. .CSV -> .csv)
+		$final_filename = ($file_type === 'data') ? $this->filename_with_lowercase_extension($sanitized_filename) : $sanitized_filename;
+
 		$final_file_path = $survey_folder_type . '/' . $final_filename;
 		
 		// Move file from temp location to final location

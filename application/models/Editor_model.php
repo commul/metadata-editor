@@ -86,20 +86,23 @@ class Editor_model extends CI_Model {
 
 	function get_project_folder($sid)
 	{
-		$this->db->select("dirpath");
-		$this->db->where("id",$sid);
-		$result=$this->db->get("editor_projects")->row_array();
-
-		if ($result){
-			$path=$result['dirpath'];
-
-			if (!empty($path)){
-				$storage_root=$this->get_storage_path();
-				return $storage_root.'/'.$path;
-			}
+		$path = $this->get_project_dirpath($sid);
+		if ($path !== false && $path !== '') {
+			return $this->get_storage_path() . '/' . $path;
 		}
-
 		return false;
+	}
+
+	/**
+	 * Get project directory path relative to storage root (e.g. 5000/abc123hash).
+	 * Safe for use in error messages to avoid exposing full filesystem paths.
+	 */
+	function get_project_dirpath($sid)
+	{
+		$this->db->select("dirpath");
+		$this->db->where("id", $sid);
+		$result = $this->db->get("editor_projects")->row_array();
+		return isset($result['dirpath']) ? $result['dirpath'] : false;
 	}
 
 
@@ -1286,6 +1289,8 @@ class Editor_model extends CI_Model {
         if ($metadata_detailed==true){
             foreach($variables as $key=>$variable){
                 if(isset($variable['metadata'])){
+                    $db_name = $variable['name'];
+                    $db_labl = isset($variable['labl']) ? $variable['labl'] : '';
                     $var_metadata=$this->decode_metadata($variable['metadata']);
                     unset($variable['metadata']);
                     foreach($exclude_metadata as $ex){
@@ -1297,6 +1302,8 @@ class Editor_model extends CI_Model {
                         unset($variable['var_catgry']['stats']);
                     }
                     $variables[$key]=array_merge($variable,$var_metadata);
+                    $variables[$key]['name'] = $db_name;
+                    $variables[$key]['labl'] = $db_labl;
                 }
             }
         }

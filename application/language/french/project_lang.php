@@ -469,6 +469,7 @@ $lang['value_labels_not_exportable'] = "Le fichier de données inclut des étiqu
 
 // Export dialog
 $lang['select_export_format'] = "Sélectionner le format d'exportation";
+$lang['stata_version'] = "Version de Stata";
 $lang['cancel'] = "Annuler";
 $lang['export'] = "Exporter";
 $lang['download_files'] = "Télécharger les fichiers";
@@ -493,6 +494,14 @@ $lang['batch_export_zip_failed'] = "Impossible de créer le ZIP";
 $lang['batch_export_zip_option'] = "Zipper tous les fichiers exportés en un seul ZIP";
 $lang['batch_export_remove_after_zip'] = "Supprimer les exports individuels après compression";
 $lang['batch_export_removed'] = "Supprimé";
+
+// Batch summary stats options
+$lang['batch_sum_stats_options'] = "Options des statistiques récapitulatives en lot";
+$lang['batch_sum_stats_options_help'] = "Définir les options des statistiques récapitulatives pour toutes les variables du type d'intervalle sélectionné (Discret ou Continu) dans ce fichier.";
+$lang['apply_to_interval_type'] = "Appliquer à";
+$lang['batch_sum_stats_no_match'] = "Aucune variable ne correspond au type sélectionné.";
+$lang['batch_sum_stats_will_apply'] = "S'appliquera à {count} variable(s).";
+$lang['batch_sum_stats_applied'] = "{count} variable(s) mise(s) à jour.";
 
 // Missing translations for project home page
 $lang['search'] = "Rechercher...";

@@ -265,7 +265,7 @@ class DataUtils
 		return $response;
 	}
 
-	public function export_datafile_queue($sid,$file_id,$format)
+	public function export_datafile_queue($sid,$file_id,$format,$export_options=null)
 	{
 		$this->ci->load->library("Datafile_export");
 
@@ -273,7 +273,8 @@ class DataUtils
 			'base_uri' => $this->DataApiUrl.'export-data-queue'
 		]);
 
-		$request_body=$this->ci->datafile_export->get_export_params($sid,$file_id,$format);
+		$options=is_array($export_options) ? array('export_options'=>$export_options) : array();
+		$request_body=$this->ci->datafile_export->get_export_params($sid,$file_id,$format,$options);
 
 		$api_response = $client->request('POST', '', [
 			'json' =>

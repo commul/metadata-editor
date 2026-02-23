@@ -16,6 +16,9 @@ Vue.component('dialog-batch-export', {
                 { value: 'json', label: 'JSON' },
                 { value: 'xpt', label: 'SAS' }
             ],
+            /** Stata .dta format version (8-15). Used when any selected format is dta. */
+            selected_stata_version: 14,
+            stata_version_options: [8, 9, 10, 11, 12, 13, 14, 15].map(v => ({ value: v, label: 'Stata ' + v })),
             state: 'config',  // 'config' | 'running' | 'done'
             progress: {
                 current: 0,
@@ -70,6 +73,7 @@ Vue.component('dialog-batch-export', {
         resetState() {
             this.state = 'config';
             this.selected_formats = [];
+            this.selected_stata_version = 14;
             this.progress = { current: 0, total: 0, message: '' };
             this.results = [];
             this.zip_download_url = null;
@@ -90,10 +94,14 @@ Vue.component('dialog-batch-export', {
             if (successful.length === 0) return;
             const filenames = [];
             for (const r of successful) {
-                const file = this.selectedFiles.find(f => f.file_id === r.file_id);
-                const physical = (file && file.file_physical_name) ? file.file_physical_name : '';
-                const base = this.filenamePart(physical);
-                if (base) filenames.push(base + '.' + r.format);
+                if (r.output_filename) {
+                    filenames.push(r.output_filename);
+                } else {
+                    const file = this.selectedFiles.find(f => f.file_id === r.file_id);
+                    const physical = (file && file.file_physical_name) ? file.file_physical_name : '';
+                    const base = this.filenamePart(physical);
+                    if (base) filenames.push(base + '.' + r.format);
+                }
             }
             if (filenames.length === 0) return;
             this.zip_creating = true;
@@ -132,8 +140,12 @@ Vue.component('dialog-batch-export', {
         closeDialog() {
             this.dialog = false;
         },
-        buildDownloadUrl(file_id, format) {
-            return CI.base_url + '/api/datafiles/download_tmp_file/' + this.projectId + '/' + file_id + '/' + format;
+        buildDownloadUrl(file_id, format, outputFilename) {
+            let url = CI.base_url + '/api/datafiles/download_tmp_file/' + this.projectId + '/' + file_id + '/' + format;
+            if (outputFilename) {
+                url += '?filename=' + encodeURIComponent(outputFilename);
+            }
+            return url;
         },
         async startExport() {
             if (this.selectedFiles.length === 0 || this.selected_formats.length === 0) return;
@@ -150,6 +162,7 @@ Vue.component('dialog-batch-export', {
                 file_name: t.file_name,
                 format: t.format,
                 job_id: null,
+                output_filename: null,
                 status: 'pending',
                 download_url: null,
                 error: null
@@ -163,10 +176,17 @@ Vue.component('dialog-batch-export', {
                     const t = tasks[i];
                     this.progress.current = i;
                     this.progress.message = (this.$t('batch_export_queuing') || 'Queuing...') + ' ' + (i + 1) + ' / ' + tasks.length;
-                    const resp = await this.$store.dispatch('exportDatafileQueue', { file_id: t.file_id, format: t.format });
+                    const payload = { file_id: t.file_id, format: t.format };
+                    if (t.format === 'dta' && this.selected_stata_version != null) {
+                        payload.export_options = { version: this.selected_stata_version };
+                    }
+                    const resp = await this.$store.dispatch('exportDatafileQueue', payload);
                     const job_id = resp.data && resp.data.job_id ? resp.data.job_id : null;
                     if (job_id) {
                         this.results[i].job_id = job_id;
+                        if (resp.data && resp.data.output_filename) {
+                            this.results[i].output_filename = resp.data.output_filename;
+                        }
                     } else {
                         this.results[i].status = 'failed';
                         this.results[i].error = resp.data && resp.data.message ? resp.data.message : 'No job_id returned';
@@ -205,7 +225,7 @@ Vue.component('dialog-batch-export', {
                         const status = resp.data && resp.data.job_status ? resp.data.job_status : null;
                         if (status === 'done') {
                             r.status = 'done';
-                            r.download_url = this.buildDownloadUrl(r.file_id, r.format);
+                            r.download_url = this.buildDownloadUrl(r.file_id, r.format, r.output_filename);
                         } else if (status === 'failed' || status === 'error') {
                             r.status = 'failed';
                             r.error = (resp.data && resp.data.message) ? resp.data.message : (status || 'Job failed');
@@ -245,14 +265,39 @@ Vue.component('dialog-batch-export', {
                             </div>
                             <div>
                                 <label class="text-body-2 font-weight-medium d-block mb-2">{{ $t('batch_export_select_formats') || 'Select export format(s)' }}</label>
-                                <v-checkbox v-for="fmt in available_formats" :key="fmt.value"
-                                    v-model="selected_formats"
-                                    :value="fmt.value"
-                                    :label="fmt.label"
-                                    hide-details
-                                    dense
-                                    class="mt-0 font-weight-normal"
-                                ></v-checkbox>
+                                <v-simple-table dense class="batch-export-formats-table">
+                                    <thead>
+                                        <tr>
+                                            <th class="text-left text-body-2" style="width: 90px;">{{ $t('batch_export_export') || 'Export' }}</th>
+                                            <th class="text-left text-body-2">{{ $t('batch_export_format') || 'Format' }}</th>
+                                            <th class="text-left text-body-2">{{ $t('batch_export_options') || 'Options' }}</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        <tr v-for="fmt in available_formats" :key="fmt.value">
+                                            <td>
+                                                <v-checkbox
+                                                    v-model="selected_formats"
+                                                    :value="fmt.value"
+                                                    hide-details
+                                                    dense
+                                                    class="mt-0 shrink"
+                                                ></v-checkbox>
+                                            </td>
+                                            <td class="text-body-2">{{ fmt.label }}</td>
+                                            <td>
+                                                <select
+                                                    v-if="fmt.value === 'dta'"
+                                                    v-model.number="selected_stata_version"
+                                                    style="max-width: 110px; padding: 2px 6px; font-size: 0.875rem;"
+                                                >
+                                                    <option v-for="opt in stata_version_options" :key="opt.value" :value="opt.value">{{ opt.label }}</option>
+                                                </select>
+                                                <span v-else class="text-caption text--secondary">—</span>
+                                            </td>
+                                        </tr>
+                                    </tbody>
+                                </v-simple-table>
                             </div>
                             <div class="mt-3">
                                 <v-checkbox

@@ -506,6 +506,7 @@ $lang['value_label_issues'] = "Qiymat yorliqlari muammolari";
 
 // Export dialog
 $lang['select_export_format'] = "Eksport formatini tanlash";
+$lang['stata_version'] = "Stata versiyasi";
 $lang['cancel'] = "Bekor qilish";
 $lang['export'] = "Eksport qilish";
 $lang['download_files'] = "Fayllarni yuklab olish";
@@ -530,6 +531,14 @@ $lang['batch_export_zip_failed'] = "ZIP yaratib bo'lmadi";
 $lang['batch_export_zip_option'] = "Barcha eksport qilingan fayllarni bitta ZIP ga yig'ish";
 $lang['batch_export_remove_after_zip'] = "ZIP qilgandan keyin alohida eksportlarni o'chirish";
 $lang['batch_export_removed'] = "O'chirildi";
+
+// Batch summary stats options
+$lang['batch_sum_stats_options'] = "Partiyali qisqacha statistikalar parametrlari";
+$lang['batch_sum_stats_options_help'] = "Ushbu faylda tanlangan interval turi (Diskret yoki Uzluksiz) bo'yicha barcha o'zgaruvchilar uchun qisqacha statistikalar parametrlarini o'rnating.";
+$lang['apply_to_interval_type'] = "Qo'llash";
+$lang['batch_sum_stats_no_match'] = "Tanlangan turga mos o'zgaruvchi yo'q.";
+$lang['batch_sum_stats_will_apply'] = "{count} ta o'zgaruvchiga qo'llanadi.";
+$lang['batch_sum_stats_applied'] = "{count} ta o'zgaruvchi yangilandi.";
 
 // Missing translations for project home page
 $lang['search'] = "Qidirish...";

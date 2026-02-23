@@ -15,6 +15,9 @@ Vue.component('dialog-datafile-export', {
                 { value: 'json', label: 'JSON' },
                 { value: 'xpt', label: 'SAS' }
             ],
+            /** Stata .dta format version (8-15). Only used when selected_format === 'dta'. */
+            selected_stata_version: 14,
+            stata_version_options: [8, 9, 10, 11, 12, 13, 14, 15].map(v => ({ value: v, label: 'Stata ' + v })),
             zip_option: true,
             remove_after_zip: true,
             zip_download_url: null,
@@ -92,12 +95,14 @@ Vue.component('dialog-datafile-export', {
 
                 // Proceed with export
                 this.export_dialog.loading_message = this.$t('processing_please_wait');
-                let result = await this.$store.dispatch('exportDatafileQueue', {
-                    file_id: this.file_id, 
-                    format: this.selected_format
-                });
+                let payload = { file_id: this.file_id, format: this.selected_format };
+                if (this.selected_format === 'dta' && this.selected_stata_version != null) {
+                    payload.export_options = { version: this.selected_stata_version };
+                }
+                let result = await this.$store.dispatch('exportDatafileQueue', payload);
                 console.log("queued for export", result);
-                this.exportFileStatusCheck(this.file_id, result.data.job_id, this.selected_format);
+                const outputFilename = (result.data && result.data.output_filename) ? result.data.output_filename : null;
+                this.exportFileStatusCheck(this.file_id, result.data.job_id, this.selected_format, outputFilename);
             } catch(e) {
                 console.log("failed", e);
                 this.export_dialog.is_loading = false;
@@ -131,12 +136,14 @@ Vue.component('dialog-datafile-export', {
             };
 
             try {
-                let result = await this.$store.dispatch('exportDatafileQueue', {
-                    file_id: this.file_id, 
-                    format: this.selected_format
-                });
+                let payload = { file_id: this.file_id, format: this.selected_format };
+                if (this.selected_format === 'dta' && this.selected_stata_version != null) {
+                    payload.export_options = { version: this.selected_stata_version };
+                }
+                let result = await this.$store.dispatch('exportDatafileQueue', payload);
                 console.log("queued for export", result);
-                this.exportFileStatusCheck(this.file_id, result.data.job_id, this.selected_format);
+                const outputFilename = (result.data && result.data.output_filename) ? result.data.output_filename : null;
+                this.exportFileStatusCheck(this.file_id, result.data.job_id, this.selected_format, outputFilename);
             } catch(e) {
                 console.log("failed", e);
                 this.export_dialog.is_loading = false;
@@ -149,7 +156,7 @@ Vue.component('dialog-datafile-export', {
             }
         },
         
-        async exportFileStatusCheck(file_id, job_id, format) {
+        async exportFileStatusCheck(file_id, job_id, format, outputFilename) {
             this.export_dialog = {
                 show: true,
                 title: '',
@@ -172,16 +179,19 @@ Vue.component('dialog-datafile-export', {
                 this.export_dialog.loading_message = this.$t('job_status') + ": " + result.data.job_status;
                 
                 if (result.data.job_status !== 'done') {
-                    this.exportFileStatusCheck(file_id, job_id, format);
+                    this.exportFileStatusCheck(file_id, job_id, format, outputFilename);
                 } else if (result.data.job_status === 'done') {
                     let download_url = CI.base_url + '/api/datafiles/download_tmp_file/' + this.ProjectID + '/' + file_id + '/' + format;
+                    if (outputFilename) {
+                        download_url += '?filename=' + encodeURIComponent(outputFilename);
+                    }
                     this.export_dialog = Object.assign({}, this.export_dialog, {
                         is_loading: false,
                         message_success: this.$t('file_generated_success'),
                         download_links: [{ url: download_url, format: format }]
                     });
                     if (this.zip_option && this.file_physical_name) {
-                        this.createZipSingle(format);
+                        this.createZipSingle(format, outputFilename);
                     }
                 }
             } catch(e) {
@@ -204,10 +214,10 @@ Vue.component('dialog-datafile-export', {
             const i = name.lastIndexOf('.');
             return i >= 0 ? name.substring(0, i) : name;
         },
-        async createZipSingle(format) {
+        async createZipSingle(format, outputFilename) {
             const base = this.filenamePart(this.file_physical_name);
             if (!base) return;
-            const filename = base + '.' + format;
+            const filename = outputFilename || (base + '.' + format);
             const zip_filename = base + '.zip';
             this.zip_creating = true;
             this.zip_error = null;
@@ -294,6 +304,18 @@ Vue.component('dialog-datafile-export', {
                                 outlined
                                 dense
                                 required
+                            ></v-select>
+                        </div>
+                        <div class="mt-3" v-if="selected_format === 'dta'">
+                            <label class="text-body-1 font-weight-medium mb-2 d-block">{{ $t('stata_version') || 'Stata version' }}</label>
+                            <v-select
+                                v-model="selected_stata_version"
+                                :items="stata_version_options"
+                                item-text="label"
+                                item-value="value"
+                                outlined
+                                dense
+                                hide-details
                             ></v-select>
                         </div>
                         <div class="mt-3">

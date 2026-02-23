@@ -155,17 +155,16 @@ class Editor_datafile_model extends CI_Model {
 			throw new Exception("Data file physical name not found: ");
 		}
 
-		$filename_csv=$this->filename_part($filename).'.csv';
 		$project_folder_path=$this->Editor_model->get_project_folder($sid).'/data/';
-
 		$filepath=$project_folder_path.$filename;
-		$filepath_csv=$project_folder_path.$filename_csv;
 
 		if (file_exists($filepath)){
 			return $filepath;
 		}
 
-		if (file_exists($filepath_csv)){
+		// Resolve CSV path (tries .csv and .CSV for case-sensitive filesystems)
+		$filepath_csv=$this->resolve_csv_path($project_folder_path,$this->filename_part($filename));
+		if ($filepath_csv){
 			return $filepath_csv;
 		}
 
@@ -294,9 +293,10 @@ class Editor_datafile_model extends CI_Model {
 		$filename=$this->filename_part($filename).'.'.$type;
 		$project_folder_path=$this->Editor_model->get_project_folder($sid).'/data/tmp/';
 
-
 		if (!file_exists(realpath($project_folder_path.$filename))){
-			throw new Exception("Data file not found: ".$project_folder_path.$filename);
+			$dirpath = $this->Editor_model->get_project_dirpath($sid);
+			$path_for_message = ($dirpath !== false && $dirpath !== '') ? $dirpath.'/data/tmp/'.$filename : $filename;
+			throw new Exception("Data file not found: ".$path_for_message);
 		}
 
 		return [
@@ -328,38 +328,120 @@ class Editor_datafile_model extends CI_Model {
 			];
 		}
 
-		$filename_csv=$this->filename_part($filename).'.csv';
 		$project_folder_path=$this->Editor_model->get_project_folder($sid).'/data/';
+		$original_path=$project_folder_path.$filename;
+
+		// CSV path: if uploaded file is already CSV (any case), use its exact path so case-sensitive filesystems find it
+		$is_original_csv=(strtolower($this->get_file_extension($filename))==='csv');
+		if ($is_original_csv){
+			$csv_path=$original_path;
+			$csv_filename=$filename;
+		} else {
+			$base=$this->filename_part($filename);
+			$csv_path=$this->resolve_csv_path($project_folder_path,$base);
+			$csv_filename=$csv_path ? basename($csv_path) : $base.'.csv';
+		}
 
 		$files=array(
 			'original'=>array(
 				'filename'=>$filename,
-				'filepath'=>$project_folder_path.$filename,
-				'file_exists'=>file_exists($project_folder_path.$filename),
-				'file_info'=>pathinfo($project_folder_path.$filename),
+				'filepath'=>$original_path,
+				'file_exists'=>file_exists($original_path),
+				'file_info'=>pathinfo($original_path),
 				#'file_size'=>format_bytes(filesize($project_folder_path.$filename)),
 			),
 			'csv'=>array(
-				'filename'=>$filename_csv,
-				'filepath'=>$project_folder_path.$filename_csv,
-				'file_exists'=>file_exists($project_folder_path.$filename_csv),
-				'file_info'=>pathinfo($project_folder_path.$filename_csv),
+				'filename'=>$csv_filename,
+				'filepath'=>$csv_path ?: $project_folder_path.$this->filename_part($filename).'.csv',
+				'file_exists'=>$csv_path ? file_exists($csv_path) : false,
+				'file_info'=>$csv_path ? pathinfo($csv_path) : pathinfo($project_folder_path.$this->filename_part($filename).'.csv'),
 				#'file_size'=>format_bytes(filesize($project_folder_path.$filename_csv)),
 			)
 		);
 
 		//file sizes
 		if ($files['original']['file_exists']){
-			$files['original']['file_size']=format_bytes(filesize($project_folder_path.$filename));
+			$files['original']['file_size']=format_bytes(filesize($original_path));
 		}
 
 		if ($files['csv']['file_exists']){
-			$files['csv']['file_size']=format_bytes(filesize($project_folder_path.$filename_csv));
+			$files['csv']['file_size']=format_bytes($files['csv']['filepath']);
 		}
 		
 		return $files;
 	}
 
+	/**
+	 * Resolve path to CSV file; tries .csv and .CSV so case-sensitive filesystems work.
+	 * @param string $dir Directory path (no trailing slash required)
+	 * @param string $base Filename without extension
+	 * @return string|null Full path if file exists, null otherwise
+	 */
+	private function resolve_csv_path($dir,$base)
+	{
+		$dir=rtrim($dir,'/');
+		foreach (array('.csv','.CSV') as $ext){
+			$path=$dir.'/'.$base.$ext;
+			if (file_exists($path) && is_file($path)){
+				return $path;
+			}
+		}
+		return null;
+	}
+
+	/**
+	 * Rewrite CSV header with renamed column names. Reads only the first row, then streams the rest.
+	 *
+	 * @param int $sid Project ID
+	 * @param string $fid File ID
+	 * @param array $rename_map [ old_name => new_name, ... ]
+	 * @throws Exception if CSV not found or write fails
+	 */
+	public function rewrite_csv_header($sid, $fid, $rename_map)
+	{
+		if (empty($rename_map)) {
+			return;
+		}
+		$csv_path = $this->get_file_csv_path($sid, $fid);
+		if (!$csv_path || !file_exists($csv_path)) {
+			throw new Exception("CSV file not found for this data file.");
+		}
+		$fp = fopen($csv_path, 'r');
+		if ($fp === false) {
+			throw new Exception("Could not open CSV file.");
+		}
+		$header = fgetcsv($fp);
+		if ($header === false) {
+			fclose($fp);
+			throw new Exception("Could not read CSV header.");
+		}
+		$pos_after_header = ftell($fp);
+		fclose($fp);
+		$new_header = array();
+		foreach ($header as $col) {
+			$new_header[] = isset($rename_map[$col]) ? $rename_map[$col] : $col;
+		}
+		$tmp_path = $csv_path . '.tmp.' . uniqid();
+		$tmp = fopen($tmp_path, 'w');
+		if ($tmp === false) {
+			throw new Exception("Could not create temporary file.");
+		}
+		fputcsv($tmp, $new_header);
+		$fp = fopen($csv_path, 'r');
+		if ($fp === false) {
+			fclose($tmp);
+			@unlink($tmp_path);
+			throw new Exception("Could not reopen CSV file.");
+		}
+		fseek($fp, $pos_after_header);
+		stream_copy_to_stream($fp, $tmp);
+		fclose($fp);
+		fclose($tmp);
+		if (!rename($tmp_path, $csv_path)) {
+			@unlink($tmp_path);
+			throw new Exception("Could not replace CSV file.");
+		}
+	}
 
 	/**
 	 * 

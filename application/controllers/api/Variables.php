@@ -247,20 +247,51 @@ class Variables extends MY_REST_Controller
 					throw new Exception("`vid` is required");
 				}
 
-				if (!isset($variable['name']) || empty($variable['name'])){
+				if (!isset($variable['name']) || trim($variable['name'] ?? '') === ''){
 					throw new Exception("`name` is required");
 				}
+				$variable['name'] = trim($variable['name']);
 
 				$variable['file_id']=$variable['fid'];
-				$variable_info=$this->Editor_variable_model->variable_by_name($sid,$variable['file_id'],$variable['name'],false);
 				$this->Editor_model->validate_variable($variable);
 				$variable['metadata']=$variable;
-		
-				if($variable_info){	
-					$this->Editor_variable_model->update($sid,$variable_info['uid'],$variable);
-				}
-				else{						
-					$this->Editor_variable_model->insert($sid,$variable);
+
+				$uid = isset($variable['uid']) ? (is_numeric($variable['uid']) ? (int)$variable['uid'] : null) : null;
+
+				if ($uid !== null && $uid > 0) {
+					// Update by uid: ensure variable exists and belongs to this project and file
+					$existing = $this->Editor_variable_model->variable($sid, $uid, false);
+					if (empty($existing)) {
+						throw new Exception("Variable not found for the given uid.");
+					}
+					if ($existing['fid'] !== $variable['fid']) {
+						throw new Exception("Variable uid does not match the given file (fid). Correct variable must be updated for this file.");
+					}
+					$new_name = $variable['name'];
+					$old_name = isset($existing['name']) ? trim($existing['name']) : '';
+					if ($new_name !== $old_name) {
+						// Name changed: validate new name (Stata/SPSS rules)
+						$valid = $this->Editor_variable_model->validate_variable_name_for_rename($new_name);
+						if (!$valid['valid']) {
+							throw new Exception($valid['message']);
+						}
+						$other = $this->Editor_variable_model->variable_by_name($sid, $variable['fid'], $new_name, false);
+						if (!empty($other) && (int)$other['uid'] !== (int)$uid) {
+							throw new Exception("Another variable already has this name.");
+						}
+					}
+					$this->Editor_variable_model->update($sid, $uid, $variable);
+					if ($new_name !== $old_name && $old_name !== '') {
+						$this->Editor_datafile_model->rewrite_csv_header($sid, $variable['fid'], array($old_name => $new_name));
+					}
+				} else {
+					// No uid: resolve by name, update if found else insert
+					$variable_info = $this->Editor_variable_model->variable_by_name($sid, $variable['file_id'], $variable['name'], false);
+					if ($variable_info) {
+						$this->Editor_variable_model->update($sid, $variable_info['uid'], $variable);
+					} else {
+						$this->Editor_variable_model->insert($sid, $variable);
+					}
 				}
 
 				$result[]=$variable['vid'];
@@ -532,6 +563,49 @@ class Variables extends MY_REST_Controller
 
 
 	/**
+	 * Rename variables for a data file. Accepts an array of renames; updates DB and CSV header.
+	 *
+	 * POST /api/variables/rename/{sid}/{fid}
+	 * Body: { "renames": [ {"old_name": "var1", "new_name": "var1_renamed"}, ... ] }
+	 */
+	function rename_post($sid = null, $fid = null)
+	{
+		try {
+			$this->editor_acl->user_has_project_access($sid, $permission = 'edit', $this->api_user);
+
+			$valid_data_files = $this->Editor_datafile_model->list($sid);
+			if (!in_array($fid, $valid_data_files)) {
+				throw new Exception("Invalid `fid`: valid values are: " . implode(", ", $valid_data_files));
+			}
+
+			$body = $this->raw_json_input();
+			$renames = isset($body['renames']) && is_array($body['renames']) ? $body['renames'] : array();
+			if (empty($renames)) {
+				throw new Exception("`renames` is required and must be a non-empty array of { old_name, new_name }.");
+			}
+
+			$result = $this->Editor_variable_model->rename_variables($sid, $fid, $renames);
+
+			if (!empty($result['rename_map'])) {
+				$this->Editor_datafile_model->rewrite_csv_header($sid, $fid, $result['rename_map']);
+			}
+
+			$response = array(
+				'status' => 'success',
+				'applied' => $result['applied'],
+				'errors' => $result['errors']
+			);
+			$this->set_response($response, REST_Controller::HTTP_OK);
+		} catch (Exception $e) {
+			$this->set_response(array(
+				'status' => 'failed',
+				'message' => $e->getMessage()
+			), REST_Controller::HTTP_BAD_REQUEST);
+		}
+	}
+
+
+	/**
 	 * Apply title case to a string (first letter of each word uppercase, rest lowercase).
 	 */
 	private function _apply_title_case($str)
@@ -540,6 +614,69 @@ class Variables extends MY_REST_Controller
 			return mb_convert_case($str, MB_CASE_TITLE, 'UTF-8');
 		}
 		return ucwords(strtolower($str));
+	}
+
+
+	/**
+	 * Batch set sum_stats_options for variables by interval type (discrete or contin).
+	 *
+	 * POST /api/variables/batch_sum_stats_options/{sid}/{fid}
+	 * Body: { "interval_type": "discrete"|"contin", "sum_stats_options": { "freq": true, "missing": false, ... } }
+	 * Only keys present in sum_stats_options are applied; others are left unchanged per variable.
+	 */
+	function batch_sum_stats_options_post($sid = null, $fid = null)
+	{
+		try {
+			$this->editor_acl->user_has_project_access($sid, $permission = 'edit', $this->api_user);
+
+			$valid_data_files = $this->Editor_datafile_model->list($sid);
+			if (!in_array($fid, $valid_data_files)) {
+				throw new Exception("Invalid `fid`: valid values are: " . implode(", ", $valid_data_files));
+			}
+
+			$body = $this->raw_json_input();
+			$interval_type = isset($body['interval_type']) ? trim((string) $body['interval_type']) : '';
+			$sum_stats_options = isset($body['sum_stats_options']) && is_array($body['sum_stats_options']) ? $body['sum_stats_options'] : array();
+
+			if ($interval_type !== 'discrete' && $interval_type !== 'contin') {
+				throw new Exception("`interval_type` must be 'discrete' or 'contin'");
+			}
+			if (empty($sum_stats_options)) {
+				throw new Exception("`sum_stats_options` must be a non-empty object");
+			}
+
+			$variables = $this->Editor_variable_model->select_all($sid, $fid, $metadata_detailed = true);
+			$updated = 0;
+
+			foreach ($variables as $variable) {
+				$var_intrvl = isset($variable['var_intrvl']) ? $variable['var_intrvl'] : (isset($variable['interval_type']) ? $variable['interval_type'] : null);
+				if ($var_intrvl !== $interval_type) {
+					continue;
+				}
+
+				if (!isset($variable['sum_stats_options']) || !is_array($variable['sum_stats_options'])) {
+					$variable['sum_stats_options'] = array();
+				}
+				foreach ($sum_stats_options as $key => $value) {
+					$variable['sum_stats_options'][$key] = $value;
+				}
+
+				$this->Editor_variable_model->update($sid, $variable['uid'], array('metadata' => $variable));
+				$updated++;
+			}
+
+			$response = array(
+				'status' => 'success',
+				'updated' => $updated
+			);
+			$this->set_response($response, REST_Controller::HTTP_OK);
+		} catch (Exception $e) {
+			$error_output = array(
+				'status' => 'failed',
+				'message' => $e->getMessage()
+			);
+			$this->set_response($error_output, REST_Controller::HTTP_BAD_REQUEST);
+		}
 	}
 
 

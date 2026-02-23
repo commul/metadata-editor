@@ -461,6 +461,7 @@ $lang['value_labels_not_exportable'] = "El archivo de datos incluye etiquetas de
 
 // Export dialog
 $lang['select_export_format'] = "Seleccionar formato de exportación";
+$lang['stata_version'] = "Versión de Stata";
 $lang['cancel'] = "Cancelar";
 $lang['export'] = "Exportar";
 $lang['download_files'] = "Descargar archivos";
@@ -485,6 +486,14 @@ $lang['batch_export_zip_failed'] = "No se pudo crear el ZIP";
 $lang['batch_export_zip_option'] = "Comprimir todos los archivos exportados en un solo ZIP";
 $lang['batch_export_remove_after_zip'] = "Eliminar exportaciones individuales después de comprimir";
 $lang['batch_export_removed'] = "Eliminado";
+
+// Batch summary stats options
+$lang['batch_sum_stats_options'] = "Opciones de estadísticas resumidas por lotes";
+$lang['batch_sum_stats_options_help'] = "Establecer opciones de estadísticas resumidas para todas las variables del tipo de intervalo seleccionado (Discreto o Continuo) en este archivo.";
+$lang['apply_to_interval_type'] = "Aplicar a";
+$lang['batch_sum_stats_no_match'] = "Ninguna variable coincide con el tipo seleccionado.";
+$lang['batch_sum_stats_will_apply'] = "Se aplicará a {count} variable(s).";
+$lang['batch_sum_stats_applied'] = "{count} variable(s) actualizada(s).";
 
 // Missing translations for project home page
 $lang['search'] = "Buscar...";

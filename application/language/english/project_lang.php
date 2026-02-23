@@ -518,6 +518,7 @@ $lang['value_label_issues'] = "Value Label Issues";
 
 // Export dialog
 $lang['select_export_format'] = "Select export format";
+$lang['stata_version'] = "Stata version";
 $lang['cancel'] = "Cancel";
 $lang['export'] = "Export";
 $lang['download_files'] = "Download files";
@@ -533,6 +534,9 @@ $lang['job_status'] = "Job status";
 $lang['batch_export'] = "Batch export";
 $lang['batch_export_selected_files'] = "Selected files";
 $lang['batch_export_select_formats'] = "Select export format(s)";
+$lang['batch_export_format'] = "Format";
+$lang['batch_export_export'] = "Export";
+$lang['batch_export_options'] = "Options";
 $lang['batch_export_task_count'] = "Total exports";
 $lang['batch_export_queuing'] = "Queuing exports";
 $lang['batch_export_processing'] = "Processing";
@@ -544,6 +548,14 @@ $lang['batch_export_remove_after_zip'] = "Remove individual exports after zippin
 $lang['batch_export_removed'] = "Removed";
 $lang['single_export_zip_option'] = "Zip the exported file";
 $lang['single_export_download_zip'] = "Download (ZIP)";
+
+// Batch summary stats options (by interval type)
+$lang['batch_sum_stats_options'] = "Batch summary stats options";
+$lang['batch_sum_stats_options_help'] = "Set summary statistics options for all variables of the selected interval type (Discrete or Continuous) in this file.";
+$lang['apply_to_interval_type'] = "Apply to";
+$lang['batch_sum_stats_no_match'] = "No variables match the selected type.";
+$lang['batch_sum_stats_will_apply'] = "Will apply to {count} variable(s).";
+$lang['batch_sum_stats_applied'] = "{count} variable(s) updated.";
 
 // Missing translations for project home page
 $lang['search'] = "Search...";
@@ -610,6 +622,8 @@ $lang['variable_information_labels'] = "Variable information - Labels";
 $lang['variable_documentation_desc'] = "Variable documentation - Texts, notes, universe, etc.";
 $lang['question_texts_desc'] = "Question texts - Pre, post, literal, etc.";
 $lang['no_variables_selected'] = "No variables selected";
+$lang['variable_renamed'] = "Variable renamed.";
+$lang['rename_failed'] = "Failed to rename variable.";
 $lang['target_variables'] = "target variables";
 $lang['spreading_metadata'] = "Spreading metadata...";
 $lang['failed_to_spread_metadata'] = "Failed to spread metadata";
@@ -624,6 +638,45 @@ $lang['confirm_delete_all_categories'] = "Are you sure you want to delete all {c
 $lang['all_categories_deleted'] = "All {count} categories have been deleted.";
 $lang['columns_in_db_not_in_csv_help'] = "Variables found in metadata that are not present in the data file.";
 $lang['metadata_columns_diff'] = "Metadata columns mismatch";
+$lang['invalid_variable_names'] = "Invalid variable names";
+$lang['invalid_variable_names_help'] = "Variable names must start with a letter and contain only letters, numbers, and underscores (max 32).";
+$lang['invalid_variable_names_rules_title'] = "Variable name rules:";
+$lang['var_rule_start_letter'] = "Must start with a letter (a–z, A–Z)";
+$lang['var_rule_chars'] = "Only letters, numbers, and underscores (no spaces or special characters)";
+$lang['var_rule_max_length'] = "Maximum 32 characters";
+$lang['all_variable_names_valid'] = "All variable names are valid.";
+$lang['batch_fix'] = "Bulk fix";
+$lang['batch_fix_note'] = "Apply bulk fix to all variables with the same issue.";
+$lang['variables_with_leading_underscores'] = "Variables with leading underscores";
+$lang['variables_with_invalid_characters'] = "Variables with invalid characters";
+$lang['variables_starting_with_number'] = "Variables starting with a number";
+$lang['add_prefix_leading_underscore'] = "Add prefix (e.g. V_)";
+$lang['remove_leading_underscore'] = "Remove leading underscore";
+$lang['add_prefix_starts_with_number'] = "Add prefix for numbers";
+$lang['replace_invalid_chars'] = "Replace invalid chars with _";
+$lang['leading_underscore'] = "Leading underscore";
+$lang['starts_with_number'] = "Starts with number";
+$lang['invalid_chars'] = "Invalid characters";
+$lang['too_long'] = "Too long";
+$lang['issue'] = "Issue";
+$lang['preview_renames'] = "Preview renames";
+$lang['preview_renames_help'] = "Review and apply. Names must be unique.";
+$lang['current_name'] = "Current";
+$lang['new_name'] = "New name";
+$lang['prefix'] = "Prefix";
+$lang['variables_renamed'] = "Variables renamed.";
+$lang['edit_new_name_help'] = "Edit the New name column. Check the variables you want to rename, then click Apply rename. Use Bulk fix to apply actions by issue type.";
+$lang['suggest_for'] = "Suggest for:";
+$lang['suggest_choose'] = "— Choose suggestion —";
+$lang['suggest'] = "Suggest";
+$lang['apply_suggestion'] = "Apply suggestion";
+$lang['confirm_bulk_fix'] = "Update {count} variable name(s)? Changes will be applied immediately.";
+$lang['reset'] = "Reset";
+$lang['apply_renames'] = "Apply renames";
+$lang['apply_rename'] = "Apply rename";
+$lang['confirm_apply_renames'] = "Apply {count} rename(s)?";
+$lang['duplicate_new_name'] = "Duplicate new name: ";
+$lang['name_already_used'] = "Name already in use: ";
 
 
 // DSD
