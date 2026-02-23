@@ -374,7 +374,7 @@
         v-model="dialog_share_template" 
         :template_id="menu_active_template_id">
       </vue-template-share>
-    <vue-template-acl :key="menu_active_template_id + Math.random()"
+    <vue-template-acl :key="menu_active_template_id"
         v-if="menu_active_template_id && !isCoreTemplate(menu_active_template_id)" 
         v-model="dialog_acl_template" 
         :template_id="menu_active_template_id">

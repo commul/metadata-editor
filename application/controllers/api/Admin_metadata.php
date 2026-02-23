@@ -497,7 +497,6 @@ class Admin_metadata extends MY_REST_Controller
 	function acl_post()
 	{		
 		try{
-			$this->has_access($resource_='templates',$privilege='admin');
 			$options=$this->raw_json_input();
 
 			if (!is_array($options)){
@@ -509,13 +508,15 @@ class Admin_metadata extends MY_REST_Controller
 					throw new Exception("Missing parameter: template_uid");
 				}
 
+				// Allow system template_manager/admin role OR share-tab admin collaborators
+				$this->editor_acl->user_has_template_access($option['template_uid'], $permission='admin', $this->api_user);
+
                 $template_id=$this->Editor_template_model->get_id_by_uid($option['template_uid']);
 
                 if (!$template_id){
                     throw new Exception("Template not found: " . $option['template_uid']);
                 }
 
-				//$this->editor_acl->user_has_metadata_type_access($option['metadata_type_id'],$permission='admin',$this->api_user);
                 $this->Admin_metadata_acl_model->add_user($template_id,$option['user_id'],$option['permissions']);
 			}
 
@@ -543,11 +544,12 @@ class Admin_metadata extends MY_REST_Controller
 	function acl_get($template_uid=null)
 	{
 		try{
-			$this->has_access($resource_='templates',$privilege='view');
-
             if (!$template_uid){
                 throw new Exception("Missing parameter: template_uid");
             }
+
+			// Allow system template_manager/admin role OR share-tab admin collaborators
+			$this->editor_acl->user_has_template_access($template_uid, $permission='admin', $this->api_user);
 
             $template_id=$this->Editor_template_model->get_id_by_uid($template_uid);
 
@@ -582,7 +584,6 @@ class Admin_metadata extends MY_REST_Controller
 	function acl_remove_post()
 	{
 		try{
-            $this->has_access($resource_='templates',$privilege='admin');
 			$options=$this->raw_json_input();
 
 			if (!isset($options['template_uid'])){
@@ -592,6 +593,9 @@ class Admin_metadata extends MY_REST_Controller
 			if (!isset($options['user_id'])){
 				throw new Exception("Missing parameter: user_id");
 			}
+
+			// Allow system template_manager/admin role OR share-tab admin collaborators
+			$this->editor_acl->user_has_template_access($options['template_uid'], $permission='admin', $this->api_user);
 
             $template_id=$this->Editor_template_model->get_id_by_uid($options['template_uid']);
 
@@ -629,7 +633,6 @@ class Admin_metadata extends MY_REST_Controller
     function attach_post()
     {
         try{
-            $this->has_access($resource_='templates',$privilege='admin');
             $options=$this->raw_json_input();
 
             if (!isset($options['project_id'])){
@@ -649,7 +652,14 @@ class Admin_metadata extends MY_REST_Controller
             $template_id=$this->Editor_template_model->get_id_by_uid($options['template_uid']);
 
             if (!$template_id){
-                throw new Exception("Template not found: " . $template_uid);
+                throw new Exception("Template not found: " . $options['template_uid']);
+            }
+
+            // Allow system template_manager role OR users with explicit ACL access to this template
+            try {
+                $this->has_access($resource_='template_manager', $privilege='view');
+            } catch (Exception $e) {
+                $this->editor_acl->user_has_admin_metadata_access($template_id, $permission='view', $this->api_user);
             }
 
             $result=$this->Admin_metadata_projects_model->attach($project_id, $template_id);
@@ -681,7 +691,6 @@ class Admin_metadata extends MY_REST_Controller
     function detach_post()
     {
         try{
-            $this->has_access($resource_='templates',$privilege='admin');
             $options=$this->raw_json_input();
 
             if (!isset($options['project_id'])){
@@ -701,7 +710,14 @@ class Admin_metadata extends MY_REST_Controller
             $template_id=$this->Editor_template_model->get_id_by_uid($options['template_uid']);
 
             if (!$template_id){
-                throw new Exception("Template not found: " . $template_uid);
+                throw new Exception("Template not found: " . $options['template_uid']);
+            }
+
+            // Allow system template_manager role OR users with explicit ACL access to this template
+            try {
+                $this->has_access($resource_='template_manager', $privilege='view');
+            } catch (Exception $e) {
+                $this->editor_acl->user_has_admin_metadata_access($template_id, $permission='view', $this->api_user);
             }
 
             $result=$this->Admin_metadata_projects_model->delete($project_id, $template_id);

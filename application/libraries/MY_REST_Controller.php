@@ -175,12 +175,12 @@ abstract class MY_REST_Controller extends REST_Controller {
 
     }
 
-    function has_access($resource,$privilege,$repositoryid=null)
+    function has_access($resource,$privilege)
     {
         $user=$this->api_user();
 
         try{
-            return $this->acl_manager->has_access($resource, $privilege,$user,$repositoryid);
+            return $this->acl_manager->has_access($resource, $privilege,$user);
         }
         catch(Exception $e){
             //throw new AclAccessDeniedException('ACCESS-DENIED',$e->getMessage());            
@@ -197,31 +197,15 @@ abstract class MY_REST_Controller extends REST_Controller {
     }
 
 
-    function has_dataset_access($privilege, $sid=null,$repositoryid=null)
+    function has_dataset_access($privilege)
     {
         $user=$this->api_user();
-        $resource='study';
 
-        //get repositoryid
-        if ($sid && !$repositoryid){            
-            $repositoryid=$this->get_dataset_repositoryid($sid);
-        }
         try{
-            return $this->acl_manager->has_access('study', $privilege,$user,$repositoryid);
+            return $this->acl_manager->has_access('study', $privilege,$user);
         }
         catch(Exception $e){
             throw new AclAccessDeniedException('ACCESS-DENIED',$e->getMessage());
-        }
-    }
-
-    
-    private function get_dataset_repositoryid($sid)
-    {
-        $this->db->select("repositoryid");
-        $this->db->where("id",$sid);
-        $output=$this->db->get("surveys")->row_array();
-        if($output){
-            return $output['repositoryid'];
         }
     }
 

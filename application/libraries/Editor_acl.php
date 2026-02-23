@@ -531,10 +531,10 @@ class Editor_acl
 		return true;
 	}
 
-	function has_access_or_die($resource,$privilege, $user=null, $repositoryid=null)
+	function has_access_or_die($resource,$privilege, $user=null)
 	{
 		try{
-			$this->has_access($resource, $privilege,$user,$repositoryid);
+			$this->has_access($resource, $privilege,$user);
 		}
 		catch(Exception $e){
 			if ($this->ci->input->is_ajax_request()) {
@@ -548,7 +548,7 @@ class Editor_acl
 		}	
 	}
 
-	function has_access($resource,$privilege, $user=null, $repositoryid=null)
+	function has_access($resource,$privilege, $user=null)
 	{
 		if(empty($user)){
 			$user=$this->current_user();
@@ -591,27 +591,17 @@ class Editor_acl
 			}
 		}
 
-		//resources by repository
-		if(!empty($repositoryid)){
-			foreach($permissions as $perm){
-				if (!$acl->hasResource($repositoryid.'-'.$perm['resource'])){
-					$acl->addResource(new Resource($repositoryid.'-'.$perm['resource']));
-				}				
-				$acl->allow($perm['role_id'],$repositoryid.'-'.$perm['resource'], $perm['permissions']);
-			}
+		// Ensure the resource exists in the ACL even when the user has no permissions
+		// for it, so isAllowed() returns false instead of throwing "Resource not found".
+		if (!$acl->hasResource($resource)){
+			$acl->addResource(new Resource($resource));
 		}
 
 		try{
 			//test role as permissions
-			foreach($user_roles as $role_id=>$role){							
-				if(!empty($repositoryid)){
-					if ($acl->isAllowed($role_id, $repositoryid.'-'.$resource, $privilege)){
-						return true;
-					}
-				}else{
-					if ($acl->isAllowed($role_id, $resource,$privilege)){
-						return true;
-					}
+			foreach($user_roles as $role_id=>$role){
+				if ($acl->isAllowed($role_id, $resource, $privilege)){
+					return true;
 				}
 			}
 		}
