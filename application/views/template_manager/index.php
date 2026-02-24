@@ -289,19 +289,19 @@
                     <v-icon v-else color="rgb(0 0 0 / 12%)">mdi-content-paste</v-icon>
                   </div>
 
-                  <!--additional -->
-                  <div class="mt-5" v-if="(ActiveNode && (ActiveNode.type=='section_container' || ActiveNode.type=='section' || ActiveNode.type=='array' || ActiveNode.type=='nested_array')) || TemplateIsAdminMeta || TemplateIsCustom">
-                    <v-icon title="Add custom field" v-if="ActiveNode && (ActiveNode.type=='section_container' || ActiveNode.type=='section' || ActiveNode.type=='array' || ActiveNode.type=='nested_array') && user_has_edit_access" class="additional-item" @click="addAdditionalField()">mdi-text-box-plus-outline</v-icon>
+                  <!--additional (not allowed directly under section_container) -->
+                  <div class="mt-5" v-if="(!ActiveNode || !ActiveNode.is_custom) && ((ActiveNode && (ActiveNode.type=='section' || ActiveNode.type=='array' || ActiveNode.type=='nested_array')) || TemplateIsAdminMeta || TemplateIsCustom)">
+                    <v-icon title="Add custom field" v-if="ActiveNode && (ActiveNode.type=='section' || ActiveNode.type=='array' || ActiveNode.type=='nested_array') && user_has_edit_access" class="additional-item" @click="addAdditionalField()">mdi-text-box-plus-outline</v-icon>
                     <v-icon title="Add custom field" v-else class="disabled-button-color">mdi-text-box-plus-outline</v-icon>
                   </div>
 
-                  <div class="mt-1" v-if="(ActiveNode && (ActiveNode.type=='section_container' || ActiveNode.type=='section' || ActiveNode.type=='nested_array')) || (TemplateIsCustom && ActiveNode && ActiveNode.type!='array')">
-                    <v-icon title="Add custom Array field" v-if="ActiveNode && ActiveNode.type!='array' && (ActiveNode.type=='section_container' || ActiveNode.type=='section' || ActiveNode.type=='nested_array') && user_has_edit_access" class="additional-item"  @click="addAdditionalFieldArray()">mdi-table-large-plus</v-icon>
+                  <div class="mt-1" v-if="(!ActiveNode || !ActiveNode.is_custom) && ((ActiveNode && (ActiveNode.type=='section' || ActiveNode.type=='nested_array')) || (TemplateIsCustom && ActiveNode && ActiveNode.type!='array'))">
+                    <v-icon title="Add custom Array field" v-if="ActiveNode && ActiveNode.type!='array' && (ActiveNode.type=='section' || ActiveNode.type=='nested_array') && user_has_edit_access" class="additional-item"  @click="addAdditionalFieldArray()">mdi-table-large-plus</v-icon>
                     <v-icon title="Add custom Array field" v-else class="disabled-button-color">mdi-table-large-plus</v-icon>
                   </div>
 
-                  <div class="mt-1" v-if="(ActiveNode && (ActiveNode.type=='section_container' || ActiveNode.type=='section' || ActiveNode.type=='nested_array')) || (TemplateIsCustom && ActiveNode && ActiveNode.type!='array')">
-                    <v-icon title="Add custom NestedArray field" v-if="ActiveNode && ActiveNode.type!='array' && (ActiveNode.type=='section_container' || ActiveNode.type=='section' || ActiveNode.type=='nested_array') && user_has_edit_access" class="additional-item"  @click="addAdditionalFieldNestedArray()">mdi-file-tree</v-icon>
+                  <div class="mt-1" v-if="(!ActiveNode || !ActiveNode.is_custom) && ((ActiveNode && (ActiveNode.type=='section' || ActiveNode.type=='nested_array')) || (TemplateIsCustom && ActiveNode && ActiveNode.type!='array'))">
+                    <v-icon title="Add custom NestedArray field" v-if="ActiveNode && ActiveNode.type!='array' && (ActiveNode.type=='section' || ActiveNode.type=='nested_array') && user_has_edit_access" class="additional-item"  @click="addAdditionalFieldNestedArray()">mdi-file-tree</v-icon>
                     <v-icon title="Add custom NestedArray field" v-else class="disabled-button-color">mdi-file-tree</v-icon>
                   </div>
 
@@ -1082,18 +1082,15 @@
         },
         buildPathPrefix: function(parentNode){
           if (!parentNode) return null;
-          // If parent is a prop (has prop_key), use it directly as it's already the full path
-          if (parentNode.prop_key) {
-            return parentNode.prop_key;
-          }
-          // Otherwise, use key and find the path in the tree
-          const parentKey = parentNode.key;
+          const parentKey = parentNode.prop_key || parentNode.key;
           if (!parentKey) return null;
-          const path = this.getNodePath(this.UserTreeItems, parentKey);
-          if (!path || typeof path !== 'string') return null;
-          const parts = path.split('/').filter(p => p);
-          if (parts.length === 0) return null;
-          return parts.join('.');
+          const segments = this.getNodePathSegments(this.UserTreeItems, parentKey);
+          if (!segments || segments.length === 0) return null;
+          // Always include container key (first segment); exclude section/section_container from the rest
+          const containerKey = segments[0].key;
+          const restSegments = segments.slice(1).filter(function(s){ return s.type !== 'section' && s.type !== 'section_container'; });
+          const pathParts = [containerKey].concat(restSegments.map(function(s){ return s.key; }));
+          return pathParts.join('.');
         },
         generateNewFieldKey: function() {
           const timestamp = Date.now();
@@ -1117,14 +1114,17 @@
         addAdditionalField: function() {
           console.log("addAdditionalField");
           let parentNode = this.ActiveNode;
+          if (!parentNode) {
+            return false;
+          }
+          // Do not allow adding fields directly under section_container
+          if (parentNode.type === 'section_container') {
+            return false;
+          }
           const new_node_key = this.generateNewFieldKey();
 
           console.log("new_node_key", new_node_key);
           console.log("parentNode", parentNode);
-
-          if (!parentNode) {
-            return false;
-          }
 
           // If parent is array/nested_array, add as prop; otherwise add as child item
           if (parentNode.type === 'array' || parentNode.type === 'nested_array') {
@@ -1178,11 +1178,14 @@
         },
         addAdditionalFieldArray: function() {
           let parentNode = this.ActiveNode;
-          const new_node_key = this.generateNewFieldKey();
-          
           if (!parentNode) {
             return false;
           }
+          // Do not allow adding directly under section_container
+          if (parentNode.type === 'section_container') {
+            return false;
+          }
+          const new_node_key = this.generateNewFieldKey();
 
           // Do not allow adding array props inside a plain array node (only simple fields allowed)
           if (parentNode.type === 'array') {
@@ -1229,12 +1232,15 @@
           //store.commit('activeCoreNode', {});
         },
         addAdditionalFieldNestedArray: function() {
-          let parentNode = this.ActiveNode;          
-          const new_node_key = this.generateNewFieldKey();
-          
+          let parentNode = this.ActiveNode;
           if (!parentNode) {
             return false;
           }
+          // Do not allow adding directly under section_container
+          if (parentNode.type === 'section_container') {
+            return false;
+          }
+          const new_node_key = this.generateNewFieldKey();
 
           // Do not allow adding nested_array props inside a plain array node (only simple fields allowed)
           if (parentNode.type === 'array') {
@@ -1459,6 +1465,34 @@
                 if (prop.props && Array.isArray(prop.props)) {
                   const child = this.getNodePath(prop.props.map(p => ({ ...p, key: p.prop_key || p.key })), name);
                   if (child) return `/${itemKey}${child}`
+                }
+              }
+            }
+          }
+          return false;
+        },
+        // Returns array of { key, type } from root to the node (for path prefix building).
+        getNodePathSegments: function(arr, name, pathSoFar) {
+          if (!arr || !name) return false;
+          pathSoFar = pathSoFar || [];
+          for (let item of arr) {
+            const itemKey = item.key || item.prop_key;
+            if (!itemKey) continue;
+            const seg = { key: itemKey, type: item.type || 'unknown' };
+            if (itemKey === name) return pathSoFar.concat([seg]);
+            if (item.items) {
+              const child = this.getNodePathSegments(item.items, name, pathSoFar.concat([seg]));
+              if (child) return child;
+            }
+            if ((item.type === 'array' || item.type === 'nested_array') && item.props && Array.isArray(item.props)) {
+              for (let prop of item.props) {
+                const propKey = prop.prop_key || prop.key;
+                if (!propKey) continue;
+                const pSeg = { key: propKey, type: (prop.type || 'unknown') };
+                if (propKey === name) return pathSoFar.concat([seg, pSeg]);
+                if (prop.props && Array.isArray(prop.props)) {
+                  const child = this.getNodePathSegments(prop.props.map(p => ({ ...p, key: p.prop_key || p.key })), name, pathSoFar.concat([seg, pSeg]));
+                  if (child) return child;
                 }
               }
             }

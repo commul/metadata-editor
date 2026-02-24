@@ -228,7 +228,6 @@
             @input="UpdateActiveNodeKey"
             >
         </vue-custom-key-field>
-        <div class="text-secondary font-small mb-2">Recommended to use a namespace for custom fields.</div>
     </div>
 
 
