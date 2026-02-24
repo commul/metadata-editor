@@ -43,7 +43,7 @@ Vue.component('project-export-json-component', {
                 url_params.push('admin_metadata=1');
             }
 
-            if (this.options.export_fields=='private'){
+            if (this.options.export_fields=='public'){
                 url_params.push('exc_private=1');
             }
 
