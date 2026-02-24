@@ -804,10 +804,16 @@ class Editor extends MY_REST_Controller
 				$inc_adm_meta=1;
 			}
 
+			$exclude_variables=0;
+			if ((int)$this->input->get("exclude_variables")===1){
+				$exclude_variables=1;
+			}
+
 			$options=array(
 				'exclude_private_fields'=>$exclude_private_fields,
 				'external_resources'=>$inc_ext_resources,
 				'admin_metadata'=>$inc_adm_meta,
+				'exclude_variables'=>$exclude_variables,
 				'user_id'=>$this->get_api_user_id()
 			);
 

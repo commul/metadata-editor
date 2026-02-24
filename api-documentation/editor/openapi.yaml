@@ -255,26 +255,71 @@ paths:
       tags:
         - Projects
       summary: Get project JSON
-      description: Get study level metadata for a project as JSON
+      description: >
+        Get project metadata as JSON. For microdata/survey projects, the response
+        includes all variables by default. Use `exclude_variables=1` to omit
+        variables from the response (useful when only study-level metadata is
+        needed, e.g. for comparison workflows).
       operationId: singleProjectJSON
       parameters:
         - name: id
           in: path
-          title: Project unique ID
-          description: Project unique ID number
+          description: Project ID or IDNO
           required: true
           schema:
             type: string
         - name: version
           in: query
-          title: Version number
-          description: Get project by specific version number (e.g. 1.0.0)
+          description: Get metadata for a specific version number (e.g. 1.0.0)
           required: false
           schema:
             type: string
+        - name: exclude_variables
+          in: query
+          description: >
+            Exclude variables from the response. Only applicable to microdata/survey
+            projects. When set to `1`, the `variables` array is omitted from the
+            JSON output. The `data_files` array is still included.
+          required: false
+          schema:
+            type: integer
+            enum: [0, 1]
+            default: 0
+        - name: exclude_private_fields
+          in: query
+          description: >
+            Exclude fields marked as private in the project template. Set to `1`
+            to omit private fields from the response.
+          required: false
+          schema:
+            type: integer
+            enum: [0, 1]
+            default: 0
+        - name: external_resources
+          in: query
+          description: >
+            Include external resources (documentation files) in the response.
+            Set to `1` to append the `external_resources` array to the JSON output.
+          required: false
+          schema:
+            type: integer
+            enum: [0, 1]
+            default: 0
+        - name: admin_metadata
+          in: query
+          description: >
+            Include administrative metadata in the response.
+            Set to `1` to append the `admin_metadata` object to the JSON output.
+          required: false
+          schema:
+            type: integer
+            enum: [0, 1]
+            default: 0
       responses:
         "200":
           description: successful operation
+        "400":
+          description: Bad request - project not found or access denied
   "/editor/generate_pdf/{id}":
     get:
       tags:
@@ -389,16 +434,45 @@ paths:
       tags:
         - Microdata
       summary: List variables
-      description: List variables by a Microdata project
+      description: >
+        List variables for a microdata/survey project. Returns `name`, `labl`,
+        `fid`, `vid`, `field_dtype`, and `sort_order` by default. Set
+        `detailed=1` to include the full variable metadata blob. Supports
+        pagination via `limit` and `offset`.
       operationId: listVariables
       parameters:
         - name: id
           in: path
-          title: Study unique ID
-          description: Study unique ID number
+          description: Project ID (numeric)
           required: true
           schema:
-            type: string
+            type: integer
+        - name: detailed
+          in: query
+          description: >
+            Set to `1` to return the full variable metadata (all fields).
+            Defaults to `0` (returns only plain-text DB columns: name, labl, fid,
+            vid, field_dtype, sort_order).
+          required: false
+          schema:
+            type: integer
+            enum: [0, 1]
+            default: 0
+        - name: limit
+          in: query
+          description: >
+            Maximum number of variables to return. Omit or set to `0` to return
+            all variables (no pagination).
+          required: false
+          schema:
+            type: integer
+        - name: offset
+          in: query
+          description: Number of variables to skip before returning results. Used for pagination.
+          required: false
+          schema:
+            type: integer
+            default: 0
       responses:
         "200":
           description: successful operation
