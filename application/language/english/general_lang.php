@@ -567,6 +567,7 @@ $lang['all_files'] = 'All files';
 $lang['import_language'] = 'Import language';
 $lang['import_language_hint'] = 'Upload a zip file exported from this application. The zip must contain a single top-level folder named after the language (e.g. french/) with JSON translation files inside (e.g. general_lang.json). Each file is validated: only known keys from the English language files are imported, and all values are checked for safety before being saved.';
 $lang['import_zip_label'] = 'Language zip file';
+$lang['url']='URL';
 
 /* End of file general_lang.php */
 /* Location: ./application/language/english/general_lang.php */

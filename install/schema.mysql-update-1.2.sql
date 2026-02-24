@@ -322,3 +322,28 @@ CREATE TABLE `indicator_dsd` (
 
 -- seed supported languages configuration
 INSERT INTO `configurations` VALUES ('supported_languages','[{"folder":"english","code":"en","display":"English","direction":"ltr"}]','Supported languages in JSON format',NULL,NULL);
+
+
+-- add unqiue key to roles table
+ALTER TABLE `roles` ADD UNIQUE KEY `name_UNIQUE` (`name`);
+
+-- Add user role - Editor if not exists
+insert into roles(name,description, weight, is_admin, is_locked) values 
+('Editor','General role required for projects management', 0,0,1);
+
+-- Editor role permissions
+
+-- delete existing Editor role permissions
+delete from role_permissions where role_id = (select id from roles where name = 'Editor');
+
+-- Editor role access to view own projects
+insert into role_permissions(role_id,resource,permissions) values
+((select id from roles where name = 'Editor'),'editor','admin');
+
+-- Editor role access for collections
+insert into role_permissions(role_id,resource,permissions) values
+((select id from roles where name = 'Editor'),'collection','view');
+
+-- Editor role access for templates
+insert into role_permissions(role_id,resource,permissions) values
+((select id from roles where name = 'Editor'),'template_manager','view');

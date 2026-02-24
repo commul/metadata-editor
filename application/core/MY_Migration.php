@@ -241,11 +241,12 @@ class MY_Migration extends CI_Migration {
     {
         if (in_array($db_driver, array('mysql', 'mysqli'))) {
             $safe_errors = array(
+                1050,  // Table already exists
+                1051,  // Unknown table (DROP TABLE on non-existent table)
                 1060,  // Duplicate column name
                 1061,  // Duplicate key name
-                1091,  // Can't DROP - doesn't exist
-                1050,  // Table already exists
                 1068,  // Multiple primary keys
+                1091,  // Can't DROP - doesn't exist
                 1146,  // Table doesn't exist
             );
             

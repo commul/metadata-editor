@@ -345,21 +345,21 @@ CREATE TABLE `roles` (
   `weight` int DEFAULT '0',
   `is_admin` tinyint(4) DEFAULT '0',
   `is_locked` tinyint(4) DEFAULT '0',
-  PRIMARY KEY (`id`)
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `name_UNIQUE` (`name`)
 ) AUTO_INCREMENT=1 DEFAULT CHARSET=utf8mb4;
 
 LOCK TABLES `roles` WRITE;
 /*!40000 ALTER TABLE `roles` DISABLE KEYS */;
 insert into roles(id,name,description, weight, is_admin, is_locked) values 
-(1,'admin','Site administrator', 0,1,1),
-(2,'user','General user account', 0,0,1),
-(3,'editor','General role required for projects management', 0,0,0),
+(1,'Admin','Site administrator', 0,1,1),
+(2,'User','General user account', 0,0,1),
+(3,'Editor','General role required for projects management', 0,0,1),
 (6,'Template manager','Global role for managing templates', 0,0,0),
 (7,'Collection manager','Global role for managing collections', 0,0,0),
 (8,'Schema manager','Global role for managing schemas', 0,0,0);
 /*!40000 ALTER TABLE `roles` ENABLE KEYS */;
 UNLOCK TABLES;
-
 
 
 CREATE TABLE `role_permissions` (
