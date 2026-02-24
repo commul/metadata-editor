@@ -256,6 +256,8 @@ class Project_json_writer
 		
 		$output=array_merge($basic_info, $metadata );
 
+		$exclude_variables=isset($options['exclude_variables']) ? (int)$options['exclude_variables'] : 0;
+
 		if(in_array($project['type'], ['survey', 'microdata'])){			
 			$output['data_files'] = function () use ($sid) {
 				$files=$this->ci->Editor_datafile_model->select_all($sid, $include_file_info=false);
@@ -268,15 +270,17 @@ class Project_json_writer
 				}
 			};
 
-			//pre-load UID->VID mapping
-			$this->uid_vid_cache = $this->ci->Editor_variable_model->uid_vid_list($sid);
+			if (!$exclude_variables) {
+				//pre-load UID->VID mapping
+				$this->uid_vid_cache = $this->ci->Editor_variable_model->uid_vid_list($sid);
 
-			$output['variables'] = function () use ($sid) {
-				foreach($this->ci->Editor_variable_model->chunk_reader_generator($sid) as $variable){
-					$variable=$this->transform_variable($variable);
-					yield $variable['metadata'];
-				}
-			};
+				$output['variables'] = function () use ($sid) {
+					foreach($this->ci->Editor_variable_model->chunk_reader_generator($sid) as $variable){
+						$variable=$this->transform_variable($variable);
+						yield $variable['metadata'];
+					}
+				};
+			}
 
 			/*$output['variable_groups'] = function () use ($sid) {
 				$var_groups=$this->Variable_group_model->select_all($sid);
