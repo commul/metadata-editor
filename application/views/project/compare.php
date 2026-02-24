@@ -514,9 +514,93 @@
 
                       <!-- Comparison Results -->
                       <v-card >
-                        <v-card-text>
+                        <v-card-text style="overflow:auto; max-height:600px;">
                           <div class="json-diff-container" v-if="!diff_html"></div>
                           <div v-html="diff_html" v-if="diff_html"></div>
+                        </v-card-text>
+                      </v-card>
+
+                      <!-- Variables Diff (microdata/survey only) -->
+                      <v-card class="mt-4" v-if="project1 && ['survey','microdata'].includes(project1.type)">
+                        <v-card-title style="font-size:15px;">
+                          <v-icon left>mdi-variable</v-icon>
+                          {{$t('variables_comparison')}}
+                        </v-card-title>
+
+                        <!-- Loading -->
+                        <v-card-text v-if="is_loading_variables" class="text-center py-4">
+                          <v-progress-circular indeterminate size="32" color="primary"></v-progress-circular>
+                          <div class="mt-2 text-caption">{{$t('loading_variables')}}</div>
+                        </v-card-text>
+
+                        <!-- Error -->
+                        <v-card-text v-else-if="variables_diff_error">
+                          <v-alert type="error" dense>{{ variables_diff_error }}</v-alert>
+                        </v-card-text>
+
+                        <!-- Results -->
+                        <v-card-text v-else-if="variables_diff">
+                          <!-- Summary chips / filter bar -->
+                          <div class="d-flex align-center flex-wrap mb-3" style="gap:8px;">
+                            <v-chip small
+                              :color="variables_diff_filter==='changed' ? 'primary' : ''"
+                              :dark="variables_diff_filter==='changed'"
+                              @click="variables_diff_filter='changed'">
+                              {{$t('all_changes')}}: {{ totalVariableChanges }}
+                            </v-chip>
+                            <v-chip small
+                              :color="variables_diff_filter==='modified' ? 'warning' : ''"
+                              :dark="variables_diff_filter==='modified'"
+                              @click="variables_diff_filter='modified'">
+                              {{$t('modifications')}}: {{ variables_diff.modified.length }}
+                            </v-chip>
+                            <v-chip small
+                              :color="variables_diff_filter==='added' ? 'success' : ''"
+                              :dark="variables_diff_filter==='added'"
+                              @click="variables_diff_filter='added'">
+                              {{$t('additions')}}: {{ variables_diff.added.length }}
+                            </v-chip>
+                            <v-chip small
+                              :color="variables_diff_filter==='removed' ? 'error' : ''"
+                              :dark="variables_diff_filter==='removed'"
+                              @click="variables_diff_filter='removed'">
+                              {{$t('deletions')}}: {{ variables_diff.removed.length }}
+                            </v-chip>
+                            <v-chip small outlined
+                              :color="variables_diff_filter==='unchanged' ? 'grey darken-1' : ''"
+                              :dark="variables_diff_filter==='unchanged'"
+                              @click="variables_diff_filter='unchanged'">
+                              {{$t('n_unchanged')}}: {{ variables_diff.unchanged.length }}
+                            </v-chip>
+                          </div>
+
+                          <!-- No differences -->
+                          <v-alert v-if="filteredVariablesDiff.length === 0" type="success" dense outlined>
+                            {{$t('no_variable_differences')}}
+                          </v-alert>
+
+                          <!-- Differences table -->
+                          <v-data-table
+                            v-else
+                            :headers="variablesTableHeaders"
+                            :items="filteredVariablesDiff"
+                            :items-per-page="25"
+                            dense
+                            :footer-props="{'items-per-page-options': [10, 25, 50, 100, -1]}"
+                          >
+                            <template v-slot:item.status="{ item }">
+                              <v-chip x-small dark
+                                :color="item.status === 'modified' ? 'warning' : item.status === 'added' ? 'success' : item.status === 'removed' ? 'error' : 'grey'">
+                                {{ item.status }}
+                              </v-chip>
+                            </template>
+                            <template v-slot:item.labl1="{ item }">
+                              <span :class="item.status === 'removed' ? 'red--text text--darken-2' : ''">{{ item.labl1 }}</span>
+                            </template>
+                            <template v-slot:item.labl2="{ item }">
+                              <span :class="item.status === 'added' ? 'green--text text--darken-2' : ''">{{ item.labl2 }}</span>
+                            </template>
+                          </v-data-table>
                         </v-card-text>
                       </v-card>
                       
@@ -635,7 +719,13 @@
             mode: 'word',
             wordSeparator: ' '
           }
-        }
+        },
+
+        // Variables diff
+        is_loading_variables: false,
+        variables_diff: null,
+        variables_diff_error: null,
+        variables_diff_filter: 'changed'
       },
       mounted() {
         if (this.project1_id && this.project2_id) {
@@ -658,6 +748,37 @@
             this.validationErrors.sameId = '';
             this.validationErrors.differentTypes = '';
           }
+        }
+      },
+      computed: {
+        variablesTableHeaders() {
+          return [
+            { text: this.$t('var_status'), value: 'status', sortable: true, width: '110px' },
+            { text: this.$t('fid'),        value: 'fid',    sortable: true, width: '80px' },
+            { text: this.$t('variable'),   value: 'name',   sortable: true },
+            { text: this.$t('label_in_p1'), value: 'labl1', sortable: false },
+            { text: this.$t('label_in_p2'), value: 'labl2', sortable: false },
+          ];
+        },
+        filteredVariablesDiff() {
+          if (!this.variables_diff) return [];
+          const { modified, added, removed, unchanged } = this.variables_diff;
+          const f = this.variables_diff_filter;
+          if (f === 'modified')  return modified.map(v =>  ({ ...v, status: 'modified' }));
+          if (f === 'added')     return added.map(v =>     ({ ...v, status: 'added' }));
+          if (f === 'removed')   return removed.map(v =>   ({ ...v, status: 'removed' }));
+          if (f === 'unchanged') return unchanged.map(v => ({ ...v, status: 'unchanged' }));
+          return [
+            ...modified.map(v =>  ({ ...v, status: 'modified' })),
+            ...added.map(v =>     ({ ...v, status: 'added' })),
+            ...removed.map(v =>   ({ ...v, status: 'removed' }))
+          ];
+        },
+        totalVariableChanges() {
+          if (!this.variables_diff) return 0;
+          return this.variables_diff.modified.length
+               + this.variables_diff.added.length
+               + this.variables_diff.removed.length;
         }
       },
       methods: {
@@ -735,9 +856,9 @@
         loadProjectMetadata() {
           const vm = this;
           
-          // Now load the full metadata for both projects
+          // Now load the full metadata for both projects (variables excluded for microdata/survey)
           const fetchProjectMetadata = (projectId) => {
-            return axios.get(CI.site_url + '/api/editor/json/' + projectId)
+            return axios.get(CI.site_url + '/api/editor/json/' + projectId + '?exclude_variables=1')
               .then(response => {
                 return response.data;
               });
@@ -756,6 +877,11 @@
             vm.$nextTick(() => {
               vm.renderDiff();
             });
+
+            // Load variables diff for microdata/survey projects
+            if (['survey', 'microdata'].includes(vm.project1.type)) {
+              vm.loadVariablesDiff();
+            }
           })
           .catch(error => {
             console.error('Error loading project metadata:', error);
@@ -980,6 +1106,72 @@
             });
         },
         
+        loadVariablesDiff() {
+          const vm = this;
+          this.is_loading_variables = true;
+          this.variables_diff = null;
+          this.variables_diff_error = null;
+
+          const fetchAllVariables = (projectId) => {
+            const limit = 5000;
+            let all = [];
+            const fetchPage = (offset) => {
+              return axios.get(CI.site_url + '/api/variables/' + projectId + '?limit=' + limit + '&offset=' + offset)
+                .then(response => {
+                  const vars = response.data.variables || [];
+                  all = all.concat(vars);
+                  const total = response.data.total || 0;
+                  const nextOffset = offset + vars.length;
+                  if (vars.length === limit && nextOffset < total) {
+                    return fetchPage(nextOffset);
+                  }
+                  return all;
+                });
+            };
+            return fetchPage(0);
+          };
+
+          Promise.all([
+            fetchAllVariables(this.project1_id),
+            fetchAllVariables(this.project2_id)
+          ])
+          .then(([vars1, vars2]) => {
+            const map1 = {};
+            const map2 = {};
+            vars1.forEach(v => { map1[v.name] = v; });
+            vars2.forEach(v => { map2[v.name] = v; });
+
+            const modified  = [];
+            const added     = [];
+            const removed   = [];
+            const unchanged = [];
+
+            vars1.forEach(v => {
+              if (!map2[v.name]) {
+                removed.push({ name: v.name, fid: v.fid, labl1: v.labl || '', labl2: '' });
+              } else if ((v.labl || '') !== (map2[v.name].labl || '')) {
+                modified.push({ name: v.name, fid: v.fid, labl1: v.labl || '', labl2: map2[v.name].labl || '' });
+              } else {
+                unchanged.push({ name: v.name, fid: v.fid, labl1: v.labl || '', labl2: map2[v.name].labl || '' });
+              }
+            });
+
+            vars2.forEach(v => {
+              if (!map1[v.name]) {
+                added.push({ name: v.name, fid: v.fid, labl1: '', labl2: v.labl || '' });
+              }
+            });
+
+            vm.variables_diff = { modified, added, removed, unchanged };
+            vm.is_loading_variables = false;
+          })
+          .catch(error => {
+            console.error('Error loading variables diff:', error);
+            vm.variables_diff_error = vm.getErrorMessage(error);
+            vm.is_loading_variables = false;
+          });
+        },
+
         compareSelectedProjects() {
           if (!this.project1Id || !this.project2Id || this.validationErrors.sameId || this.validationErrors.differentTypes || this.isValidating) {
             return;
