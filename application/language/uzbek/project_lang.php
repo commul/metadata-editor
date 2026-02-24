@@ -585,6 +585,15 @@ $lang['deletions'] = "O'chirishlar";
 $lang['additions'] = "Qo'shishlar";
 $lang['project_validation_failed'] = "Loyiha tekshiruvi muvaffaqiyatsiz";
 
+$lang['variables_comparison'] = "O'zgaruvchilar";
+$lang['loading_variables'] = "O'zgaruvchilar yuklanmoqda...";
+$lang['no_variable_differences'] = "O'zgaruvchilar farqlari topilmadi. Barcha o'zgaruvchilar bir xil nom va belgiga ega.";
+$lang['var_status'] = "Holat";
+$lang['label_in_p1'] = "Belgi (Loyiha 1)";
+$lang['label_in_p2'] = "Belgi (Loyiha 2)";
+$lang['all_changes'] = "Barcha o'zgartirishlar";
+$lang['n_unchanged'] = "O'zgartirilmagan";
+
 $lang['matches'] = "mos keladi";
 $lang['no_matches_found'] = "Hech qanday moslik topilmadi";
 $lang['no_matches_for_filter'] = "Tanlangan FID uchun moslik topilmadi";

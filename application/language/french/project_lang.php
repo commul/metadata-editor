@@ -548,6 +548,15 @@ $lang['deletions'] = "Suppressions";
 $lang['additions'] = "Ajouts";
 $lang['project_validation_failed'] = "Échec de la validation du projet";
 
+$lang['variables_comparison'] = "Variables";
+$lang['loading_variables'] = "Chargement des variables...";
+$lang['no_variable_differences'] = "Aucune différence de variables trouvée. Toutes les variables ont le même nom et libellé.";
+$lang['var_status'] = "Statut";
+$lang['label_in_p1'] = "Libellé (Projet 1)";
+$lang['label_in_p2'] = "Libellé (Projet 2)";
+$lang['all_changes'] = "Tous les changements";
+$lang['n_unchanged'] = "Inchangé";
+
 $lang['matches'] = "correspondances";
 $lang['no_matches_found'] = "Aucune correspondance trouvée";
 $lang['no_matches_for_filter'] = "Aucune correspondance pour le FID sélectionné";

@@ -602,6 +602,15 @@ $lang['deletions'] = "Deletions";
 $lang['additions'] = "Additions";
 $lang['project_validation_failed'] = "Project validation failed";
 
+$lang['variables_comparison'] = "Variables";
+$lang['loading_variables'] = "Loading variables...";
+$lang['no_variable_differences'] = "No variable differences found. All variables have the same name and label.";
+$lang['var_status'] = "Status";
+$lang['label_in_p1'] = "Label (Project 1)";
+$lang['label_in_p2'] = "Label (Project 2)";
+$lang['all_changes'] = "All changes";
+$lang['n_unchanged'] = "Unchanged";
+
 $lang['matches'] = "matches";
 $lang['no_matches_found'] = "No matches found";
 $lang['no_matches_for_filter'] = "No matches for selected FID";
