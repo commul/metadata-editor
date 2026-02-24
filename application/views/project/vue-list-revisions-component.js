@@ -12,7 +12,7 @@ Vue.component('vue-list-revisions', {
             this.$emit('delete-project', id);
         },
         CompareWithParent(versionId, parentId){
-            window.open(CI.site_url + '/editor/compare?project1=' + parentId + '&project2=' + versionId, '_blank');
+            window.open(CI.site_url + '/editor/compare?project1=' + versionId + '&project2=' + parentId, '_blank');
         }
     },   
     template: `
