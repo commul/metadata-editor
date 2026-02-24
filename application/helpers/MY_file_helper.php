@@ -126,7 +126,7 @@ if ( ! function_exists('format_bytes'))
 	{ 
 		$units = array('B', 'KB', 'MB', 'GB', 'TB'); 
 	   
-		$bytes = max($bytes, 0); 
+		$bytes = max((float)$bytes, 0); 
 		$pow = floor(($bytes ? log($bytes) : 0) / log(1024)); 
 		$pow = min($pow, count($units) - 1); 
 	   
