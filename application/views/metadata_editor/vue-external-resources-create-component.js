@@ -301,6 +301,13 @@ const VueExternalResourcesCreate= Vue.component('external-resources-create', {
                 }
             ).then(function(response){
                 vm.Resource.filename='';
+                vm.file = null;
+                vm.uploadedFileName = '';
+                vm.upload_file_exists = false;
+                vm.attachment_type = '';
+                if (vm.$refs.fileUpload) {
+                    vm.$refs.fileUpload.clearFile();
+                }
             })
             .catch(function(response){
                 vm.errors=response;
@@ -474,18 +481,13 @@ const VueExternalResourcesCreate= Vue.component('external-resources-create', {
 
             <v-card-text>
             <div>                
-                <div class="bg-light border p-2 text-small" style="font-size:12px;">
-                    <span v-if="ResourceAttachmentType=='file'">{{$t("file")}}:</span>
-                    <span v-if="ResourceAttachmentType=='url'">{{$t("link")}}:</span>
+                <div class="bg-light border p-2 text-small" style="font-size:12px;">                    
                     {{Resource.filename}}
                     <span v-if="Resource.filename">
+                        <i class="mdi mdi-check-circle text-success" title="File attached"></i>
                         <button type="button" class="btn btn-link btn-sm" @click="resourceDeleteFile">{{$t("remove")}}</button>
                     </span>
                     <span v-else>{{$t("no_file_attached")}}</span>
-
-                    <div v-if="upload_file_exists && (file || uploadedFileName)" class="border bg-warning text-dark p-2 m-2">
-                        <strong>{{file ? file.name : uploadedFileName}}</strong> {{$t("file_already_exists_warning")}}
-                    </div>
                     
                     <div v-if="attachment_type=='file' && file && file instanceof File && !uploadedFileName" class="border bg-info text-dark p-2 m-2">
                         <strong>{{file.name}}</strong> {{$t("file_selected_but_not_uploaded") || "File selected but not uploaded. Click 'Upload' button to upload the file."}}
@@ -502,6 +504,7 @@ const VueExternalResourcesCreate= Vue.component('external-resources-create', {
                 <div class="file-group form-field m-1 p-3 border-bottom">
                     <div class="bg-white">                    
                         <resumable-file-upload
+                            ref="fileUpload"
                             :project-id="ProjectID"
                             file-type="documentation"
                             :disabled="!isProjectEditable || is_saving"

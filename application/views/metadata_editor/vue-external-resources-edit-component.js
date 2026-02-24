@@ -311,6 +311,13 @@ const VueExternalResourcesEdit= Vue.component('external-resources-edit', {
                 vm.Resource.filename='';
                 vm.file_exists=null;
                 vm.file_info=null;
+                vm.file = null;
+                vm.uploadedFileName = '';
+                vm.upload_file_exists = false;
+                vm.attachment_type = '';
+                if (vm.$refs.fileUpload) {
+                    vm.$refs.fileUpload.clearFile();
+                }
             })
             .catch(function(response){
                 console.log("resourceFileDeleted",response);
@@ -498,9 +505,6 @@ const VueExternalResourcesEdit= Vue.component('external-resources-edit', {
             <v-card-text>
             <div>                
                 <div class="bg-light border p-2 text-small" style="font-size:12px;">
-                    <span v-if="ResourceAttachmentType=='file'">{{$t("file")}}:</span>
-                    <span v-if="ResourceAttachmentType=='url'">{{$t("link")}}:</span>
-                    
                     <!-- File status indicator icon before filename -->
                     <v-icon 
                         v-if="ResourceAttachmentType=='file' && Resource.filename && file_exists===true" 
@@ -525,6 +529,7 @@ const VueExternalResourcesEdit= Vue.component('external-resources-edit', {
                     </span>
                     
                     <span v-if="Resource.filename">
+                        <i class="mdi mdi-check-circle text-success" title="File attached"></i>
                         <button type="button" class="btn btn-link btn-sm" @click="resourceDeleteFile">{{$t("remove")}}</button>
                     </span>
                     <span v-else class="text-muted">{{$t("no_file_attached")}}</span>
@@ -535,11 +540,6 @@ const VueExternalResourcesEdit= Vue.component('external-resources-edit', {
                         <span v-if="file_info.size">{{formatFileSize(file_info.size)}}</span>
                         <span v-if="file_info.size && file_info.modified_date"> • </span>
                         <span v-if="file_info.modified_date">{{file_info.modified_date}}</span>
-                    </div>
-
-                    <!-- Warning for duplicate upload -->
-                    <div v-if="upload_file_exists && (file || uploadedFileName)" class="alert alert-warning mt-2 mb-0" role="alert">
-                        <strong>{{file ? (file instanceof File ? file.name : file) : uploadedFileName}}</strong> {{$t("file_already_exists_warning")}}
                     </div>
                     
                     <div v-if="attachment_type=='file' && file && file instanceof File && !uploadedFileName" class="border bg-info text-dark p-2 m-2">
@@ -558,6 +558,7 @@ const VueExternalResourcesEdit= Vue.component('external-resources-edit', {
                     <div class="bg-white">
                     
                         <resumable-file-upload
+                            ref="fileUpload"
                             :project-id="ProjectID"
                             file-type="documentation"
                             :disabled="!isProjectEditable || is_saving"
