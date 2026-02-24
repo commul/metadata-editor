@@ -6,8 +6,8 @@ DROP TABLE IF EXISTS `meta`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
 /*!40101 SET character_set_client = utf8mb4 */;
 CREATE TABLE `meta` (
-  `id` int(11) NOT NULL AUTO_INCREMENT,
-  `user_id` int(11) DEFAULT NULL,
+  `id` int NOT NULL AUTO_INCREMENT,
+  `user_id` int DEFAULT NULL,
   `first_name` varchar(50) DEFAULT NULL,
   `last_name` varchar(50) DEFAULT NULL,
   `company` varchar(100) DEFAULT NULL,
@@ -29,7 +29,7 @@ CREATE TABLE `login_attempts` (
   `id` mediumint(8) unsigned NOT NULL AUTO_INCREMENT,
   `ip_address` varchar(30) NOT NULL,
   `login` varchar(100) NOT NULL,
-  `time` int(11) unsigned DEFAULT NULL,
+  `time` int unsigned DEFAULT NULL,
   PRIMARY KEY (`id`)
 ) DEFAULT CHARSET=utf8mb4;
 /*!40101 SET character_set_client = @saved_cs_client */;
@@ -45,7 +45,7 @@ DROP TABLE IF EXISTS `dcformats`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
 /*!40101 SET character_set_client = utf8mb4 */;
 CREATE TABLE `dcformats` (
-  `id` int(11) NOT NULL AUTO_INCREMENT,
+  `id` int NOT NULL AUTO_INCREMENT,
   `title` varchar(255) NOT NULL,
   PRIMARY KEY (`id`)
 ) AUTO_INCREMENT=22 DEFAULT CHARSET=utf8mb4;
@@ -70,7 +70,7 @@ DROP TABLE IF EXISTS `dctypes`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
 /*!40101 SET character_set_client = utf8mb4 */;
 CREATE TABLE `dctypes` (
-  `id` int(11) NOT NULL AUTO_INCREMENT,
+  `id` int NOT NULL AUTO_INCREMENT,
   `title` varchar(255) NOT NULL,
   PRIMARY KEY (`id`)
 ) AUTO_INCREMENT=17 DEFAULT CHARSET=utf8mb4;
@@ -125,12 +125,12 @@ CREATE TABLE `users` (
   `activation_code` varchar(40) DEFAULT NULL,
   `forgotten_password_code` varchar(40) DEFAULT NULL,
   `remember_code` varchar(40) DEFAULT NULL,
-  `created_on` int(11) NOT NULL,
-  `last_login` int(11) NOT NULL,
+  `created_on` int NOT NULL,
+  `last_login` int NOT NULL,
   `active` tinyint(3) DEFAULT NULL,
   `authtype` varchar(40) DEFAULT NULL,
   `otp_code` varchar(45) DEFAULT NULL,
-  `otp_expiry` int(11) DEFAULT NULL,
+  `otp_expiry` int DEFAULT NULL,
   PRIMARY KEY (`id`)
 ) AUTO_INCREMENT=1 DEFAULT CHARSET=utf8mb4;
 /*!40101 SET character_set_client = @saved_cs_client */;
@@ -164,13 +164,13 @@ DROP TABLE IF EXISTS `sitelogs`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
 /*!40101 SET character_set_client = utf8mb4 */;
 CREATE TABLE `sitelogs` (
-  `id` int(11) NOT NULL AUTO_INCREMENT,
+  `id` int NOT NULL AUTO_INCREMENT,
   `sessionid` varchar(255) NOT NULL DEFAULT '',
   `logtime` varchar(45) NOT NULL DEFAULT '0',
   `ip` varchar(45) NOT NULL,
   `url` varchar(255) NOT NULL DEFAULT '',
   `logtype` varchar(45) NOT NULL,
-  `surveyid` int(11) DEFAULT '0',
+  `surveyid` int DEFAULT '0',
   `section` varchar(255) DEFAULT NULL,
   `keyword` text,
   `username` varchar(100) DEFAULT NULL,
@@ -220,16 +220,12 @@ INSERT INTO `configurations` VALUES ('smtp_host','','SMTP Host name',NULL,NULL);
 INSERT INTO `configurations` VALUES ('smtp_pass','','SMTP password',NULL,NULL);
 INSERT INTO `configurations` VALUES ('smtp_port','25','SMTP port',NULL,NULL);
 INSERT INTO `configurations` VALUES ('smtp_user','','SMTP username',NULL,NULL);
-INSERT INTO `configurations` VALUES ('theme','default','Site theme name',NULL,NULL);
-INSERT INTO `configurations` VALUES ('topics_vocab','1','Vocabulary ID for Topics',NULL,NULL);
-INSERT INTO `configurations` VALUES ('topic_search','no','Topic search',NULL,NULL);
-INSERT INTO `configurations` VALUES ('topic_search_weight','6',NULL,NULL,NULL);
-INSERT INTO `configurations` VALUES ('use_html_editor','yes','Use HTML editor for entering HTML for static pages',NULL,NULL);
 INSERT INTO `configurations` VALUES ('website_footer','','',NULL,NULL);
 INSERT INTO `configurations` VALUES ('website_title','Metadata Editor','Website title','Provide the title of the website','website');
 INSERT INTO `configurations` VALUES ('website_url','','Website URL','URL of the website','website');
 INSERT INTO `configurations` VALUES ('website_webmaster_email','','Site webmaster email address','-','website');
 INSERT INTO `configurations` VALUES ('website_webmaster_name','','Webmaster name','-','website');
+INSERT INTO `configurations` VALUES ('supported_languages','[{"folder":"english","code":"en","display":"English","direction":"ltr"}]','Supported languages in JSON format',NULL,NULL);
 /*!40000 ALTER TABLE `configurations` ENABLE KEYS */;
 UNLOCK TABLES;
 
@@ -239,14 +235,14 @@ UNLOCK TABLES;
 -- API KEYS table
 --
 CREATE TABLE `api_keys` (
-  `id` int(11) NOT NULL AUTO_INCREMENT,
+  `id` int NOT NULL AUTO_INCREMENT,
   `api_key` varchar(40) NOT NULL,
   `level` int(2) NOT NULL,
   `ignore_limits` tinyint(1) NOT NULL DEFAULT '0',
   `ip_addresses` text,
-  `date_created` int(11) NOT NULL,
-  `user_id` int(11) DEFAULT NULL,
-  `is_private_key` int(11) NOT NULL,
+  `date_created` int NOT NULL,
+  `user_id` int DEFAULT NULL,
+  `is_private_key` int NOT NULL,
   PRIMARY KEY (`id`),
   UNIQUE KEY `key_UNIQUE` (`api_key`)
 ) AUTO_INCREMENT=1 DEFAULT CHARSET=utf8mb4;
@@ -255,14 +251,14 @@ CREATE TABLE `api_keys` (
 -- API Logs table
 --
 CREATE TABLE `api_logs` (
-  `id` int(11) NOT NULL AUTO_INCREMENT,
+  `id` int NOT NULL AUTO_INCREMENT,
   `uri` varchar(255) NOT NULL,
   `method` varchar(6) NOT NULL,
   `params` text,
   `user_id` int DEFAULT NULL,
   `api_key` varchar(40) NOT NULL,
   `ip_address` varchar(45) NOT NULL,
-  `time` int(11) NOT NULL,
+  `time` int NOT NULL,
   `rtime` float DEFAULT NULL,
   `authorized` varchar(1) NOT NULL,
   `response_code` smallint(3) DEFAULT '0',
@@ -343,10 +339,10 @@ CREATE TABLE IF NOT EXISTS `analytics_daily` (
 
 
 CREATE TABLE `roles` (
-  `id` int(11) NOT NULL AUTO_INCREMENT,
+  `id` int NOT NULL AUTO_INCREMENT,
   `name` varchar(100) NOT NULL,
   `description` varchar(255) NOT NULL,
-  `weight` int(11) DEFAULT '0',
+  `weight` int DEFAULT '0',
   `is_admin` tinyint(4) DEFAULT '0',
   `is_locked` tinyint(4) DEFAULT '0',
   PRIMARY KEY (`id`)
@@ -367,7 +363,7 @@ UNLOCK TABLES;
 
 
 CREATE TABLE `role_permissions` (
-  `id` int(11) NOT NULL AUTO_INCREMENT,
+  `id` int NOT NULL AUTO_INCREMENT,
   `role_id` varchar(45) NOT NULL,
   `resource` varchar(45) DEFAULT NULL,
   `permissions` varchar(500) DEFAULT NULL,
@@ -384,9 +380,9 @@ insert into role_permissions(role_id,resource,permissions) values
 
 
 CREATE TABLE `user_roles` (
-  `id` int(11) NOT NULL AUTO_INCREMENT,
-  `user_id` int(11) DEFAULT NULL,
-  `role_id` int(11) DEFAULT NULL,
+  `id` int NOT NULL AUTO_INCREMENT,
+  `user_id` int DEFAULT NULL,
+  `role_id` int DEFAULT NULL,
   PRIMARY KEY (`id`)
 ) AUTO_INCREMENT=1 DEFAULT CHARSET=utf8mb4;
 
@@ -543,7 +539,7 @@ CREATE TABLE `editor_templates` (
 
 
 CREATE TABLE `editor_templates_default` (
-  `id` int(11) NOT NULL AUTO_INCREMENT,
+  `id` int NOT NULL AUTO_INCREMENT,
   `data_type` varchar(30) NOT NULL,
   `template_uid` varchar(255) NOT NULL,  
   PRIMARY KEY (`id`)
@@ -619,8 +615,8 @@ CREATE TABLE `editor_collection_acl` (
 
 
 CREATE TABLE `editor_variable_groups` (
-  `id` int(11) NOT NULL AUTO_INCREMENT,
-  `sid` int(11) DEFAULT NULL,
+  `id` int NOT NULL AUTO_INCREMENT,
+  `sid` int DEFAULT NULL,
   `metadata` MEDIUMTEXT,
   PRIMARY KEY (`id`)
 ) AUTO_INCREMENT=1 DEFAULT CHARSET=utf8mb4;
@@ -875,18 +871,18 @@ CREATE TABLE `geospatial_feature_chars` (
 
 
 CREATE TABLE `job_queue` (
-  `id` int(11) NOT NULL AUTO_INCREMENT,
+  `id` int NOT NULL AUTO_INCREMENT,
   `uuid` char(36) NOT NULL,
   `job_type` varchar(50) NOT NULL,
   `job_hash` varchar(64) DEFAULT NULL,
   `status` enum('pending','processing','completed','failed') DEFAULT 'pending',
-  `priority` int(11) DEFAULT 0,
-  `user_id` int(11) DEFAULT NULL,
+  `priority` int DEFAULT 0,
+  `user_id` int DEFAULT NULL,
   `payload` json DEFAULT NULL,
   `result` json DEFAULT NULL,
   `error_message` text,
-  `attempts` int(11) DEFAULT 0,
-  `max_attempts` int(11) DEFAULT 3,
+  `attempts` int DEFAULT 0,
+  `max_attempts` int DEFAULT 3,
   `created_at` timestamp DEFAULT CURRENT_TIMESTAMP,
   `started_at` timestamp NULL,
   `completed_at` timestamp NULL,
@@ -909,6 +905,7 @@ CREATE TABLE `tags` (
   UNIQUE KEY `tag_UNIQUE` (`tag`),
   KEY `idx_is_core` (`is_core`)
 ) DEFAULT CHARSET=utf8mb4;
+
 CREATE TABLE `project_tags` (
   `id` int NOT NULL AUTO_INCREMENT,
   `sid` int NOT NULL,
@@ -917,6 +914,7 @@ CREATE TABLE `project_tags` (
   UNIQUE KEY `unq_sid_tag` (`sid`,`tag_id`),
   KEY `idx_tag_id` (`tag_id`)
 ) DEFAULT CHARSET=utf8mb4;
+
 CREATE TABLE `indicator_dsd` (
   `id` int NOT NULL AUTO_INCREMENT,
   `sid` int NOT NULL,
@@ -938,3 +936,33 @@ CREATE TABLE `indicator_dsd` (
   KEY `idx_sid_column_type` (`sid`, `column_type`),
   KEY `idx_sid_sort_order` (`sid`, `sort_order`)
 ) ENGINE=InnoDB AUTO_INCREMENT=1 DEFAULT CHARSET=utf8mb4;
+
+
+CREATE TABLE `project_issues` (
+  `id` int NOT NULL AUTO_INCREMENT,
+  `project_id` int NOT NULL,
+  `description` text NOT NULL,
+  `category` varchar(100) DEFAULT NULL,  
+  `severity` enum('low','medium','high','critical') DEFAULT NULL,
+  `status` enum('open','accepted','rejected','fixed','dismissed','false_positive') NOT NULL DEFAULT 'open',
+  `field_path` varchar(500) DEFAULT NULL,
+  `current_metadata` json DEFAULT NULL,
+  `suggested_metadata` json DEFAULT NULL,
+  `source` varchar(50) DEFAULT NULL,
+  `created_by` int DEFAULT NULL,
+  `created` int DEFAULT NULL,
+  `assigned_to` int DEFAULT NULL,
+  `resolved_by` int DEFAULT NULL,
+  `resolved` int DEFAULT NULL,
+  `applied` tinyint(1) NOT NULL DEFAULT 0,
+  `applied_by` int DEFAULT NULL,
+  `applied_on` int DEFAULT NULL,
+  `notes` text DEFAULT NULL,
+  PRIMARY KEY (`id`),
+  KEY `idx_project_id` (`project_id`),
+  KEY `idx_status` (`status`),
+  KEY `idx_category` (`category`),
+  KEY `idx_field_path` (`field_path`),
+  KEY `idx_created` (`created`),
+  CONSTRAINT `fk_project_issues_project` FOREIGN KEY (`project_id`) REFERENCES `editor_projects` (`id`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;

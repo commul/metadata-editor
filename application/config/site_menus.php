@@ -48,6 +48,13 @@ $menu[]=array(
 		array(
 			'title'	=>'Audit Logs',
 			'url'	=>'admin/audit_logs'
+		),
+		array(
+			'type'	=>'divider'
+		),
+		array(
+			'title'	=>'Database Updates',
+			'url'	=>'admin/database_migration'
 		)
 	)
 );
