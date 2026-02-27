@@ -679,7 +679,7 @@ Vue.component('publish-options', {
                                         </td>
 
                                     </tr>
-                                    <tr>
+                                    <tr v-show="false">
                                         <td>{{$t("collections_linked")}}</td>
                                         <td>
                                             <v-select
@@ -687,11 +687,10 @@ Vue.component('publish-options', {
                                                 :items="collections_codes"
                                                 item-text="title"
                                                 item-value="repositoryid"
-                                                :disabled="!catalogSelected"
                                                 multiple
                                                 chips
                                                 small-chips
-                                                deletable-chips
+                                                readonly
                                                 outlined
                                                 dense
                                                 hide-details
