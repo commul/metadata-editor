@@ -30,7 +30,8 @@
           "nameType": {
             "type": "string",
             "title": "Name type",
-            "enum": [
+            "description": "Name type. valid values: 'Personal', 'Organizational'",
+            "enum_": [
               "Personal",
               "Organizational"
             ]
@@ -43,10 +44,7 @@
             "type": "string",
             "title": "Family name"
           }          
-        },
-        "required": [
-          "name"
-        ]
+        }
       }
     },
     "titles": {
