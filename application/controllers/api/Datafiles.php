@@ -669,14 +669,28 @@ class Datafiles extends MY_REST_Controller
 			}
 			$zip_path_full = $tmp_folder_real . DIRECTORY_SEPARATOR . $zip_filename;
 
-			$zip = new ZipArchive();
-			if ($zip->open($zip_path_full, ZipArchive::CREATE | ZipArchive::OVERWRITE) !== true) {
-				throw new Exception("Could not create zip file");
+			if (extension_loaded('zip')) {
+				$zip = new ZipArchive();
+				if ($zip->open($zip_path_full, ZipArchive::CREATE | ZipArchive::OVERWRITE) !== true) {
+					throw new Exception("Could not create zip file");
+				}
+				foreach ($files_to_add as $f) {
+					$zip->addFile($f['full'], $f['entry']);
+				}
+				$zip->close();
+			} else {
+				$zipFile = new \PhpZip\ZipFile();
+				try {
+					foreach ($files_to_add as $f) {
+						$zipFile->addFile($f['full'], $f['entry']);
+					}
+					$zipFile->saveAsFile($zip_path_full)->close();
+				} catch (\PhpZip\Exception\ZipException $e) {
+					throw new Exception("Could not create zip file: " . $e->getMessage());
+				} finally {
+					$zipFile->close();
+				}
 			}
-			foreach ($files_to_add as $f) {
-				$zip->addFile($f['full'], $f['entry']);
-			}
-			$zip->close();
 
 			$zip_path_relative = 'data/tmp/' . $zip_filename;
 			$output = array(
