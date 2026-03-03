@@ -374,8 +374,11 @@ class Collections extends MY_REST_Controller
 				throw new Exception("Missing parameter: projects");
 			}
 
+			// Normalize to array (allows single collection id as string/number)
+			$collections = (array) $options['collections'];
+
 			// Check user has edit access to all collections being modified
-			foreach($options['collections'] as $collection_id){
+			foreach ($collections as $collection_id) {
 				$this->editor_acl->user_has_collection_acl_access($collection_id, 'edit', $this->api_user);
 			}
 
@@ -393,9 +396,9 @@ class Collections extends MY_REST_Controller
 				throw new Exception("project was not found");
 			}
 
-			$this->Collection_model->remove_batch_projects($options['collections'], $sid_arr);
+			$this->Collection_model->remove_batch_projects($collections, $sid_arr);
 
-			foreach((array)$options['collections'] as $collection_id){			
+			foreach ($collections as $collection_id) {			
 				foreach($sid_arr as $sid){
 					$this->audit_log->log_event(
 						$obj_type='collection',
