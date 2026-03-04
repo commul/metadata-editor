@@ -186,7 +186,11 @@ class Collection_tree_model extends CI_Model {
         
         // Add project counts to collections
         $this->load->model('Collection_model');
-        $collection_projects_count = $this->Collection_model->get_projects_count_all();
+        if ($user && $this->editor_acl->is_collection_admin($user)) {
+            $collection_projects_count = $this->Collection_model->get_projects_count_all();
+        } else {
+            $collection_projects_count = $this->Collection_model->get_projects_count_by_user_access($user_id);
+        }
         
         foreach($items as $key => $item){
             $items[$key]['projects'] = isset($collection_projects_count[$item['id']]) 

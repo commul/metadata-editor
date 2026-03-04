@@ -454,22 +454,62 @@ class Collection_model extends CI_Model {
 
     /**
      * 
-     * Get projects count for all collections
+     * Get projects count for all collections (parent projects only).
      * 
      */
     function get_projects_count_all($collection_id=null)
     {
-        $this->db->select('collection_id, count(sid) as projects');
-        $this->db->group_by('collection_id');
+        $this->db->select('ecp.collection_id, COUNT(ecp.sid) AS projects');
+        $this->db->from('editor_collection_projects ecp');
+        $this->db->join('editor_projects ep', 'ep.id = ecp.sid AND ep.pid IS NULL', 'inner');
+        $this->db->group_by('ecp.collection_id');
         
-        if ($collection_id){
-            $this->db->where('collection_id',$collection_id);
+        if ($collection_id) {
+            $this->db->where('ecp.collection_id', (int) $collection_id);
         }
 
-        $result=$this->db->get('editor_collection_projects')->result_array();
+        $result = $this->db->get()->result_array();
         $output=array();
         foreach($result as $row){
             $output[$row['collection_id']]=$row['projects'];
+        }
+        return $output;
+    }
+
+    /**
+     * 
+     * Get project counts per collection for projects the user can access.
+     * 
+     * Only counts parent projects (pid IS NULL).
+     *
+     * @param int $user_id User ID
+     * @param int|null $collection_id Optional single collection to limit to
+     * @return array collection_id => project count
+     */
+    function get_projects_count_by_user_access($user_id, $collection_id = null)
+    {
+        $user_id = (int) $user_id;
+        $subquery = 'SELECT sid FROM editor_project_owners WHERE user_id=' . $user_id;
+        $collection_query = 'SELECT sid FROM editor_collection_projects 
+            INNER JOIN editor_collection_project_acl ON editor_collection_project_acl.collection_id = editor_collection_projects.collection_id
+            WHERE editor_collection_project_acl.user_id=' . $user_id;
+        $access_where = '(ep.created_by=' . $user_id
+            . ' OR ep.id IN (' . $subquery . ') OR ep.id IN (' . $collection_query . '))';
+
+        $this->db->select('ecp.collection_id, COUNT(ecp.sid) AS projects');
+        $this->db->from('editor_collection_projects ecp');
+        $this->db->join('editor_projects ep', 'ep.id = ecp.sid AND ep.pid IS NULL', 'inner');
+        $this->db->where($access_where, null, false);
+        $this->db->group_by('ecp.collection_id');
+
+        if ($collection_id) {
+            $this->db->where('ecp.collection_id', (int) $collection_id);
+        }
+
+        $result = $this->db->get()->result_array();
+        $output = array();
+        foreach ($result as $row) {
+            $output[$row['collection_id']] = (int) $row['projects'];
         }
         return $output;
     }
