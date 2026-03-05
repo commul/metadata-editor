@@ -162,7 +162,7 @@ class ImportPackage
     {
         // Check if IDNO is provided
         if (empty($project_info['idno'])){
-            log_message('warning', "Package info.json missing 'idno' field");
+            log_message('info', "Package info.json missing 'idno' field");
             return; // Allow import to continue without IDNO validation
         }
 
@@ -209,7 +209,7 @@ class ImportPackage
                 log_message('info', "Using JSON metadata file: " . $json_path);
             }
             else {
-                log_message('warning', "JSON file specified but not found: " . $json_path);
+                log_message('info', "JSON file specified but not found: " . $json_path);
             }
         }
 
@@ -222,7 +222,7 @@ class ImportPackage
                 log_message('info', "Falling back to XML metadata file: " . $xml_path);
             }
             else {
-                log_message('warning', "XML file specified but not found: " . $xml_path);
+                log_message('info', "XML file specified but not found: " . $xml_path);
             }
         }
 
@@ -267,7 +267,7 @@ class ImportPackage
                 log_message('info', "Using RDF JSON file: " . $rdf_json_path);
             }
             else {
-                log_message('warning', "RDF JSON file specified but not found: " . $rdf_json_path);
+                log_message('info', "RDF JSON file specified but not found: " . $rdf_json_path);
             }
         }
 
@@ -280,7 +280,7 @@ class ImportPackage
                 log_message('info', "Falling back to RDF XML file: " . $rdf_xml_path);
             }
             else {
-                log_message('warning', "RDF XML file specified but not found: " . $rdf_xml_path);
+                log_message('info', "RDF XML file specified but not found: " . $rdf_xml_path);
             }
         }
 
@@ -360,7 +360,7 @@ class ImportPackage
         // Get project type - only link for microdata/survey projects
         $project = $this->ci->Editor_model->get_basic_info($sid);
         if (!$project) {
-            log_message('warning', "Project not found for linking data files: " . $sid);
+            log_message('info', "Project not found for linking data files: " . $sid);
             return array('linked' => 0, 'skipped' => 0, 'errors' => array());
         }
 
