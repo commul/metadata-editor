@@ -1,6 +1,6 @@
 <?php
 
-require_once APPPATH . 'libraries/jobs/JobHandlerInterface.php';
+require_once APPPATH . 'libraries/Jobs/JobHandlerInterface.php';
 
 /**
  * PDF Generation Job Handler
@@ -61,8 +61,25 @@ class GeneratePdfJob implements JobHandlerInterface
         return true;
     }
     
-    /**
-     * Process the PDF generation job
+	/**
+	 * Generate a unique hash for the job based on payload
+	 * This hash is used for idempotency - jobs with the same hash are considered duplicates
+	 * 
+	 * @param array $payload Job payload data
+	 * @return string Hash string (typically SHA256 hex)
+	 */
+	public function generateJobHash($payload)
+	{
+		$hash_data = array(
+			'job_type' => $this->getJobType(),
+			'payload' => $payload
+		);
+		ksort($hash_data);
+		return hash('sha256', json_encode($hash_data));
+	}
+	
+	/**
+	 * Process the PDF generation job
      * 
      * @param array $job Full job data from database
      * @param array $payload Decoded payload data

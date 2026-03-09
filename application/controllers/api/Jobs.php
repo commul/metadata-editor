@@ -29,7 +29,7 @@ class Jobs extends MY_REST_Controller
 		if ($this->session->userdata('user_id')){
 			return true;
 		}
-		return parent::_auth_override_check();
+		parent::_auth_override_check();
 	}
 
 	/**
@@ -213,11 +213,13 @@ class Jobs extends MY_REST_Controller
 			
 			// Remove numeric ID from job object for API response
 			$job_response = $this->sanitize_job_for_api($job);
+			$worker_status_response = $this->_get_worker_status_response();
 			
 			// Return full job details
 			$response = array(
 				'status' => 'success',
-				'job' => $job_response
+				'job' => $job_response,
+				'worker_status' => $worker_status_response
 			);
 			
 			$this->set_response($response, REST_Controller::HTTP_OK);
@@ -442,6 +444,116 @@ class Jobs extends MY_REST_Controller
 	}
 
 	/**
+	 * Create a publish to NADA job (convenience endpoint)
+	 * 
+	 * POST /api/jobs/publish_to_nada
+	 * 
+	 * Convenience endpoint for creating publish project jobs. This endpoint automatically
+	 * sets the job_type to 'publish_project' and delegates to the generic job creation handler.
+	 * 
+	 * Request body:
+	 *   {
+	 *     "project_id": 123,
+	 *     "catalog_connection_id": 1,
+	 *     "publish_metadata": true,
+	 *     "publish_thumbnail": true,
+	 *     "publish_resources": true,
+	 *     "options": {},
+	 *     "priority": 0,
+	 *     "max_attempts": 3
+	 *   }
+	 */
+	function publish_to_nada_post()
+	{
+		try {
+			// Get request data
+			$input = json_decode($this->input->raw_input_stream, true);
+			
+			if (!$input) {
+				// Try form data as fallback
+				$input = $this->input->post();
+			}
+			
+			if (empty($input)) {
+				throw new Exception("Request body is required");
+			}
+			
+			// Validate required field
+			if (empty($input['project_id'])) {
+				throw new Exception("project_id is required");
+			}
+
+			if (empty($input['catalog_connection_id'])) {
+				throw new Exception("catalog_connection_id is required");
+			}
+			
+			// Build payload for generic handler
+			$payload = array(
+				'project_id' => $input['project_id'],
+				'catalog_connection_id' => $input['catalog_connection_id'],
+				'user_id' => $this->user_id,
+				'publish_metadata' => isset($input['publish_metadata']) ? $input['publish_metadata'] : true,
+				'publish_thumbnail' => isset($input['publish_thumbnail']) ? $input['publish_thumbnail'] : true,
+				'publish_resources' => isset($input['publish_resources']) ? $input['publish_resources'] : true,
+			);
+			
+			// Add options if provided
+			if (isset($input['options'])) {
+				$payload['options'] = $input['options'];
+			}
+			
+			// Set job type and other parameters
+			$job_type = 'publish_project';
+			$priority = isset($input['priority']) ? (int)$input['priority'] : 0;
+			$max_attempts = isset($input['max_attempts']) ? (int)$input['max_attempts'] : 3;
+			
+			// Validate job type exists
+			if (!$this->Job_queue_model->is_valid_job_type($job_type)) {
+				$available_types = $this->Job_queue_model->get_job_types();
+				throw new Exception("Invalid job_type: {$job_type}. Available types: " . implode(', ', $available_types));
+			}
+			
+			// Validate payload using the job handler
+			$handler = JobRegistry::getHandler($job_type);
+			if ($handler) {
+				$handler->validatePayload($payload);
+			}
+			
+			// Enqueue the job
+			$job_id = $this->Job_queue_model->enqueue(
+				$job_type,
+				$payload,
+				$this->user_id, // Use authenticated user's ID
+				$priority,
+				$max_attempts
+			);
+			
+			// Get the created job
+			$job = $this->Job_queue_model->get($job_id);
+			
+			// Remove numeric ID from job object for API response
+			$job_response = $this->sanitize_job_for_api($job);
+			$job_uuid = isset($job['uuid']) ? $job['uuid'] : null;
+			
+			$response = array(
+				'status' => 'success',
+				'message' => 'Job created successfully',
+				'uuid' => $job_uuid, // Public-facing UUID
+				'job' => $job_response
+			);
+			
+			$this->set_response($response, REST_Controller::HTTP_CREATED);
+			
+		} catch (Exception $e) {
+			$error_output = array(
+				'status' => 'failed',
+				'message' => $e->getMessage()
+			);
+			$this->set_response($error_output, REST_Controller::HTTP_BAD_REQUEST);
+		}
+	}
+
+	/**
 	 * Get available job types
 	 * 
 	 * Returns a list of all registered job types that can be created
@@ -581,70 +693,11 @@ class Jobs extends MY_REST_Controller
 	function worker_status_get()
 	{
 		try {
-			$this->load->config('editor');
-			$storage_path = $this->config->item('storage_path', 'editor');
-			$tmp_path = rtrim($storage_path, '/') . '/tmp';
-			
-			$pid_file = $tmp_path . '/worker.pid';
-			$heartbeat_file = $tmp_path . '/worker.heartbeat';
-			
-			$is_running = false;
-			$pid_data = null;
-			$heartbeat_data = null;
-			$heartbeat_age = null;
-			$is_alive = false;
-			
-			// Check PID file
-			if (file_exists($pid_file)) {
-				$pid_content = @file_get_contents($pid_file);
-				if ($pid_content) {
-					$pid_data = json_decode($pid_content, true);
-					
-					// Verify process is still running
-					if ($pid_data && isset($pid_data['pid'])) {
-						$is_running = $this->is_process_running($pid_data['pid']);
-					}
-				}
-			}
-			
-			// Check heartbeat file
-			if (file_exists($heartbeat_file)) {
-				$heartbeat_content = @file_get_contents($heartbeat_file);
-				if ($heartbeat_content) {
-					$heartbeat_data = json_decode($heartbeat_content, true);
-					
-					if ($heartbeat_data && isset($heartbeat_data['timestamp'])) {
-						$heartbeat_age = time() - $heartbeat_data['timestamp'];
-						
-						// Worker is alive if heartbeat is less than 15 seconds old (3x the 5-second interval)
-						$is_alive = ($heartbeat_age < 15);
-					}
-				}
-			}
-			
-			// Also check for active workers in the database (jobs currently being processed)
-			$active_workers = $this->Job_queue_model->get_by_status('processing', 100, 0);
-			$active_worker_ids = array();
-			foreach ($active_workers as $job) {
-				if (!empty($job['worker_id'])) {
-					$active_worker_ids[$job['worker_id']] = true;
-				}
-			}
-			$active_worker_count = count($active_worker_ids);
+			$worker_status = $this->_get_worker_status();
 			
 			$response = array(
 				'status' => 'success',
-				'worker' => array(
-					'is_running' => $is_running,
-					'is_alive' => $is_alive,
-					'pid_file_exists' => file_exists($pid_file),
-					'heartbeat_file_exists' => file_exists($heartbeat_file),
-					'heartbeat_age_seconds' => $heartbeat_age,
-					'pid_data' => $pid_data,
-					'heartbeat_data' => $heartbeat_data,
-					'active_worker_count' => $active_worker_count,
-					'active_worker_ids' => array_keys($active_worker_ids)
-				)
+				'worker' => $worker_status
 			);
 			
 			$this->set_response($response, REST_Controller::HTTP_OK);
@@ -656,6 +709,94 @@ class Jobs extends MY_REST_Controller
 			);
 			$this->set_response($error_output, REST_Controller::HTTP_BAD_REQUEST);
 		}
+	}
+
+
+	private function _get_worker_status_response()
+	{
+		$worker_status = $this->_get_worker_status();
+		$worker_status_response = array();
+
+		if (isset($worker_status['is_running']) && $worker_status['is_alive']) {
+			$worker_status_response['status'] = 'running';
+		} else if (isset($worker_status['is_running']) && !$worker_status['is_alive']) {
+			$worker_status_response['status'] = 'stopped';
+		} else {
+			$worker_status_response['status'] = 'unknown';
+		}
+
+		return $worker_status_response;
+	}
+
+	/**
+	 * Get worker status data
+	 * 
+	 * @return array Worker status information
+	 */
+	private function _get_worker_status()
+	{
+		$this->load->config('editor');
+		$storage_path = $this->config->item('storage_path', 'editor');
+		$tmp_path = rtrim($storage_path, '/') . '/tmp';
+		
+		$pid_file = $tmp_path . '/worker.pid';
+		$heartbeat_file = $tmp_path . '/worker.heartbeat';
+		
+		$is_running = false;
+		$pid_data = null;
+		$heartbeat_data = null;
+		$heartbeat_age = null;
+		$is_alive = false;
+		
+		// Check PID file
+		if (file_exists($pid_file)) {
+			$pid_content = @file_get_contents($pid_file);
+			if ($pid_content) {
+				$pid_data = json_decode($pid_content, true);
+				
+				// Verify process is still running
+				if ($pid_data && isset($pid_data['pid'])) {
+					$is_running = $this->is_process_running($pid_data['pid']);
+				}
+			}
+		}
+		
+		// Check heartbeat file
+		if (file_exists($heartbeat_file)) {
+			$heartbeat_content = @file_get_contents($heartbeat_file);
+			if ($heartbeat_content) {
+				$heartbeat_data = json_decode($heartbeat_content, true);
+				
+				if ($heartbeat_data && isset($heartbeat_data['timestamp'])) {
+					$heartbeat_age = time() - $heartbeat_data['timestamp'];
+					
+					// Worker is alive if heartbeat is less than 15 seconds old (3x the 5-second interval)
+					$is_alive = ($heartbeat_age < 15);
+				}
+			}
+		}
+		
+		// Also check for active workers in the database (jobs currently being processed)
+		$active_workers = $this->Job_queue_model->get_by_status('processing', 100, 0);
+		$active_worker_ids = array();
+		foreach ($active_workers as $job) {
+			if (!empty($job['worker_id'])) {
+				$active_worker_ids[$job['worker_id']] = true;
+			}
+		}
+		$active_worker_count = count($active_worker_ids);
+		
+		return array(
+			'is_running' => $is_running,
+			'is_alive' => $is_alive,
+			'pid_file_exists' => file_exists($pid_file),
+			'heartbeat_file_exists' => file_exists($heartbeat_file),
+			'heartbeat_age_seconds' => $heartbeat_age,
+			'pid_data' => $pid_data,
+			'heartbeat_data' => $heartbeat_data,
+			'active_worker_count' => $active_worker_count,
+			'active_worker_ids' => array_keys($active_worker_ids)
+		);
 	}
 	
 	/**
