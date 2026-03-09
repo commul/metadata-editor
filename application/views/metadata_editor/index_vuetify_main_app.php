@@ -218,6 +218,13 @@
             echo $this->load->view("metadata_editor/vue-page-preview-component.js",null,true);
             echo $this->load->view("metadata_editor/vue-geospatial-gallery-component.js",null,true);
 
+            //issues components
+            echo $this->load->view("metadata_editor/vue-issue-status-badge-component.js",null,true);
+            echo $this->load->view("metadata_editor/vue-issue-list-component.js",null,true);
+            echo $this->load->view("metadata_editor/vue-issue-create-component.js",null,true);
+            echo $this->load->view("metadata_editor/vue-issue-edit-component.js",null,true);
+            echo $this->load->view("metadata_editor/vue-project-issues-component.js",null,true);
+
             echo $this->load->view("project/vue-project-share-component.js", null, true);
             echo $this->load->view("project/vue-collection-share-component.js", null, true);
             echo $this->load->view("metadata_editor/vue-summary-collections-component.js", null, true);
@@ -347,6 +354,9 @@
             { path: '/indicator-dsd', component: IndicatorDsd, name: 'indicator-dsd', props: true },
             { path: '/indicator-dsd-import', component: IndicatorDsdImport, name: 'indicator-dsd-import', props: true },
             { path: '/indicator-dsd-chart', component: IndicatorDsdChart, name: 'indicator-dsd-chart', props: true },
+            { path: '/issues', component: { template: '<project-issues :project-id="$root.dataset_id" :can-edit="$root.UserHasEditAccess"/>' }, name: 'issues' },
+            { path: '/issues/create', component: VueIssueCreate, name: 'issue-create' },
+            { path: '/issues/:issueId', component: VueIssueEdit, props: true, name: 'issue-edit' },
             { path: '/change-log', component: ProjectHistory },
             { path: '/sdmx-csv-export', component: SdmxCsvExport },
             { path: '/validation-report', component: ValidationReport, name: 'validation-report', props: true },

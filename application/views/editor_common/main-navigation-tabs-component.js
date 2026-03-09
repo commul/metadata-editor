@@ -13,7 +13,7 @@ Vue.component('main-navigation-tabs', {
             type: String,
             default: null,
             validator: function(value) {
-                return value === null || ['projects', 'collections', 'templates', 'schemas', 'tags'].includes(value);
+                return value === null || ['projects', 'collections', 'templates', 'schemas', 'tags', 'issues'].includes(value);
             }
         },
         value: {
@@ -60,7 +60,8 @@ Vue.component('main-navigation-tabs', {
                     'collections': 1,
                     'templates': 2,
                     'schemas': 3,
-                    'tags': 4
+                    'tags': 4,
+                    'issues': 5
                 };
                 this.internalValue = tabMap[newVal] !== undefined ? tabMap[newVal] : null;
             }
@@ -74,7 +75,8 @@ Vue.component('main-navigation-tabs', {
                 'collections': 1,
                 'templates': 2,
                 'schemas': 3,
-                'tags': 4
+                'tags': 4,
+                'issues': 5
             };
             this.internalValue = tabMap[this.activeTab] !== undefined ? tabMap[this.activeTab] : null;
         }
@@ -116,6 +118,10 @@ Vue.component('main-navigation-tabs', {
                 <v-tab v-if="hasSchemaPermission" :value="4" @click="pageLink('tags')">
                     <v-icon>mdi-tag-multiple</v-icon>
                     <span class="ml-2">{{$t('Tags')}}</span>
+                </v-tab>
+                <v-tab :value="5" @click="pageLink('issues')">
+                    <v-icon>mdi-alert-circle-outline</v-icon>
+                    <span class="ml-2">{{$t('Issues')}}</span>
                 </v-tab>
             </v-tabs>
         </div>
