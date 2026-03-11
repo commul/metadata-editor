@@ -70,6 +70,7 @@ class Editor_variable_model extends ci_model {
 
         foreach($variables as $key=>$variable){            
             $variables[$key]['metadata']=$this->Editor_model->decode_metadata($variable['metadata']);
+            $this->normalize_variable_metadata($variables[$key]['metadata']);
             //$variables[$key]=$this->map_variable_fields($variables[$key]);
         }
 
@@ -367,7 +368,7 @@ class Editor_variable_model extends ci_model {
     function select_all($sid,$file_id=null,$metadata_detailed=false,$offset=0,$limit=null)
     {
         if ($metadata_detailed==true){
-            $fields="uid,sid,fid,vid,name,labl,sort_order,metadata";
+            $fields="uid,sid,fid,vid,name,labl,sort_order,is_weight,var_wgt_id,metadata";
         }else{
             $fields="uid,sid,fid,vid,name,labl,field_dtype,sort_order";
         }
@@ -405,6 +406,7 @@ class Editor_variable_model extends ci_model {
                     $db_name = $variable['name'];
                     $db_labl = isset($variable['labl']) ? $variable['labl'] : '';
                     $var_metadata=$this->Editor_model->decode_metadata($variable['metadata']);
+                    $this->normalize_variable_metadata($var_metadata);
                     unset($variable['metadata']);
                     foreach($exclude_metadata as $ex){
                         if (array_key_exists($ex, $var_metadata)){
@@ -544,6 +546,7 @@ class Editor_variable_model extends ci_model {
 
 		if(isset($variable['metadata']) && $metadata_detailed==true){
 			$variable['metadata']=$this->Editor_model->decode_metadata($variable['metadata']);
+			$this->normalize_variable_metadata($variable['metadata']);
 		}
 		return $variable;
     }
@@ -558,6 +561,7 @@ class Editor_variable_model extends ci_model {
 
 		if(isset($variable['metadata']) && $metadata_detailed==true){
 			$variable['metadata']=$this->Editor_model->decode_metadata($variable['metadata']);
+			$this->normalize_variable_metadata($variable['metadata']);
 		}
 		return $variable;
     }
@@ -578,6 +582,7 @@ class Editor_variable_model extends ci_model {
                     $db_name = $variable['name'];
                     $db_labl = isset($variable['labl']) ? $variable['labl'] : '';
                     $var_metadata=$this->Editor_model->decode_metadata($variable['metadata']);
+                    $this->normalize_variable_metadata($var_metadata);
                     unset($variable['metadata']);
                     foreach($exclude_metadata as $ex){
                         if (array_key_exists($ex, $var_metadata)){
@@ -595,6 +600,44 @@ class Editor_variable_model extends ci_model {
         }
 		return $variables;
     }
+
+	/**
+	 * Normalize variable metadata when read from DB so fields that should be numeric
+	 * are int/float, and invalid values are removed. Fixes existing data where e.g.
+	 * var_wgt was stored as string "1" or var_wgt_id in metadata overwrites DB value.
+	 *
+	 * @param array $var_metadata Decoded metadata (modified in place)
+	 */
+	private function normalize_variable_metadata(&$var_metadata)
+	{
+		if (!is_array($var_metadata)) {
+			return;
+		}
+
+		// var_wgt: must be 0 or 1 (integer) for UI and schema
+		if (array_key_exists('var_wgt', $var_metadata)) {
+			$v = $var_metadata['var_wgt'];
+			if ($v === 1 || $v === '1' || $v === true) {
+				$var_metadata['var_wgt'] = 1;
+			} elseif ($v === 0 || $v === '0' || $v === false || $v === '' || $v === null) {
+				$var_metadata['var_wgt'] = 0;
+			} elseif (is_numeric($v) && (int)$v !== 0) {
+				$var_metadata['var_wgt'] = 1;
+			} else {
+				$var_metadata['var_wgt'] = 0;
+			}
+		}
+
+		// var_wgt_id in metadata: must be integer UID; if non-numeric (e.g. VID string), unset so DB column is used on merge
+		if (array_key_exists('var_wgt_id', $var_metadata)) {
+			$v = $var_metadata['var_wgt_id'];
+			if (is_numeric($v) && (int)$v >= 0) {
+				$var_metadata['var_wgt_id'] = (int)$v;
+			} else {
+				unset($var_metadata['var_wgt_id']);
+			}
+		}		
+	}
 
 	/**
 	 * 
@@ -1086,6 +1129,7 @@ class Editor_variable_model extends ci_model {
 
         if(isset($variable['metadata'])){
 			$variable['metadata']=$this->Editor_model->decode_metadata($variable['metadata']);
+			$this->normalize_variable_metadata($variable['metadata']);
 		}
 
         return $variable;

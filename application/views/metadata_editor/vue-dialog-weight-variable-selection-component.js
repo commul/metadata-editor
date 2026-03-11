@@ -50,7 +50,7 @@ Vue.component('dialog-weight-variable-selection', {
             variables = [];
             if (Array.isArray(this.variables)){
                 for (var i=0; i<this.variables.length; i++){
-                    if (this.variables[i].var_wgt==1){
+                    if (Number(this.variables[i].var_wgt)===1){
                         variables.push(this.variables[i]);
                     }
                 }

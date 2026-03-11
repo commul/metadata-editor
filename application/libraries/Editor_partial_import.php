@@ -239,6 +239,17 @@ class Editor_partial_import
 				// Update existing variable metadata
 				$variable_db['metadata']=$this->update_variable_metadata($variable_db['metadata'], $variable, $import_options);
 
+				// Resolve weight variable reference (VID -> UID) when importing variable_weights
+				if (in_array("variable_weights", $import_options)) {
+					$ref = isset($variable['var_wgt_ref']) ? trim($variable['var_wgt_ref']) : '';
+					if ($ref !== '') {
+						$wgt_uid = $this->ci->Editor_variable_model->uid_by_vid($sid, $ref);
+						$variable_db['var_wgt_id'] = ($wgt_uid !== false) ? $wgt_uid : 0;
+					} else {
+						$variable_db['var_wgt_id'] = 0;
+					}
+				}
+
 				//update db
 				try {
 					$this->ci->Editor_variable_model->update($sid,$variable_db['uid'],$variable_db);
@@ -246,9 +257,9 @@ class Editor_partial_import
 					log_message('error', "Failed to update variable '{$variable['name']}': " . $e->getMessage());
 					throw new Exception("Failed to update variable '{$variable['name']}': " . $e->getMessage());
 				}
-			} else {
-				// Only create new variable if $import_new_data is true
-				if ($import_new_data) {
+				} else {
+					// Only create new variable if $import_new_data is true
+					if ($import_new_data) {
 					// Create new variable
 					$fid = $db_datafiles_names_map[$data_file_name];
 					if (!$fid) {
@@ -259,6 +270,9 @@ class Editor_partial_import
 					// Generate new variable ID
 					$max_vid = $this->ci->Editor_variable_model->get_max_vid($sid);
 					$new_vid = 'V' . ($max_vid + 1);
+
+					$var_wgt_ref = isset($variable['var_wgt_ref']) ? trim($variable['var_wgt_ref']) : '';
+					unset($variable['var_wgt_ref']);
 
 					$new_variable = array(
 						'fid' => $fid,
@@ -273,7 +287,13 @@ class Editor_partial_import
 					);
 
 					try {
-						$this->ci->Editor_variable_model->insert($sid, $new_variable);
+						$new_uid = $this->ci->Editor_variable_model->insert($sid, $new_variable);
+						if ($var_wgt_ref !== '' && $new_uid) {
+							$wgt_uid = $this->ci->Editor_variable_model->uid_by_vid($sid, $var_wgt_ref);
+							if ($wgt_uid !== false) {
+								$this->ci->Editor_variable_model->update($sid, $new_uid, array('var_wgt_id' => $wgt_uid));
+							}
+						}
 					} catch (Exception $e) {
 						log_message('error', "Failed to create variable '{$variable['name']}': " . $e->getMessage());
 						throw new Exception("Failed to create variable '{$variable['name']}': " . $e->getMessage());
@@ -336,10 +356,9 @@ class Editor_partial_import
 			$variable_db['var_invalrng']=$variable_import['var_invalrng'];			
 		}
 
-		//variable weights
+		//variable weights: var_wgt = 0/1 (is this variable the weight)
 		if (in_array("variable_weights", $import_options)){
-			//$variable_db['var_wgt_id']=$variable_import['var_wgt_id'];
-			$variable_db['var_wgt']=$variable_import['var_wgt'];
+			$variable_db['var_wgt'] = isset($variable_import['var_wgt']) ? (int)$variable_import['var_wgt'] : 0;
 		}
 
 		return $variable_db;

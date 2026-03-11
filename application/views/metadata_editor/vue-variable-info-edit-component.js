@@ -109,8 +109,8 @@ Vue.component('variable-info', {
                     class="ma-0 pa-0"
                     v-model="variable.var_wgt"
                     :label="GetFieldTitle('variable.var_wgt',$t('is_weight_variable'))"
-                    true-value="1"
-                    false-value="0"
+                    :true-value="1"
+                    :false-value="0"
                     ></v-switch>
                 </div>
 
