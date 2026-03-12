@@ -226,7 +226,7 @@ class Admin_metadata extends MY_REST_Controller
 
             $response=array(
                 'status'=>'success',
-                //'total'=>$result['total'],
+                'total'=>$result['total'],
                 'found'=>count($result['data']),
                 'offset'=>$offset,
                 'limit'=>$limit,

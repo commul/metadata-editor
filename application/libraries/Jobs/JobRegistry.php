@@ -20,7 +20,7 @@ class JobRegistry
         }
         
         // Load all handlers from the handlers directory
-        $handlers_path = APPPATH . 'libraries/jobs/handlers/';
+        $handlers_path = __DIR__ . '/handlers/';
         
         if (is_dir($handlers_path)) {
             $files = glob($handlers_path . '*Job.php');

@@ -1572,6 +1572,8 @@ class Editor_model extends CI_Model {
         //import variables
         //$variables_imported=$this->import_variables($sid,$data_files, 
 		$variable_iterator=$parser->get_variable_iterator();
+		$vid_to_uid = array();
+		$pending_wgt_updates = array();
 
 		foreach($variable_iterator as $var_obj){
 			if($parseOnly){
@@ -1585,8 +1587,31 @@ class Editor_model extends CI_Model {
 				$variable=$var_obj->get_metadata_array();
 				$variable['fid']=$variable['file_id'];
 				$variable['var_catgry_labels']=$this->get_variable_category_value_labels($variable);
+
+				// Capture weight reference (VID) before stripping; resolve to UID after all variables are inserted
+				$var_wgt_ref = isset($variable['var_wgt_ref']) && trim($variable['var_wgt_ref']) !== '' ? trim($variable['var_wgt_ref']) : null;
+				unset($variable['var_wgt_ref']);
+
 				$variable['metadata']=$variable;
-				$this->Editor_variable_model->insert($sid,$variable);
+				$insert_id = $this->Editor_variable_model->insert($sid,$variable);
+
+				// Key by fid|vid so the same VID in different data files maps to the correct UID
+				$vid_key = $variable['fid'] . '|' . strtoupper(trim($variable['vid']));
+				$vid_to_uid[$vid_key] = $insert_id;
+				if ($var_wgt_ref !== null) {
+					$pending_wgt_updates[] = array('uid' => $insert_id, 'vid_ref' => $var_wgt_ref, 'fid' => $variable['fid']);
+				}
+			}
+		}
+
+		// Resolve var_wgt_id for variables that reference a weight variable (VID -> UID, within same file)
+		if (!$parseOnly && !empty($pending_wgt_updates)) {
+			foreach ($pending_wgt_updates as $p) {
+				$vid_key = $p['fid'] . '|' . strtoupper(trim($p['vid_ref']));
+				$ref_uid = isset($vid_to_uid[$vid_key]) ? $vid_to_uid[$vid_key] : null;
+				if ($ref_uid !== null) {
+					$this->Editor_variable_model->update($sid, $p['uid'], array('var_wgt_id' => $ref_uid));
+				}
 			}
 		}
 
@@ -1924,6 +1949,29 @@ class Editor_model extends CI_Model {
 		if (isset($result['idno'])){
 			return $result['idno'];
 		}
+	}
+
+	/**
+	 * Return the primary idno for a project: study_idno if non-empty, else idno.
+	 * Used for export ZIP naming and other display purposes.
+	 *
+	 * @param int $sid Project id
+	 * @return string|null study_idno if set, else idno; null if both empty
+	 */
+	function get_project_primary_idno($sid)
+	{
+		$this->db->select("study_idno, idno");
+		$this->db->where("id", $sid);
+		$row = $this->db->get("editor_projects")->row_array();
+		if (!$row) {
+			return null;
+		}
+		$study_idno = isset($row['study_idno']) ? trim((string) $row['study_idno']) : '';
+		if ($study_idno !== '') {
+			return $study_idno;
+		}
+		$idno = isset($row['idno']) ? trim((string) $row['idno']) : '';
+		return $idno !== '' ? $idno : null;
 	}
 
 	function validate_idno($idno)

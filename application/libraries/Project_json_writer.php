@@ -391,31 +391,23 @@ class Project_json_writer
 			}
 		}
 
-		//handle summary statistics - remove all if no options set, or filter by enabled options
+		//handle summary statistics - filter by enabled options when set; otherwise keep all (e.g. for microdata with no sum_stats_options in DB)
 		if (isset($variable['metadata']['var_sumstat']) && is_array($variable['metadata']['var_sumstat']) ){
 			if (count($sum_stats_enabled_list) > 0){
-				//filter by enabled options
 				foreach($variable['metadata']['var_sumstat'] as $idx=>$sumstat){
 					if (!in_array($sumstat['type'], $sum_stats_enabled_list)){
 						unset($variable['metadata']['var_sumstat'][$idx]);
 					}
 				}
-			} else {
-				//remove all summary statistics if no options are set
-				unset($variable['metadata']['var_sumstat']);
 			}
-			//fix to get a JSON array instead of Object (only if var_sumstat still exists)
-			if (isset($variable['metadata']['var_sumstat'])){
-				$variable['metadata']['var_sumstat']=array_values((array)$variable['metadata']['var_sumstat']);
-			}
+			// when no options are set (missing or all false): keep all summary statistics in export
+			$variable['metadata']['var_sumstat'] = array_values((array)$variable['metadata']['var_sumstat']);
 		}
 
-		//value ranges [counts, min, max] - remove min and max if not enabled
+		//value ranges [counts, min, max] - filter min/max only when options are set; otherwise keep all
 		if (isset($variable['metadata']['var_valrng']['range']) && is_array($variable['metadata']['var_valrng']['range']) ){
 			if (count($sum_stats_enabled_list) > 0){
-				//filter by enabled options
 				foreach($variable['metadata']['var_valrng']['range'] as $range_key=>$range){
-					//only check for min and max
 					if (!in_array($range_key, array("min", "max"))){
 						continue;
 					}
@@ -423,36 +415,26 @@ class Project_json_writer
 						unset($variable['metadata']['var_valrng']['range'][$range_key]);
 					}
 				}
-			} else {
-				//remove all range statistics if no options are set
-				unset($variable['metadata']['var_valrng']['range']);
 			}
 		}
 
-		//handle category frequency statistics
+		//handle category frequency statistics - filter by enabled options when set; otherwise keep all (e.g. frequencies)
 		if (isset($variable['metadata']['var_catgry']) && is_array($variable['metadata']['var_catgry']) ){
 			if (count($sum_stats_enabled_list) > 0){
-				//remove category freq if not enabled
 				if (!in_array('freq', $sum_stats_enabled_list)){
 					foreach($variable['metadata']['var_catgry'] as $idx=>$cat){
-						//remove freq if not enabled
 						if (isset($cat['stats']) && is_array($cat['stats']) ){
 							foreach($cat['stats'] as $stat_idx=>$stat){
 								if ($stat['type']=='freq'){
 									unset($variable['metadata']['var_catgry'][$idx]['stats'][$stat_idx]);
 								}
-							}						
+							}
+							$variable['metadata']['var_catgry'][$idx]['stats'] = array_values($variable['metadata']['var_catgry'][$idx]['stats']);
 						}
 					}
 				}
-			} else {
-				//remove all category statistics if no options are set
-				foreach($variable['metadata']['var_catgry'] as $idx=>$cat){
-					if (isset($cat['stats']) && is_array($cat['stats']) ){
-						unset($variable['metadata']['var_catgry'][$idx]['stats']);
-					}
-				}
 			}
+			// when no options are set: keep all category stats (e.g. frequencies) in export
 		}
 
 		//var_std_catgry field - array to object + use first row only
@@ -493,7 +475,7 @@ class Project_json_writer
 			unset($variable['metadata']['var_catgry_labels']);
 		}
 
-		// Set is_missing on categories for export based on var_invalrng.values
+		// Set is_missing on categories for export based on var_invalrng.values; omit when not a missing value
 		// Note: This is for export only - is_missing is not stored on categories in the database
 		if (isset($variable['metadata']['var_catgry']) && is_array($variable['metadata']['var_catgry'])) {
 			$missing_values = array();
@@ -505,8 +487,13 @@ class Project_json_writer
 			foreach($variable['metadata']['var_catgry'] as &$cat) {
 				if (isset($cat['value'])) {
 					$cat_value = (string)$cat['value'];
-					// Use var_invalrng.values
-					$cat['is_missing'] = in_array($cat_value, $missing_values, true) ? '1' : '0';
+					$is_missing = in_array($cat_value, $missing_values, true);
+					if ($is_missing) {
+						$cat['is_missing'] = '1';
+					} else {
+						// Do not include is_missing when null, false, 0, or "0"
+						unset($cat['is_missing']);
+					}
 				}
 			}
 			unset($cat); // Break reference

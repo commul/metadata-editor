@@ -595,12 +595,80 @@ class Datafiles extends MY_REST_Controller
 	}
 
 	/**
+	 * Compute default ZIP filename for export zip: study_idno or idno + format rules.
+	 * Rules: multiple formats -> {idno}.zip; single format -> {idno}_{FORMAT}.zip (CSV, DTA, SPSS, JSON, SAS);
+	 * Stata only with stata_version in body -> {idno}_STATA{version}.zip.
+	 *
+	 * @param int $sid Project id
+	 * @param array $files_to_add Array of ['full' => path, 'entry' => basename]
+	 * @param array $body Request body (may contain stata_version)
+	 * @return string Safe zip basename including .zip
+	 */
+	private function compute_export_zip_filename($sid, $files_to_add, $body)
+	{
+		$ext_to_format = array(
+			'dta' => 'dta',
+			'csv' => 'csv',
+			'sav' => 'sav',
+			'json' => 'json',
+			'xpt' => 'xpt',
+		);
+		$format_to_label = array(
+			'dta' => 'DTA',
+			'csv' => 'CSV',
+			'sav' => 'SPSS',
+			'json' => 'JSON',
+			'xpt' => 'SAS',
+		);
+		$formats = array();
+		foreach ($files_to_add as $f) {
+			$ext = strtolower(pathinfo($f['entry'], PATHINFO_EXTENSION));
+			if (isset($ext_to_format[$ext])) {
+				$formats[$ext_to_format[$ext]] = true;
+			}
+		}
+		$formats = array_keys($formats);
+		$format_count = count($formats);
+
+		$idno = $this->Editor_model->get_project_primary_idno($sid);
+		if ($idno === null || $idno === '') {
+			$idno = 'batch_export_' . date('Ymd_His');
+		} else {
+			$idno = preg_replace('/[^a-zA-Z0-9_\-\.]/', '_', $idno);
+			if ($idno === '') {
+				$idno = 'batch_export_' . date('Ymd_His');
+			}
+		}
+
+		$stata_version = null;
+		if (isset($body['stata_version']) && is_numeric($body['stata_version'])) {
+			$v = (int) $body['stata_version'];
+			if ($v >= 8 && $v <= 15) {
+				$stata_version = $v;
+			}
+		}
+
+		if ($format_count > 1) {
+			return $idno . '.zip';
+		}
+		if ($format_count === 1) {
+			$format = $formats[0];
+			if ($format === 'dta' && $stata_version !== null) {
+				return $idno . '_STATA' . $stata_version . '.zip';
+			}
+			return $idno . '_' . $format_to_label[$format] . '.zip';
+		}
+		return $idno . '.zip';
+	}
+
+	/**
 	 * 
 	 * Create a zip of exported tmp files in project data/tmp.
 	 * 
 	 * POST /api/datafiles/batch_export_zip/{sid}
-	 * Body: { "filenames": [ "survey1.csv", "survey1.dta", ... ], "zip_filename": "optional.zip" }
-	 * zip_filename: optional target zip name (e.g. example_file1.zip for single file). Default: batch_export_YYYYMMDD_HHMMSS.zip
+	 * Body: { "filenames": [ "survey1.csv", "survey1.dta", ... ], "zip_filename": "optional.zip", "stata_version": 14 }
+	 * zip_filename: optional; if omitted, computed from project idno and formats (see compute_export_zip_filename).
+	 * stata_version: optional, 8-15; used when zip contains only Stata (.dta) files for naming {idno}_STATA{version}.zip
 	 * 
 	 */
 	function batch_export_zip_post($sid = null)
@@ -665,7 +733,7 @@ class Datafiles extends MY_REST_Controller
 				}
 			}
 			if ($zip_filename === '') {
-				$zip_filename = 'batch_export_' . date('Ymd_His') . '.zip';
+				$zip_filename = $this->compute_export_zip_filename($sid, $files_to_add, $body);
 			}
 			$zip_path_full = $tmp_folder_real . DIRECTORY_SEPARATOR . $zip_filename;
 

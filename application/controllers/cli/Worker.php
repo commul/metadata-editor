@@ -11,11 +11,14 @@ use React\EventLoop\Factory;
  * Usage:
  *   php index.php cli/worker/run
  *   php index.php cli/worker/run --poll-interval=5
+ *   php index.php cli/worker/run --max-jobs=500
  */
 class Worker extends CI_Controller
 {
     private $loop;
     private $poll_interval = 5; // seconds
+    private $max_jobs = 0;      // 0 = unlimited; exit after N jobs to prevent memory leaks
+    private $jobs_processed = 0;
     private $worker_id;
     private $pid_file;
     private $heartbeat_file;
@@ -74,6 +77,9 @@ class Worker extends CI_Controller
             if (strpos($arg, '--poll-interval=') === 0) {
                 $this->poll_interval = (int) substr($arg, 16);
             }
+            if (strpos($arg, '--max-jobs=') === 0) {
+                $this->max_jobs = (int) substr($arg, 11);
+            }
         }
     }
     
@@ -89,6 +95,9 @@ class Worker extends CI_Controller
         echo "[Worker] Starting job queue worker\n";
         echo "[Worker] Worker ID: {$this->worker_id}\n";
         echo "[Worker] Poll interval: {$this->poll_interval} seconds\n";
+        if ($this->max_jobs > 0) {
+            echo "[Worker] Max jobs per run: {$this->max_jobs} (exit after to prevent memory leaks)\n";
+        }
         echo "[Worker] PID file: {$this->pid_file}\n";
         echo "[Worker] Heartbeat file: {$this->heartbeat_file}\n";
         echo "[Worker] Press Ctrl+C to stop\n\n";
@@ -214,7 +223,14 @@ class Worker extends CI_Controller
             // Job is already marked as processing by get_next_job()
             // Handle the job
             $this->handle_job($job);
-            
+
+            $this->jobs_processed++;
+            if ($this->max_jobs > 0 && $this->jobs_processed >= $this->max_jobs) {
+                echo "[Worker] Reached max jobs ({$this->max_jobs}), exiting for restart (memory leak prevention)\n";
+                $this->loop->stop();
+                return;
+            }
+
         } catch (Exception $e) {
             log_message('error', 'Worker::process_queue error: ' . $e->getMessage());
             echo "[Worker] Error: " . $e->getMessage() . "\n";

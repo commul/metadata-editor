@@ -36,6 +36,16 @@
             <div class="text-muted"><a target="_blank" href="https://github.com/worldbank/metadata-editor/discussions">Online community for Q&A</a> and <a target="_blank" href="https://github.com/worldbank/metadata-editor/issues">issue reporting</a></div>
         </div>
     </div>
+</div>
+
+<div class="row home-page mb-5">
+    <div class="col-md-4">
+        <div class="border shadow m-3 p-3  text-center">
+            <div class="text-center"><i style="font-size:50px;padding:15px;color:#28a745;" class="fas fa-laptop-code"></i> </div>
+            <div class="text-center font-weight-bold"><a href="<?php echo base_url('api-documentation/editor/index.html'); ?>" target="_blank">API Documentation</a></div>
+            <div class="text-muted"><a target="_blank" href="<?php echo base_url('api-documentation/editor/index.html'); ?>">Editor OpenAPI specification</a></div>
+        </div>
+    </div>
 
 </div>
 

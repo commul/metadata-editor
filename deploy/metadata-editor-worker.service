@@ -1,0 +1,49 @@
+# Systemd service for the Metadata Editor job queue worker.
+#
+# Install:
+#   1. Copy this file to /etc/systemd/system/
+#   2. Create override for your paths (see below) or edit this file.
+#   3. sudo systemctl daemon-reload
+#   4. sudo systemctl enable --now metadata-editor-worker
+#
+# Override (recommended): create /etc/systemd/system/metadata-editor-worker.service.d/override.conf
+#   [Service]
+#   Environment="APP_ROOT=/var/www/metadata-editor"
+#   User=www-data
+#   Group=www-data
+#
+# Restart after N jobs (memory leak prevention):
+#   The worker exits after processing MAX_JOBS (default 50). systemd restarts it
+#   automatically. Set in ExecStart or via environment WORKER_MAX_JOBS.
+#
+[Unit]
+Description=Metadata Editor job queue worker
+After=network.target mysql.service
+Wants=network.target
+
+[Service]
+Type=simple
+
+# Set this to your application root (where worker.sh and index.php live).
+# Override in a drop-in or edit here.
+Environment="APP_ROOT=/path/to/metadata-editor"
+Environment="WORKER_MAX_JOBS=50"
+
+# Run worker in foreground; it exits after WORKER_MAX_JOBS and we restart it.
+ExecStart=/bin/bash -c 'cd "$APP_ROOT" && exec ./worker.sh run-foreground --max-jobs=${WORKER_MAX_JOBS:-50}'
+
+# Restart whenever the worker exits (normal exit after N jobs or crash).
+Restart=always
+RestartSec=5
+
+# Optional: run as unprivileged user (set in override).
+# User=www-data
+# Group=www-data
+
+# Logging: use journalctl -u metadata-editor-worker -f
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=metadata-editor-worker
+
+[Install]
+WantedBy=multi-user.target

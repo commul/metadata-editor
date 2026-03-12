@@ -19,6 +19,7 @@ HEARTBEAT_FILE=""
 MONITOR_PID_FILE="${SCRIPT_DIR}/.worker_monitor.pid"
 MONITOR_INTERVAL=5  # seconds to check if worker is alive
 POLL_INTERVAL=""     # optional poll interval override
+MAX_JOBS=""          # optional max jobs before exit (for memory leak prevention)
 
 # Get PID and heartbeat file paths from config
 # Default to a reasonable path if we can't parse the config
@@ -102,10 +103,13 @@ start_worker() {
     echo -e "${BLUE}Starting worker...${NC}"
     ensure_log_dir
     
-    # Build command with optional poll interval
+    # Build command with optional poll interval and max jobs
     CMD="$WORKER_CMD"
     if [ -n "$POLL_INTERVAL" ]; then
         CMD="$CMD --poll-interval=$POLL_INTERVAL"
+    fi
+    if [ -n "$MAX_JOBS" ]; then
+        CMD="$CMD --max-jobs=$MAX_JOBS"
     fi
     
     # Start worker in background and redirect output to log file
@@ -301,25 +305,43 @@ show_logs() {
     fi
 }
 
+# Run worker in foreground (for systemd or direct execution)
+# Exits when the worker process exits. Use --max-jobs=N to limit jobs per run.
+run_foreground() {
+    ensure_log_dir
+    CMD="$WORKER_CMD"
+    if [ -n "$POLL_INTERVAL" ]; then
+        CMD="$CMD --poll-interval=$POLL_INTERVAL"
+    fi
+    if [ -n "$MAX_JOBS" ]; then
+        CMD="$CMD --max-jobs=$MAX_JOBS"
+    fi
+    cd "$SCRIPT_DIR"
+    exec $CMD
+}
+
 # Show usage
 show_usage() {
-    echo "Usage: $0 {start|stop|restart|status|monitor|stop-monitor|logs} [options]"
+    echo "Usage: $0 {start|stop|restart|status|monitor|stop-monitor|logs|run-foreground} [options]"
     echo ""
     echo "Commands:"
-    echo "  start         Start the worker"
-    echo "  stop          Stop the worker"
-    echo "  restart       Restart the worker"
-    echo "  status        Show worker status"
-    echo "  monitor       Start monitoring (auto-restart if worker stops)"
-    echo "  stop-monitor  Stop the monitor"
-    echo "  logs          Show recent logs (use -f or --follow to tail)"
+    echo "  start          Start the worker"
+    echo "  stop           Stop the worker"
+    echo "  restart        Restart the worker"
+    echo "  status         Show worker status"
+    echo "  monitor        Start monitoring (auto-restart if worker stops)"
+    echo "  stop-monitor   Stop the monitor"
+    echo "  logs           Show recent logs (use -f or --follow to tail)"
+    echo "  run-foreground Run worker in foreground (for systemd); exits when worker exits"
     echo ""
     echo "Options:"
-    echo "  --poll-interval=N    Set poll interval in seconds (for start/restart)"
+    echo "  --poll-interval=N   Set poll interval in seconds (for start/restart/run-foreground)"
+    echo "  --max-jobs=N       Exit after N jobs (prevents memory leaks; use with run-foreground + systemd)"
     echo ""
     echo "Examples:"
     echo "  $0 start"
-    echo "  $0 start --poll-interval=10"
+    echo "  $0 start --poll-interval=10 --max-jobs=50"
+    echo "  $0 run-foreground --max-jobs=50"
     echo "  $0 monitor"
     echo "  $0 logs -f"
 }
@@ -332,21 +354,30 @@ main() {
     # Parse arguments
     case "${1:-}" in
         start)
-            # Check for poll-interval option
-            if [[ "$2" == --poll-interval=* ]]; then
-                POLL_INTERVAL="${2#--poll-interval=}"
-            fi
+            # Check for poll-interval / max-jobs options
+            for opt in "$2" "$3"; do
+                [[ "$opt" == --poll-interval=* ]] && POLL_INTERVAL="${opt#--poll-interval=}"
+                [[ "$opt" == --max-jobs=* ]] && MAX_JOBS="${opt#--max-jobs=}"
+            done
             start_worker
             ;;
         stop)
             stop_worker
             ;;
         restart)
-            # Check for poll-interval option
-            if [[ "$2" == --poll-interval=* ]]; then
-                POLL_INTERVAL="${2#--poll-interval=}"
-            fi
+            # Check for poll-interval / max-jobs options
+            for opt in "$2" "$3"; do
+                [[ "$opt" == --poll-interval=* ]] && POLL_INTERVAL="${opt#--poll-interval=}"
+                [[ "$opt" == --max-jobs=* ]] && MAX_JOBS="${opt#--max-jobs=}"
+            done
             restart_worker
+            ;;
+        run-foreground)
+            for opt in "$2" "$3" "$4"; do
+                [[ "$opt" == --poll-interval=* ]] && POLL_INTERVAL="${opt#--poll-interval=}"
+                [[ "$opt" == --max-jobs=* ]] && MAX_JOBS="${opt#--max-jobs=}"
+            done
+            run_foreground
             ;;
         status)
             show_status

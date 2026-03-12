@@ -163,9 +163,47 @@ CCREATE TABLE `admin_metadata` (
         }
 
         return [
-            'total'=>0,//$this->total_count($template_id),
+            'total'=>$this->search_count($options),
             'data'=>$result
         ];
+    }
+
+    function search_count($options=array())
+    {
+        $templates_id_list=isset($options['templates']) ? $options['templates'] : null;
+
+        $this->db->select('count(admin_metadata.id) as total');
+        $this->db->join('editor_templates','editor_templates.id=admin_metadata.template_id');
+        
+        if (is_array($templates_id_list) && count($templates_id_list)>0){
+            $this->db->where_in('template_id',$templates_id_list);
+        }
+
+        if (isset($options['project_id'])){
+            $this->db->where('admin_metadata.sid',$options['project_id']);
+        }
+
+        // Filter by date range on 'changed' field
+        $date_from = isset($options['date_from']) ? $options['date_from'] : null;
+        $date_to = isset($options['date_to']) ? $options['date_to'] : null;
+
+        if ($date_from && !$date_to){
+            $this->db->where('admin_metadata.changed >=', $date_from);
+        }
+        elseif ($date_to && !$date_from){
+            $this->db->where('admin_metadata.changed <=', $date_to);
+        }
+        elseif ($date_from && $date_to){
+            $this->db->where('(admin_metadata.changed >= '. $this->db->escape($date_from).' AND admin_metadata.changed <= '.$this->db->escape($date_to).')', null, false);
+        }
+                
+        $result=$this->db->get('admin_metadata')->row_array();
+
+        if ($result){
+            return $result['total'];
+        }
+        
+        return 0;
     }
 
     function total_count($template_id)

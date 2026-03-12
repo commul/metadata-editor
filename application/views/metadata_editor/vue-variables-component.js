@@ -1212,8 +1212,8 @@ Vue.component('variables', {
                                             <span v-if="variable.var_catgry && variable.var_catgry.length>0" :title="variable.var_catgry.length">
                                                 <v-icon aria-hidden="false" class="vdar-icon">mdi-format-list-numbered</v-icon>
                                             </span>
-                                            <v-icon :title="$t('weight_variable')" v-if="variable.var_wgt==1" aria-hidden="false" class="vdar-icon">mdi-alpha-w</v-icon>
-                                            <v-icon :title="$t('weighted')" v-if="variable.var_wgt_id && variable.var_wgt_id.length>0" aria-hidden="false" class="vdar-icon">mdi-scale-balance</v-icon>
+                                            <v-icon :title="$t('weight_variable')" v-if="Number(variable.var_wgt)===1" aria-hidden="false" class="vdar-icon">mdi-alpha-w</v-icon>
+                                            <v-icon :title="$t('weighted')" v-if="variable.var_wgt_id && String(variable.var_wgt_id).length>0" aria-hidden="false" class="vdar-icon">mdi-scale-balance</v-icon>
                                             <v-icon :title="$t('require_stats_update')" v-if="variable.update_required" aria-hidden="false" class="vdar-icon text-danger">mdi-sync-alert</v-icon>
                                             <v-icon :title="$t('variable_is_a_key')" class="vdar-cion" v-if="variable.is_key && variable.is_key==1">mdi-key-outline</v-icon>
                                         </td>                                        

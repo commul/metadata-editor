@@ -114,14 +114,19 @@ class DdiVariable
         $var_array=$var_array['var'];
         $this->variable_metadata=$var_array;
 
+        $wgt_attr = $this->get_attribute_value($var_array, 'wgt');
+        $wgt_var_attr = $this->get_attribute_value($var_array, 'wgt-var');
+        $is_weight = ($wgt_attr === 'wgt' || $wgt_attr === '1' || $wgt_attr === 1) ? 1 : 0;
+
         $output=array(
             "file_id"=> $this->get_attribute_value($var_array,'files'),
             "vid"=> $this->get_attribute_value($var_array,'ID'),
             "name"=> $this->get_attribute_value($var_array,'name'),
             "var_intrvl"=> $this->get_attribute_value($var_array,'intrvl'),
             "var_dcml"=> $this->get_attribute_value($var_array,'dcml'),
-            "var_wgt"=> $this->get_attribute_value($var_array,'wgt-var'),
-            "var_is_wgt"=> $this->get_attribute_value($var_array,'wgt')
+            "var_wgt"=> $is_weight,
+            "var_wgt_ref"=> $wgt_var_attr ? (string)$wgt_var_attr : '',
+            "var_is_wgt"=> $is_weight ? 'wgt' : ''
         );
 
         //location
