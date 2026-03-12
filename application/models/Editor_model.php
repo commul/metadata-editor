@@ -1951,6 +1951,29 @@ class Editor_model extends CI_Model {
 		}
 	}
 
+	/**
+	 * Return the primary idno for a project: study_idno if non-empty, else idno.
+	 * Used for export ZIP naming and other display purposes.
+	 *
+	 * @param int $sid Project id
+	 * @return string|null study_idno if set, else idno; null if both empty
+	 */
+	function get_project_primary_idno($sid)
+	{
+		$this->db->select("study_idno, idno");
+		$this->db->where("id", $sid);
+		$row = $this->db->get("editor_projects")->row_array();
+		if (!$row) {
+			return null;
+		}
+		$study_idno = isset($row['study_idno']) ? trim((string) $row['study_idno']) : '';
+		if ($study_idno !== '') {
+			return $study_idno;
+		}
+		$idno = isset($row['idno']) ? trim((string) $row['idno']) : '';
+		return $idno !== '' ? $idno : null;
+	}
+
 	function validate_idno($idno)
 	{
 		if (is_numeric($idno)){

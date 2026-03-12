@@ -218,11 +218,14 @@ Vue.component('dialog-datafile-export', {
             const base = this.filenamePart(this.file_physical_name);
             if (!base) return;
             const filename = outputFilename || (base + '.' + format);
-            const zip_filename = base + '.zip';
+            const payload = { filenames: [filename] };
+            if (format === 'dta' && this.selected_stata_version != null) {
+                payload.stata_version = this.selected_stata_version;
+            }
             this.zip_creating = true;
             this.zip_error = null;
             try {
-                const resp = await this.$store.dispatch('createBatchExportZip', { filenames: [filename], zip_filename: zip_filename });
+                const resp = await this.$store.dispatch('createBatchExportZip', payload);
                 const zip_path = resp.data && resp.data.zip_path ? resp.data.zip_path : null;
                 if (zip_path) {
                     this.zip_download_url = CI.base_url + '/api/files/download/' + this.ProjectID + '?file=' + encodeURIComponent(zip_path);

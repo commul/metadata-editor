@@ -104,10 +104,14 @@ Vue.component('dialog-batch-export', {
                 }
             }
             if (filenames.length === 0) return;
+            const payload = { filenames: filenames };
+            if (this.selected_formats.indexOf('dta') !== -1 && this.selected_stata_version != null) {
+                payload.stata_version = this.selected_stata_version;
+            }
             this.zip_creating = true;
             this.zip_error = null;
             try {
-                const resp = await this.$store.dispatch('createBatchExportZip', { filenames: filenames });
+                const resp = await this.$store.dispatch('createBatchExportZip', payload);
                 const zip_path = resp.data && resp.data.zip_path ? resp.data.zip_path : null;
                 if (zip_path) {
                     this.zip_download_url = CI.base_url + '/api/files/download/' + this.projectId + '?file=' + encodeURIComponent(zip_path);

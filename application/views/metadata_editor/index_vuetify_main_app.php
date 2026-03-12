@@ -869,6 +869,7 @@
                     let url=CI.base_url + '/api/datafiles/batch_export_zip/'+getters.getProjectID;
                     let body = { filenames: options.filenames || [] };
                     if (options.zip_filename) body.zip_filename = options.zip_filename;
+                    if (options.stata_version != null) body.stata_version = options.stata_version;
                     let resp = await axios.post(url, body);
                     return resp;
                 },
