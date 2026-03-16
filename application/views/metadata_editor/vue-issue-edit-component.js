@@ -308,8 +308,8 @@ const VueIssueEdit = Vue.component('issue-edit', {
             }
 
             try {
-                const url = CI.base_url + '/api/issues/' + this.issueId;
-                const response = await axios.delete(url);
+                const url = CI.base_url + '/api/issues/delete/' + this.issueId;
+                const response = await axios.post(url);
 
                 if (response.data.status === 'success') {
                     EventBus.$emit('onSuccess', 'Issue deleted successfully');
