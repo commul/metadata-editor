@@ -6,6 +6,7 @@
  * Props:
  *   - value: Boolean - v-model for dialog visibility
  *   - projectId: Number - Project ID (required)
+ *   - initialFieldPath: String - Optional field path to pre-fill when opened from field context
  * 
  * Events:
  *   - input: v-model update
@@ -20,11 +21,16 @@ Vue.component('create-issue-dialog', {
         projectId: {
             type: Number,
             required: true
+        },
+        initialFieldPath: {
+            type: String,
+            default: ''
         }
     },
     data() {
         return {
             loading: false,
+            isMaximized: false,
             newIssue: {
                 project_id: null,
                 title: '',
@@ -75,6 +81,12 @@ Vue.component('create-issue-dialog', {
             if (newVal) {
                 this.resetForm();
                 this.newIssue.project_id = this.projectId;
+                if (this.initialFieldPath) {
+                    this.newIssue.field_path = this.initialFieldPath;
+                    this.prepopulateCurrentMetadata();
+                }
+            } else {
+                this.isMaximized = false;
             }
         },
         currentMetadataText(val) {
@@ -85,6 +97,28 @@ Vue.component('create-issue-dialog', {
         }
     },
     methods: {
+        prepopulateCurrentMetadata() {
+            if (!this.initialFieldPath || !this.$store || !this.$store.state.formData) return;
+            var formData = this.$store.state.formData;
+            var value = this.getNestedValue(formData, this.initialFieldPath);
+            if (value !== undefined && value !== null) {
+                this.newIssue.current_metadata = {};
+                this.newIssue.current_metadata[this.initialFieldPath] = value;
+                this.currentMetadataText = (typeof value === 'object' && value !== null)
+                    ? JSON.stringify(value, null, 2)
+                    : String(value);
+            }
+        },
+        getNestedValue(obj, path) {
+            if (!obj || !path) return undefined;
+            var keys = path.split('.');
+            var current = obj;
+            for (var i = 0; i < keys.length; i++) {
+                if (current == null || typeof current !== 'object') return undefined;
+                current = current[keys[i]];
+            }
+            return current;
+        },
         parseMetadataText(type, text) {
             if (!text || text.trim() === '') {
                 if (type === 'current') {
@@ -98,7 +132,9 @@ Vue.component('create-issue-dialog', {
             try {
                 const parsed = JSON.parse(text);
                 if (type === 'current') {
-                    this.newIssue.current_metadata = parsed;
+                    this.newIssue.current_metadata = this.newIssue.field_path
+                        ? { [this.newIssue.field_path]: parsed }
+                        : parsed;
                 } else {
                     this.newIssue.suggested_metadata = parsed;
                 }
@@ -136,9 +172,14 @@ Vue.component('create-issue-dialog', {
             this.suggestedMetadataText = '';
             this.errors = {};
         },
+        showToast(message, type) {
+            if (this.$root.$refs && this.$root.$refs.toast && typeof this.$root.$refs.toast.showAlert === 'function') {
+                this.$root.$refs.toast.showAlert(message, type);
+            }
+        },
         async createIssue() {
             if (!this.isValid) {
-                this.$root.$refs.toast.showAlert('Please fill in the required fields', 'warning');
+                this.showToast('Please fill in the required fields', 'warning');
                 return;
             }
 
@@ -148,7 +189,7 @@ Vue.component('create-issue-dialog', {
                 const response = await axios.post(url, this.newIssue);
 
                 if (response.data.status === 'success') {
-                    this.$root.$refs.toast.showAlert('Issue created successfully', 'success');
+                    this.showToast('Issue created successfully', 'success');
                     this.$emit('issue-created', response.data.issue);
                     this.dialogVisible = false;
                     this.resetForm();
@@ -157,7 +198,7 @@ Vue.component('create-issue-dialog', {
                 }
             } catch (error) {
                 console.error('Error creating issue:', error);
-                this.$root.$refs.toast.showAlert(
+                this.showToast(
                     error.response?.data?.message || error.message || 'Failed to create issue',
                     'error'
                 );
@@ -166,16 +207,14 @@ Vue.component('create-issue-dialog', {
             }
         },
         useSimpleFormat() {
-            // Helper to automatically format field_path as key
-            if (this.newIssue.field_path && this.currentMetadataText && !this.currentMetadataText.startsWith('{')) {
-                const obj = {};
-                obj[this.newIssue.field_path] = this.currentMetadataText;
-                this.currentMetadataText = JSON.stringify(obj, null, 2);
-            }
-            if (this.newIssue.field_path && this.suggestedMetadataText && !this.suggestedMetadataText.startsWith('{')) {
-                const obj = {};
-                obj[this.newIssue.field_path] = this.suggestedMetadataText;
-                this.suggestedMetadataText = JSON.stringify(obj, null, 2);
+            // Pretty-print current value if it is valid JSON (e.g. object/array); leave plain values unchanged.
+            if (this.currentMetadataText && this.currentMetadataText.trim()) {
+                try {
+                    const parsed = JSON.parse(this.currentMetadataText);
+                    this.currentMetadataText = JSON.stringify(parsed, null, 2);
+                } catch (e) {
+                    // Not JSON – leave as-is (plain value)
+                }
             }
         },
         close() {
@@ -185,20 +224,26 @@ Vue.component('create-issue-dialog', {
     template: `
         <v-dialog
             v-model="dialogVisible"
-            max-width="900px"
+            :max-width="isMaximized ? undefined : '900px'"
+            :fullscreen="isMaximized"
             persistent
+            transition="dialog-transition"
+            content-class="create-issue-dialog"
         >
-            <v-card>
-                <v-card-title class="headline grey lighten-2">
+            <v-card class="d-flex flex-column" :class="{ 'fill-height': isMaximized }">
+                <v-card-title class="headline grey lighten-2 flex-shrink-0">
                     <v-icon left>mdi-plus-circle</v-icon>
                     Create New Issue
                     <v-spacer></v-spacer>
+                    <v-btn icon @click="isMaximized = !isMaximized" :title="isMaximized ? 'Restore' : 'Maximize'">
+                        <v-icon>{{ isMaximized ? 'mdi-window-restore' : 'mdi-window-maximize' }}</v-icon>
+                    </v-btn>
                     <v-btn icon @click="close">
                         <v-icon>mdi-close</v-icon>
                     </v-btn>
                 </v-card-title>
 
-                <v-card-text class="pt-4">
+                <v-card-text class="pt-4 flex-grow-1 overflow-auto dialog-content-resizable" style="min-height: 320px; resize: both;">
                     <!-- Title -->
                     <v-row dense>
                         <v-col cols="12">
@@ -227,8 +272,54 @@ Vue.component('create-issue-dialog', {
                         </v-col>
                     </v-row>
 
-                    <!-- Category and Severity -->
+                    <!-- Field Path -->
                     <v-row dense>
+                        <v-col cols="12">
+                            <v-text-field
+                                v-model="newIssue.field_path"
+                                label="Field Path"
+                                outlined
+                                dense
+                                placeholder="e.g., series_description.methodology"
+                                hint="Dot-separated path to the metadata field"
+                                persistent-hint
+                            ></v-text-field>
+                        </v-col>
+                    </v-row>
+
+
+                    <!-- Current Metadata -->
+                    <v-row dense>
+                        <v-col cols="12">
+                            <v-textarea
+                                v-model="currentMetadataText"
+                                label="Current Metadata"
+                                outlined
+                                rows="5"
+                                placeholder="Current field value"
+                                :error-messages="errors.current_metadata"
+                                style="max-height: 250px; overflow-y: auto;"
+                            ></v-textarea>
+                        </v-col>
+                    </v-row>
+
+                    <!-- Suggested Metadata -->
+                    <v-row dense class="mt-2">
+                        <v-col cols="12">
+                            <v-textarea
+                                v-model="suggestedMetadataText"
+                                label="Suggested Metadata"
+                                outlined
+                                rows="5"
+                                placeholder="Suggested field value or JSON"
+                                :error-messages="errors.suggested_metadata"
+                                style="max-height: 250px; overflow-y: auto;"
+                            ></v-textarea>
+                        </v-col>
+                    </v-row>
+
+                    <!-- Category and Severity (at bottom) -->
+                    <v-row dense class="mt-2">
                         <v-col cols="12" md="6">
                             <v-combobox
                                 v-model="newIssue.category"
@@ -249,80 +340,6 @@ Vue.component('create-issue-dialog', {
                             ></v-select>
                         </v-col>
                     </v-row>
-
-                    <!-- Field Path -->
-                    <v-row dense>
-                        <v-col cols="12">
-                            <v-text-field
-                                v-model="newIssue.field_path"
-                                label="Field Path"
-                                outlined
-                                dense
-                                placeholder="e.g., series_description.methodology"
-                                hint="Dot-separated path to the metadata field"
-                                persistent-hint
-                            ></v-text-field>
-                        </v-col>
-                    </v-row>
-
-                    <v-row dense class="mt-3">
-                        <v-col cols="12">
-                            <v-divider></v-divider>
-                            <div class="text-subtitle-2 mt-3 mb-2">
-                                Metadata Values
-                                <v-btn
-                                    x-small
-                                    text
-                                    color="primary"
-                                    @click="useSimpleFormat"
-                                    class="ml-2"
-                                >
-                                    <v-icon left x-small>mdi-auto-fix</v-icon>
-                                    Auto-format
-                                </v-btn>
-                            </div>
-                            <div class="text-caption text--secondary mb-3">
-                                Enter values as JSON objects or simple text (will use field path as key)
-                            </div>
-                        </v-col>
-                    </v-row>
-
-                    <!-- Current Metadata -->
-                    <v-row dense>
-                        <v-col cols="12" md="6">
-                            <v-textarea
-                                v-model="currentMetadataText"
-                                label="Current Metadata"
-                                outlined
-                                rows="5"
-                                placeholder='{"field.path": "current value"}'
-                                :error-messages="errors.current_metadata"
-                            ></v-textarea>
-                        </v-col>
-                        <v-col cols="12" md="6">
-                            <v-textarea
-                                v-model="suggestedMetadataText"
-                                label="Suggested Metadata"
-                                outlined
-                                rows="5"
-                                placeholder='{"field.path": "suggested value"}'
-                                :error-messages="errors.suggested_metadata"
-                            ></v-textarea>
-                        </v-col>
-                    </v-row>
-
-                    <!-- Notes -->
-                    <v-row dense>
-                        <v-col cols="12">
-                            <v-textarea
-                                v-model="newIssue.notes"
-                                label="Notes (optional)"
-                                outlined
-                                rows="2"
-                                placeholder="Additional notes or context..."
-                            ></v-textarea>
-                        </v-col>
-                    </v-row>
                 </v-card-text>
 
                 <v-divider></v-divider>
@@ -330,12 +347,14 @@ Vue.component('create-issue-dialog', {
                 <v-card-actions class="pa-4">
                     <v-spacer></v-spacer>
                     <v-btn
+                        small
                         text
                         @click="close"
                     >
                         Cancel
                     </v-btn>
                     <v-btn
+                        small
                         color="primary"
                         @click="createIssue"
                         :loading="loading"

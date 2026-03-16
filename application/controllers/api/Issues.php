@@ -12,8 +12,9 @@ require(APPPATH . '/libraries/MY_REST_Controller.php');
  * Endpoints:
  * - GET    /api/issues                     - List all issues (filtered by user permissions)
  * - GET    /api/issues/{id}                - Get single issue
- * - GET    /api/issues/project/{sid}       - List issues for a project
- * - GET    /api/issues/project/{sid}/stats - Get issue statistics
+ * - GET    /api/issues/project/{sid}           - List issues for a project
+ * - GET    /api/issues/project/{sid}/summary  - Minimal list of open issues (id, title, field_path, status) for counts/badges
+ * - GET    /api/issues/project/{sid}/stats    - Get issue statistics
  * - POST   /api/issues                     - Create new issue
  * - PUT    /api/issues/{id}                - Update issue
  * - DELETE /api/issues/{id}                - Delete issue
@@ -256,6 +257,34 @@ class Issues extends MY_REST_Controller {
     }
 
     /**
+     * Get minimal list of open issues for a project (id, title, field_path, status).
+     * Only open issues; for counts and badges without full payload.
+     * GET /api/issues/project/{sid}/summary?limit=500
+     */
+    public function project_summary_get($sid = null)
+    {
+        try {
+            $sid = $this->get_sid($sid);
+            $this->editor_acl->user_has_project_access($sid, 'view', $this->api_user);
+
+            $limit = $this->input->get('limit') ? (int) $this->input->get('limit') : 500;
+            $result = $this->Project_issues_model->get_open_summary_by_project($sid, $limit);
+
+            $response = array(
+                'status' => 'success',
+                'total'  => $result['total'],
+                'issues' => $result['issues'],
+            );
+            $this->set_response($response, REST_Controller::HTTP_OK);
+        } catch (Exception $e) {
+            $this->set_response(array(
+                'status'  => 'failed',
+                'message' => $e->getMessage(),
+            ), REST_Controller::HTTP_BAD_REQUEST);
+        }
+    }
+
+    /**
      * Get issue statistics for a project
      * GET /api/issues/project/{sid}/stats
      */
@@ -361,6 +390,16 @@ class Issues extends MY_REST_Controller {
             $input = $this->raw_json_input();
             if (empty($input)) {
                 throw new Exception('Request body is required');
+            }
+
+            // When setting applied=1, set applied_on and applied_by if not provided
+            if (isset($input['applied']) && (int) $input['applied'] === 1) {
+                if (!isset($input['applied_on'])) {
+                    $input['applied_on'] = time();
+                }
+                if (!isset($input['applied_by']) && $this->api_user_id) {
+                    $input['applied_by'] = $this->api_user_id;
+                }
             }
 
             $this->Project_issues_model->update($id, $input);

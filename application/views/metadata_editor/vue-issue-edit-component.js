@@ -160,8 +160,8 @@ const VueIssueEdit = Vue.component('issue-edit', {
             if (!this.editMode) {
                 // Entering edit mode
                 this.editedIssue = { ...this.issue };
-                this.currentMetadataText = this.issue.current_metadata ? JSON.stringify(this.issue.current_metadata, null, 2) : '';
-                this.suggestedMetadataText = this.issue.suggested_metadata ? JSON.stringify(this.issue.suggested_metadata, null, 2) : '';
+                this.currentMetadataText = this.getMetadataFieldValue(this.issue.current_metadata, this.issue.field_path);
+                this.suggestedMetadataText = this.getMetadataFieldValue(this.issue.suggested_metadata, this.issue.field_path);
             }
             this.editMode = !this.editMode;
         },
@@ -177,15 +177,55 @@ const VueIssueEdit = Vue.component('issue-edit', {
 
             try {
                 const parsed = JSON.parse(text);
+                const fieldPath = this.editedIssue.field_path || this.issue.field_path;
                 if (type === 'current') {
-                    this.editedIssue.current_metadata = parsed;
+                    this.editedIssue.current_metadata = fieldPath
+                        ? { [fieldPath]: parsed }
+                        : parsed;
                 } else {
+                    // Allow suggested metadata to be a full JSON object; if not keyed, keep as-is
                     this.editedIssue.suggested_metadata = parsed;
                 }
                 this.errors[type + '_metadata'] = null;
             } catch (e) {
-                this.errors[type + '_metadata'] = 'Invalid JSON format';
+                const fieldPath = this.editedIssue.field_path || this.issue.field_path;
+                if (fieldPath) {
+                    const obj = {};
+                    obj[fieldPath] = text;
+                    if (type === 'current') {
+                        this.editedIssue.current_metadata = obj;
+                    } else {
+                        this.editedIssue.suggested_metadata = obj;
+                    }
+                    this.errors[type + '_metadata'] = null;
+                } else {
+                    this.errors[type + '_metadata'] = 'Invalid JSON format or field path not set';
+                }
             }
+        },
+        getMetadataFieldValue(metadata, fieldPath) {
+            if (metadata == null) return '';
+            // If metadata is an object keyed by field path, extract just that value
+            if (
+                fieldPath &&
+                typeof metadata === 'object' &&
+                !Array.isArray(metadata) &&
+                Object.prototype.hasOwnProperty.call(metadata, fieldPath)
+            ) {
+                const value = metadata[fieldPath];
+                if (value === undefined || value === null) {
+                    return '';
+                }
+                if (typeof value === 'object') {
+                    return JSON.stringify(value, null, 2);
+                }
+                return String(value);
+            }
+            // Fallbacks: show raw JSON or string
+            if (typeof metadata === 'object') {
+                return JSON.stringify(metadata, null, 2);
+            }
+            return String(metadata);
         },
         async saveChanges() {
             const title = (this.editedIssue.title !== undefined && this.editedIssue.title !== null ? String(this.editedIssue.title) : '').trim();
@@ -290,10 +330,29 @@ const VueIssueEdit = Vue.component('issue-edit', {
             return moment.unix(timestamp).format('MMM D, YYYY');
         },
         formatMetadata(metadata) {
-            if (!metadata || Object.keys(metadata).length === 0) {
+            if (metadata == null || (typeof metadata === 'object' && Object.keys(metadata).length === 0)) {
                 return 'No data';
             }
-            return JSON.stringify(metadata, null, 2);
+            const fieldPath = this.issue && this.issue.field_path;
+            if (
+                fieldPath &&
+                typeof metadata === 'object' &&
+                !Array.isArray(metadata) &&
+                Object.prototype.hasOwnProperty.call(metadata, fieldPath)
+            ) {
+                const value = metadata[fieldPath];
+                if (value === undefined || value === null) {
+                    return '';
+                }
+                if (typeof value === 'object') {
+                    return JSON.stringify(value, null, 2);
+                }
+                return String(value);
+            }
+            if (typeof metadata === 'object') {
+                return JSON.stringify(metadata, null, 2);
+            }
+            return String(metadata);
         },
         cancel() {
             if (this.editMode) {
@@ -400,11 +459,25 @@ const VueIssueEdit = Vue.component('issue-edit', {
         },
         parseMetadataForDiff(val) {
             if (val == null) return null;
-            if (typeof val === 'object') return val;
-            if (typeof val === 'string') {
-                try { return JSON.parse(val); } catch (e) { return { value: val }; }
+
+            // If metadata is stored as { "field_path": value }, extract just the value
+            const fieldPath = this.issue && this.issue.field_path;
+            let value = val;
+            if (
+                fieldPath &&
+                typeof val === 'object' &&
+                !Array.isArray(val) &&
+                Object.prototype.hasOwnProperty.call(val, fieldPath)
+            ) {
+                value = val[fieldPath];
             }
-            return { value: String(val) };
+
+            if (value == null) return null;
+            if (typeof value === 'object') return value;
+            if (typeof value === 'string') {
+                try { return JSON.parse(value); } catch (e) { return { value: value }; }
+            }
+            return { value: String(value) };
         },
         renderMetadataDiff() {
             if (!this.issue) return;
@@ -694,8 +767,9 @@ const VueIssueEdit = Vue.component('issue-edit', {
                                                                 outlined
                                                                 rows="8"
                                                                 :error-messages="errors.current_metadata"
+                                                                style="max-height: 250px; overflow-y: auto;"
                                                             ></v-textarea>
-                                                            <pre v-else style="background-color: #f5f5f5; padding: 12px; border-radius: 4px; overflow-x: auto; font-size: 12px; line-height: 1.5;">{{ formatMetadata(issue.current_metadata) }}</pre>
+                                                            <pre v-else style="background-color: #f5f5f5; padding: 12px; border-radius: 4px; overflow: auto; font-size: 12px; line-height: 1.5; max-height: 250px;">{{ formatMetadata(issue.current_metadata) }}</pre>
                                                         </v-col>
                                                         <v-col cols="12" md="6">
                                                             <div class="text-subtitle-2 mb-2">
@@ -708,8 +782,9 @@ const VueIssueEdit = Vue.component('issue-edit', {
                                                                 outlined
                                                                 rows="8"
                                                                 :error-messages="errors.suggested_metadata"
+                                                                style="max-height: 250px; overflow-y: auto;"
                                                             ></v-textarea>
-                                                            <pre v-else style="background-color: #f5f5f5; padding: 12px; border-radius: 4px; overflow-x: auto; font-size: 12px; line-height: 1.5;">{{ formatMetadata(issue.suggested_metadata) }}</pre>
+                                                            <pre v-else style="background-color: #f5f5f5; padding: 12px; border-radius: 4px; overflow: auto; font-size: 12px; line-height: 1.5; max-height: 250px;">{{ formatMetadata(issue.suggested_metadata) }}</pre>
                                                         </v-col>
                                                     </v-row>
                                                     <!-- JSON Diff preview (below current/suggested; show in both view and edit) -->

@@ -117,13 +117,19 @@ Vue.component("form-input", {
     ProjectType() {
       return this.$store.state.project_type;
     },
+    projectId() {
+      return this.$store.state.project_id || null;
+    },
   },
   template: `
             <div class="form-input-field mt-3" :class="'form-input-' + field.type"  >
 
                 <div v-if="field.type=='nested_array'">
                     <div class="form-field form-field-table">
-                        <label :for="'field-' + field.key">{{field.title}}</label>
+                        <div class="d-flex align-center flex-nowrap">
+                            <label :for="'field-' + field.key">{{field.title}}</label>
+                            <field-issues v-if="projectId && field.key" :field-path="field.key" :project-id="projectId"></field-issues>
+                        </div>
                         <span class="small" v-if="field.help_text" role="button" data-toggle="collapse" :data-target="'#field-toggle-' + normalizeClassID(field.key)" ><i class="far fa-question-circle"></i></span>
                         <small :id="'field-toggle-' + normalizeClassID(field.key)" class="collapse help-text form-text text-muted mb-2">{{field.help_text}}</small>
                         
@@ -141,8 +147,11 @@ Vue.component("form-input", {
                 </div>
                 <div v-else-if="field.type=='array'">                
                     <div class="form-field form-field-table">
-                        <label :for="'field-' + field.key">{{field.title}}</label>
-                        <span class="small" v-if="field.help_text" role="button" data-toggle="collapse" :data-target="'#field-toggle-' + normalizeClassID(field.key)" ><i class="far fa-question-circle"></i></span>
+                        <div class="d-flex align-center flex-nowrap">
+                            <label :for="'field-' + field.key">{{field.title}}</label>
+                            <span v-if="field.help_text" class="small ml-1" role="button" data-toggle="collapse" :data-target="'#field-toggle-' + normalizeClassID(field.key)" aria-label="Help"><i class="far fa-question-circle"></i></span>
+                            <field-issues v-if="projectId && field.key" :field-path="field.key" :project-id="projectId"></field-issues>
+                        </div>
                         <small :id="'field-toggle-' + normalizeClassID(field.key)" class="collapse help-text form-text text-muted mb-2">{{field.help_text}}</small>
                         <table-grid-component 
                             v-model="local" 
@@ -155,8 +164,10 @@ Vue.component("form-input", {
                     </div>
                 </div>
                 <div v-else-if="field.type=='simple_array'" >
-                    <label :for="'field-' + normalizeClassID(field.key)">{{field.title}}</label>
-
+                    <div class="d-flex align-center flex-nowrap">
+                        <label :for="'field-' + normalizeClassID(field.key)">{{field.title}}</label>
+                        <field-issues v-if="projectId && field.key" :field-path="field.key" :project-id="projectId"></field-issues>
+                    </div>
                     <div v-if="fieldDisplayType(field)=='text' ||fieldDisplayType(field)=='textarea' " >
                         <repeated-field
                                 v-model=" local"
@@ -177,7 +188,11 @@ Vue.component("form-input", {
                             v-bind="formTextFieldStyle"
                             background-color="#FFFFFF"
                             :disabled="isFieldReadOnly"
-                        ></v-combobox>
+                        >
+                            <template v-slot:append v-if="projectId && field.key">
+                                <field-issues :field-path="field.key" :project-id="projectId"></field-issues>
+                            </template>
+                        </v-combobox>
                         
                     </div>
                                     
@@ -185,10 +200,12 @@ Vue.component("form-input", {
 
                 <div  v-else-if="fieldDisplayType(field)=='text'">                            
                     <div class="form-field" :class="['field-' + field.key] ">
-                        <label :for="'field-' + normalizeClassID(field.key)">{{field.title}}
-                            <span class="small" v-if="field.help_text" role="button" data-toggle="collapse" :data-target="'#field-toggle-' + normalizeClassID(field.key)" ><i class="far fa-question-circle"></i></span>
-                            <span v-if="field.required==true" class="required-label"> * </span>
-                        </label> 
+                        <div class="d-flex align-center flex-nowrap">
+                            <label :for="'field-' + normalizeClassID(field.key)">{{field.title}}
+                                <span class="small" v-if="field.help_text" role="button" data-toggle="collapse" :data-target="'#field-toggle-' + normalizeClassID(field.key)" ><i class="far fa-question-circle"></i></span>
+                                <span v-if="field.required==true" class="required-label"> * </span>
+                            </label>
+                        </div>
 
                         <validation-provider 
                             :rules="getValidationRules(field)" 
@@ -202,8 +219,12 @@ Vue.component("form-input", {
                                 v-model="local"
                                 :disabled="isFieldReadOnly"
                                 v-bind="formTextFieldStyle"
-                            ></v-text-field>                                                                                        
-                            <small :id="'field-toggle-' + normalizeClassID(field.key)" class="collapse help-text form-text text-muted">{{field.help_text}}</small>
+                            >
+                                <template v-slot:append v-if="projectId && field.key">
+                                    <field-issues :field-path="field.key" :project-id="projectId"></field-issues>
+                                </template>
+                            </v-text-field>
+                                                                                        <small :id="'field-toggle-' + normalizeClassID(field.key)" class="collapse help-text form-text text-muted">{{field.help_text}}</small>
 
                             <span v-if="errors[0]" class="field-error">{{errors[0]}}</span>
                         </validation-provider>
@@ -211,14 +232,16 @@ Vue.component("form-input", {
                     </div>                                
                 </div>
 
-                <div v-else-if="fieldDisplayType(field)=='number'">                            
+                <div v-else-if="fieldDisplayType(field)=='number'">
                     <div class="form-field" :class="['field-' + field.key] ">
-                        <label :for="'field-' + normalizeClassID(field.key)">{{field.title}}
-                            <span class="small" v-if="field.help_text" role="button" data-toggle="collapse" :data-target="'#field-toggle-' + normalizeClassID(field.key)" ><i class="far fa-question-circle"></i></span>
-                            <span v-if="field.required==true" class="required-label"> * </span>
-                        </label> 
+                        <div class="d-flex align-center flex-nowrap">
+                            <label :for="'field-' + normalizeClassID(field.key)">{{field.title}}
+                                <span class="small" v-if="field.help_text" role="button" data-toggle="collapse" :data-target="'#field-toggle-' + normalizeClassID(field.key)" ><i class="far fa-question-circle"></i></span>
+                                <span v-if="field.required==true" class="required-label"> * </span>
+                            </label>
+                        </div>
 
-                        <validation-provider 
+                        <validation-provider
                             :rules="getValidationRules(field)" 
                             :debounce=500
                             immediate
@@ -231,8 +254,12 @@ Vue.component("form-input", {
                                 type="number"
                                 :disabled="isFieldReadOnly"
                                 v-bind="formTextFieldStyle"
-                            ></v-text-field>                                                                                        
-                            <small :id="'field-toggle-' + normalizeClassID(field.key)" class="collapse help-text form-text text-muted">{{field.help_text}}</small>
+                            >
+<template v-slot:append v-if="projectId && field.key">
+                                    <field-issues :field-path="field.key" :project-id="projectId"></field-issues>
+                                </template>
+                            </v-text-field>
+                                                                                        <small :id="'field-toggle-' + normalizeClassID(field.key)" class="collapse help-text form-text text-muted">{{field.help_text}}</small>
 
                             <span v-if="errors[0]" class="field-error">{{errors[0]}}</span>
                         </validation-provider>
@@ -273,7 +300,11 @@ Vue.component("form-input", {
                                 max-height="200"
                                 max-rows="5"                            
                                 density="compact"
-                            ></v-textarea>
+                            >
+                                <template v-slot:append v-if="projectId && field.key">
+                                    <field-issues :field-path="field.key" :project-id="projectId"></field-issues>
+                                </template>
+                            </v-textarea>
                             <small :id="'field-toggle-' + normalizeClassID(field.key)" class="collapse help-text form-text text-muted mb-2">{{field.help_text}}</small>
 
                         <span v-if="errors[0]" class="field-error">{{errors[0]}}</span>
@@ -283,9 +314,11 @@ Vue.component("form-input", {
 
                 <div v-else-if="fieldDisplayType(field)=='dropdown-custom'">
                     <div class="form-field-dropdown-custom">
-                        <label :for="'field-' + normalizeClassID(field.key)">{{field.title}}
-                            <span v-if="field.required==true" class="required-label"> * </span>
-                        </label>                
+                        <div class="d-flex align-center flex-nowrap">
+                            <label :for="'field-' + normalizeClassID(field.key)">{{field.title}}
+                                <span v-if="field.required==true" class="required-label"> * </span>
+                            </label>
+                        </div>
                         <span class="small" v-if="field.help_text" role="button" data-toggle="collapse" :data-target="'#field-toggle-' + normalizeClassID(field.key)" ><i class="far fa-question-circle"></i></span>
                         <small :id="'field-toggle-' + normalizeClassID(field.key)" class="collapse help-text form-text text-muted mb-2">{{field.help_text}}</small>
                         
@@ -311,16 +344,22 @@ Vue.component("form-input", {
                             v-bind="formTextFieldStyle"
                             background-color="#FFFFFF"                    
                             :disabled="isFieldReadOnly"
-                        ></v-combobox>                        
+                        >
+                            <template v-slot:append v-if="projectId && field.key">
+                                <field-issues :field-path="field.key" :project-id="projectId"></field-issues>
+                            </template>
+                        </v-combobox>                        
                         <small class="text-muted">{{field.enum_store_column}} - {{local}}</small>                        
                     </div>
                 </div>
                 
                 <div v-else-if="fieldDisplayType(field)=='dropdown'">
                     <div class="form-field-dropdown">
-                        <label :for="'field-' + normalizeClassID(field.key)">{{field.title}}
-                            <span v-if="field.required==true" class="required-label"> * </span>
-                        </label>
+                        <div class="d-flex align-center flex-nowrap">
+                            <label :for="'field-' + normalizeClassID(field.key)">{{field.title}}
+                                <span v-if="field.required==true" class="required-label"> * </span>
+                            </label>
+                        </div>
                         <span class="small" v-if="field.help_text" role="button" data-toggle="collapse" :data-target="'#field-toggle-' + normalizeClassID(field.key)" ><i class="far fa-question-circle"></i></span>
                         <small :id="'field-toggle-' + normalizeClassID(field.key)" class="collapse help-text form-text text-muted mb-2">{{field.help_text}}</small>                        
                         
@@ -342,7 +381,11 @@ Vue.component("form-input", {
                                 clearable
                                 background-color="#FFFFFF"  
                                 :disabled="isFieldReadOnly"
-                            ></v-select>
+                            >
+                                <template v-slot:append v-if="projectId && field.key">
+                                    <field-issues :field-path="field.key" :project-id="projectId"></field-issues>
+                                </template>
+                            </v-select>
                             <span v-if="errors[0]" class="field-error">{{errors[0]}}</span>
                         </validation-provider>
                         
@@ -352,7 +395,10 @@ Vue.component("form-input", {
 
                 <div v-else-if="fieldDisplayType(field)=='date'">
                     <div class="form-field-date">
-                        <label :for="'field-' + normalizeClassID(field.key)">{{field.title}}</label>                            
+                        <div class="d-flex align-center flex-nowrap">
+                            <label :for="'field-' + normalizeClassID(field.key)">{{field.title}}</label>
+                            <field-issues v-if="projectId && field.key" :field-path="field.key" :project-id="projectId"></field-issues>
+                        </div>
                         <editor-date-field v-model="local" :field="field"></editor-date-field>
                         <small class="help-text form-text text-muted">{{field.help_text}}</small>                            
                     </div>
@@ -360,10 +406,13 @@ Vue.component("form-input", {
 
                 <div v-else-if="fieldDisplayType(field)=='bounding_box'">
                     <div class="form-field-bounding-box">
-                        <label :for="'field-' + normalizeClassID(field.key)">{{field.title}}
-                            <span class="small" v-if="field.help_text" role="button" data-toggle="collapse" :data-target="'#field-toggle-' + normalizeClassID(field.key)" ><i class="far fa-question-circle"></i></span>
-                            <span v-if="field.required==true" class="required-label"> * </span>
-                        </label>
+                        <div class="d-flex align-center flex-nowrap">
+                            <label :for="'field-' + normalizeClassID(field.key)">{{field.title}}
+                                <span class="small" v-if="field.help_text" role="button" data-toggle="collapse" :data-target="'#field-toggle-' + normalizeClassID(field.key)" ><i class="far fa-question-circle"></i></span>
+                                <span v-if="field.required==true" class="required-label"> * </span>
+                            </label>
+                            <field-issues v-if="projectId && field.key" :field-path="field.key" :project-id="projectId"></field-issues>
+                        </div>
                         <editor-bounding-box-field v-model="local" :field="field"></editor-bounding-box-field>
                         <small :id="'field-toggle-' + normalizeClassID(field.key)" class="collapse help-text form-text text-muted mb-2">{{field.help_text}}</small>
                     </div>

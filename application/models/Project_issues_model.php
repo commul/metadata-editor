@@ -115,6 +115,38 @@ class Project_issues_model extends CI_Model {
     }
 
     /**
+     * Get minimal list of open issues for a project (id, title, field_path, status).
+     * Used for counts and badges; only returns open issues.
+     *
+     * @param int $project_id Project ID
+     * @param int $limit Max rows (default 500)
+     * @return array Keys: total, issues
+     */
+    public function get_open_summary_by_project($project_id, $limit = 500)
+    {
+        $project_id = (int) $project_id;
+        $limit = $limit === null || $limit < 1 ? 500 : (int) $limit;
+
+        $this->db->select('id, title, field_path, status');
+        $this->db->from('project_issues');
+        $this->db->where('project_id', $project_id);
+        $this->db->where('status', 'open');
+        $this->db->order_by('created', 'DESC');
+        $this->db->limit($limit);
+        $issues = $this->db->get()->result_array();
+
+        $this->db->from('project_issues');
+        $this->db->where('project_id', $project_id);
+        $this->db->where('status', 'open');
+        $total = $this->db->count_all_results();
+
+        return array(
+            'total'  => $total,
+            'issues' => $issues,
+        );
+    }
+
+    /**
      * Get all issues across projects
      *
      * @param array $filters Optional filters: status, category, severity, applied, project_ids
@@ -246,6 +278,12 @@ class Project_issues_model extends CI_Model {
         unset($update_data['project_id']);
         unset($update_data['created']);
         unset($update_data['created_by']);
+
+        // When clearing applied, clear applied_on and applied_by
+        if (array_key_exists('applied', $update_data) && (int) $update_data['applied'] === 0) {
+            $update_data['applied_on'] = null;
+            $update_data['applied_by'] = null;
+        }
 
         // Validate required fields when present
         if (array_key_exists('title', $update_data) && trim((string) $update_data['title']) === '') {

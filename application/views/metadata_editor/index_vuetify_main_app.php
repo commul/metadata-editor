@@ -220,6 +220,10 @@
 
             //issues components
             echo $this->load->view("metadata_editor/vue-issue-status-badge-component.js",null,true);
+            echo $this->load->view("metadata_editor/vue-create-issue-dialog-component.js",null,true);
+            echo $this->load->view("metadata_editor/vue-issue-detail-dialog-component.js",null,true);
+            echo $this->load->view("metadata_editor/vue-field-issues-indicator-component.js",null,true);
+            echo $this->load->view("metadata_editor/vue-field-issues-component.js",null,true);
             echo $this->load->view("metadata_editor/vue-issue-list-component.js",null,true);
             echo $this->load->view("metadata_editor/vue-issue-create-component.js",null,true);
             echo $this->load->view("metadata_editor/vue-issue-edit-component.js",null,true);
@@ -462,7 +466,9 @@
                     filled:false,
                     outlined:true,                    
                     style:"xborder-top:1px solid gray;"
-                }
+                },
+                openIssuesSummary: [],
+                openFieldIssuesMenuFieldPath: null
             },
             getters: {
                 getUserHasEditAccess(state){
@@ -585,6 +591,18 @@
                 GetVariableDocumentationFields: function(state){                    
                     return state.variable_documentation_fields;
                 },
+                getOpenIssuesSummary: function(state) {
+                    return state.openIssuesSummary || [];
+                },
+                getOpenIssueCountByFieldPath: function(state) {
+                    return function(fieldPath) {
+                        if (!fieldPath || !state.openIssuesSummary || !state.openIssuesSummary.length) return 0;
+                        return state.openIssuesSummary.filter(function(i) { return i.field_path === fieldPath; }).length;
+                    };
+                },
+                getOpenFieldIssuesMenuFieldPath: function(state) {
+                    return state.openFieldIssuesMenuFieldPath;
+                }
             },
             actions: {               
                 async initData({commit},options) {
@@ -595,6 +613,7 @@
                     await store.dispatch('loadExternalResources',{dataset_id:options.dataset_id});
                     await store.dispatch('loadVariableGroups',{dataset_id:options.dataset_id});
                     await store.dispatch('loadMetadataTypesList',{});
+                    await store.dispatch('fetchOpenIssuesSummary', { projectId: store.state.project_id });
                     
                     // Load geospatial features for geospatial projects
                     if (store.state.project_type === 'geospatial') {
@@ -633,6 +652,23 @@
                     .catch(function (error) {
                         console.log(error);
                     });
+                },
+                fetchOpenIssuesSummary: function({ commit, state }, options) {
+                    var projectId = (options && options.projectId) || state.project_id;
+                    if (!projectId) return Promise.resolve();
+                    var url = CI.base_url + '/api/issues/project/' + projectId + '/summary';
+                    return axios.get(url, { params: { limit: 500 } })
+                        .then(function(response) {
+                            if (response.data && response.data.status === 'success' && response.data.issues) {
+                                commit('setOpenIssuesSummary', response.data.issues);
+                            }
+                        })
+                        .catch(function(err) {
+                            console.warn('fetchOpenIssuesSummary failed', err);
+                        });
+                },
+                openFieldIssuesMenu: function({ commit }, fieldPath) {
+                    commit('setOpenFieldIssuesMenuFieldPath', fieldPath);
                 },
                 async loadProject({commit},options) {
                     let url=CI.base_url + '/api/editor/'+options.dataset_id;
@@ -940,6 +976,12 @@
                 },
                 variables_active_tab(state,data){
                     state.variables_active_tab=data;
+                },
+                setOpenIssuesSummary(state, issues) {
+                    state.openIssuesSummary = issues || [];
+                },
+                setOpenFieldIssuesMenuFieldPath(state, fieldPath) {
+                    state.openFieldIssuesMenuFieldPath = fieldPath;
                 }
             })            
         })
