@@ -14,6 +14,7 @@ require(APPPATH . '/libraries/MY_REST_Controller.php');
  * - GET    /api/issues/{id}                - Get single issue
  * - GET    /api/issues/project/{sid}           - List issues for a project
  * - GET    /api/issues/project/{sid}/summary  - Minimal list of open issues (id, title, field_path, status) for counts/badges
+ * - GET    /api/issues/project/{sid}/assessment_status - Latest metadata assessment job for the project
  * - GET    /api/issues/project/{sid}/stats    - Get issue statistics
  * - POST   /api/issues                     - Create new issue
  * - PUT    /api/issues/{id}                - Update issue
@@ -299,6 +300,57 @@ class Issues extends MY_REST_Controller {
             $response = array(
                 'status' => 'success',
                 'stats'  => $stats,
+            );
+            $this->set_response($response, REST_Controller::HTTP_OK);
+        } catch (Exception $e) {
+            $this->set_response(array(
+                'status'  => 'failed',
+                'message' => $e->getMessage(),
+            ), REST_Controller::HTTP_BAD_REQUEST);
+        }
+    }
+
+    /**
+     * Get metadata assessment job status for a project (latest job of type metadata_assessment_result).
+     * GET /api/issues/project/{sid}/assessment_status
+     * Returns the single latest assessment job for the project so the UI can show "Assessment running" or poll by uuid.
+     */
+    public function assessment_status_get($sid = null)
+    {
+        try {
+            $sid = $this->get_sid($sid);
+            $this->editor_acl->user_has_project_access($sid, 'view', $this->api_user);
+
+            $this->load->model('Job_queue_model');
+            $filters = array(
+                'job_type'   => 'metadata_assessment_result',
+                'project_id' => (int) $sid,
+            );
+            if (!$this->editor_acl->user_is_admin($this->api_user)) {
+                $filters['user_id'] = $this->api_user_id;
+            }
+            $jobs = $this->Job_queue_model->get_all($filters, 1, 0);
+
+            $job = !empty($jobs) ? $jobs[0] : null;
+            $assessment_job = null;
+            if ($job) {
+                $assessment_job = array(
+                    'uuid'         => isset($job['uuid']) ? $job['uuid'] : null,
+                    'job_type'     => $job['job_type'],
+                    'status'       => $job['status'],
+                    'created_at'   => $job['created_at'],
+                    'started_at'   => $job['started_at'],
+                    'completed_at' => $job['completed_at'],
+                    'error_message' => $job['error_message'],
+                );
+                if (!empty($job['result'])) {
+                    $assessment_job['result'] = $job['result'];
+                }
+            }
+
+            $response = array(
+                'status'         => 'success',
+                'assessment_job' => $assessment_job,
             );
             $this->set_response($response, REST_Controller::HTTP_OK);
         } catch (Exception $e) {

@@ -38,6 +38,7 @@ class Jobs extends MY_REST_Controller
 	 * Query parameters:
 	 *   status - Filter by status (pending, processing, completed, failed)
 	 *   job_type - Filter by job type
+	 *   project_id - Filter by project ID (payload.project_id; use with job_type, e.g. metadata_assessment_result)
 	 *   user_id - Filter by user ID (admin only, or own jobs)
 	 *   limit - Number of jobs to return (default: 50)
 	 *   offset - Offset for pagination (default: 0)
@@ -63,8 +64,15 @@ class Jobs extends MY_REST_Controller
 			$status = $this->input->get('status');
 			$job_type = $this->input->get('job_type');
 			$user_id_filter = $this->input->get('user_id');
+			$project_id_filter = $this->input->get('project_id');
 			$limit = (int)($this->input->get('limit') ?: 50);
 			$offset = (int)($this->input->get('offset') ?: 0);
+
+			if ($project_id_filter !== null && $project_id_filter !== '') {
+				$project_id_filter = (int) $project_id_filter;
+			} else {
+				$project_id_filter = null;
+			}
 			
 			// Limit maximum results per request
 			if ($limit > 100) {
@@ -81,8 +89,18 @@ class Jobs extends MY_REST_Controller
 			
 			// Build query based on filters
 			$jobs = array();
-			
-			if ($user_id_filter) {
+
+			// Filter by job_type and project_id (e.g. metadata_assessment_result for a project)
+			if ($project_id_filter !== null && $job_type) {
+				$filters = array('job_type' => $job_type, 'project_id' => $project_id_filter);
+				if ($status !== null && $status !== '') {
+					$filters['status'] = $status;
+				}
+				if ($user_id_filter !== null && $user_id_filter !== '') {
+					$filters['user_id'] = $user_id_filter;
+				}
+				$jobs = $this->Job_queue_model->get_all($filters, $limit, $offset);
+			} elseif ($user_id_filter) {
 				// Get jobs by user
 				$jobs = $this->Job_queue_model->get_by_user(
 					$user_id_filter,
@@ -551,6 +569,155 @@ class Jobs extends MY_REST_Controller
 			);
 			$this->set_response($error_output, REST_Controller::HTTP_BAD_REQUEST);
 		}
+	}
+
+	/**
+	 * Submit project metadata for quality assessment and enqueue a job to fetch the result
+	 *
+	 * POST /api/jobs/metadata_assessment
+	 *
+	 * Request body:
+	 *   { "project_id": 123 }
+	 *
+	 * Submits project metadata to the external assessment API, receives an event_id,
+	 * then enqueues a metadata_assessment_result job. The worker will stream the result
+	 * and store it in the job. Client should poll GET /api/jobs/{uuid} for status.
+	 */
+	function metadata_assessment_post()
+	{
+		if (!$this->is_admin()) {
+			$this->set_response(array(
+				'status' => 'failed',
+				'message' => 'Admin access required to run metadata assessment',
+			), REST_Controller::HTTP_FORBIDDEN);
+			return;
+		}
+		try {
+			$input = json_decode($this->input->raw_input_stream, true);
+			if (!$input) {
+				$input = $this->input->post();
+			}
+			if (empty($input) || empty($input['project_id'])) {
+				throw new Exception("project_id is required");
+			}
+
+			$project_id = (int) $input['project_id'];
+
+			$this->load->config('metadata_assessment');
+			$base_url = $this->config->item('base_url', 'metadata_assessment');
+			if (empty($base_url)) {
+				throw new Exception("Metadata assessment API is not configured");
+			}
+
+			$this->load->model('Editor_model');
+			$this->load->library('Editor_acl');
+			$this->editor_acl->user_has_project_access($project_id, 'view', $this->api_user);
+
+			$project = $this->Editor_model->get_row($project_id);
+			if (!$project || !isset($project['metadata'])) {
+				throw new Exception("Project not found or has no metadata");
+			}
+
+			$event_id = $this->submitToAssessmentApi($base_url, $project['metadata']);
+			if (empty($event_id)) {
+				throw new Exception("Assessment API did not return an event_id");
+			}
+
+			$job_type = 'metadata_assessment_result';
+			if (!$this->Job_queue_model->is_valid_job_type($job_type)) {
+				throw new Exception("Job type metadata_assessment_result is not available");
+			}
+
+			$payload = array(
+				'event_id' => $event_id,
+				'project_id' => $project_id,
+			);
+			$handler = JobRegistry::getHandler($job_type);
+			if ($handler) {
+				$handler->validatePayload($payload);
+			}
+
+			$priority = isset($input['priority']) ? (int) $input['priority'] : 0;
+			$max_attempts = isset($input['max_attempts']) ? (int) $input['max_attempts'] : 3;
+			$job_id = $this->Job_queue_model->enqueue(
+				$job_type,
+				$payload,
+				$this->user_id,
+				$priority,
+				$max_attempts
+			);
+
+			$job = $this->Job_queue_model->get($job_id);
+			$job_response = $this->sanitize_job_for_api($job);
+			$job_uuid = isset($job['uuid']) ? $job['uuid'] : null;
+
+			$response = array(
+				'status' => 'success',
+				'message' => 'Metadata assessment submitted; poll job for result',
+				'uuid' => $job_uuid,
+				'event_id' => $event_id,
+				'job' => $job_response,
+			);
+			$this->set_response($response, REST_Controller::HTTP_CREATED);
+
+		} catch (Exception $e) {
+			$this->set_response(array(
+				'status' => 'failed',
+				'message' => $e->getMessage(),
+			), REST_Controller::HTTP_BAD_REQUEST);
+		}
+	}
+
+	/**
+	 * POST project metadata to the assessment API and return the event_id from the response
+	 *
+	 * @param string $base_url Assessment API base URL (no trailing slash)
+	 * @param array $metadata Project metadata array
+	 * @return string|null event_id or null
+	 */
+	private function submitToAssessmentApi($base_url, $metadata)
+	{
+		$this->load->config('metadata_assessment');
+		$connect_timeout = (int) $this->config->item('submit_connect_timeout', 'metadata_assessment') ?: 30;
+		$read_timeout = (int) $this->config->item('submit_read_timeout', 'metadata_assessment') ?: 30;
+		$headers = array('Content-Type' => 'application/json');
+		$api_key = $this->config->item('api_key', 'metadata_assessment');
+		$api_key_header = $this->config->item('api_key_header', 'metadata_assessment');
+		if (!empty($api_key) && !empty($api_key_header)) {
+			$headers[$api_key_header] = $api_key;
+		}
+
+		$body = array(
+			'data' => array(json_encode($metadata, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES)),
+		);
+
+		try {
+			$client = new \GuzzleHttp\Client(array(
+				\GuzzleHttp\RequestOptions::CONNECT_TIMEOUT => $connect_timeout,
+				\GuzzleHttp\RequestOptions::TIMEOUT => $read_timeout,
+			));
+			$response = $client->post($base_url, array(
+				\GuzzleHttp\RequestOptions::HEADERS => $headers,
+				\GuzzleHttp\RequestOptions::JSON => $body,
+			));
+		} catch (\GuzzleHttp\Exception\GuzzleException $e) {
+			throw new Exception("Assessment API request failed: " . $e->getMessage());
+		}
+
+		$raw = (string) $response->getBody();
+		$decoded = json_decode($raw, true);
+		if (is_array($decoded)) {
+			if (!empty($decoded['event_id'])) {
+				return $decoded['event_id'];
+			}
+			if (!empty($decoded['event-id'])) {
+				return $decoded['event-id'];
+			}
+		}
+		if (preg_match('/"([a-f0-9]{32})"/', $raw, $m)) {
+			return $m[1];
+		}
+		return null;
 	}
 
 	/**

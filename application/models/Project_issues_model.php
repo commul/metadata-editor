@@ -115,6 +115,32 @@ class Project_issues_model extends CI_Model {
     }
 
     /**
+     * Get an issue by project ID and title (exact match).
+     * Used to find existing issues for assessment sync (match by detected_issue = title).
+     *
+     * @param int $project_id Project ID
+     * @param string $title Issue title
+     * @return array|false Issue row or false
+     */
+    public function get_by_project_and_title($project_id, $title)
+    {
+        $project_id = (int) $project_id;
+        $title = trim((string) $title);
+        if ($title === '') {
+            return false;
+        }
+        $this->db->from('project_issues');
+        $this->db->where('project_id', $project_id);
+        $this->db->where('title', $title);
+        $this->db->limit(1);
+        $row = $this->db->get()->row_array();
+        if ($row) {
+            $row = $this->_decode_json_fields($row);
+        }
+        return $row ?: false;
+    }
+
+    /**
      * Get minimal list of open issues for a project (id, title, field_path, status).
      * Used for counts and badges; only returns open issues.
      *

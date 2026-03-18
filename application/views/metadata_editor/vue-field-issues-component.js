@@ -28,7 +28,8 @@ Vue.component('field-issues', {
             showCreateDialog: false,
             showDetailDialog: false,
             selectedIssue: null,
-            loadingFullIssue: false
+            loadingFullIssue: false,
+            _onProjectIssuesRefreshed: null
         };
     },
     computed: {
@@ -45,6 +46,22 @@ Vue.component('field-issues', {
         },
         displayIssues() {
             return this.issues.length ? this.issues : this.issuesFromSummary;
+        }
+    },
+    mounted() {
+        var self = this;
+        if (typeof EventBus !== 'undefined') {
+            self._onProjectIssuesRefreshed = function(projectId) {
+                if (projectId === self.projectId) {
+                    self.issues = [];
+                }
+            };
+            EventBus.$on('project-issues-refreshed', self._onProjectIssuesRefreshed);
+        }
+    },
+    beforeDestroy() {
+        if (typeof EventBus !== 'undefined' && this._onProjectIssuesRefreshed) {
+            EventBus.$off('project-issues-refreshed', this._onProjectIssuesRefreshed);
         }
     },
     watch: {
