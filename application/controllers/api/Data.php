@@ -369,10 +369,35 @@ class Data extends MY_REST_Controller
 			$api_response=$this->datautils->get_job_status($job_id);
 
 			$api_http_status=isset($api_response['status_code']) ? $api_response['status_code'] : REST_Controller::HTTP_BAD_REQUEST;
-			$job_status=isset($api_response['response']['status']) ? $api_response['response']['status'] : '';
+			$upstream = isset($api_response['response']) && is_array($api_response['response']) ? $api_response['response'] : array();
+			$job_status = isset($upstream['status']) ? $upstream['status'] : '';
 
-			if (!$api_http_status==REST_Controller::HTTP_OK){
-				throw new Exception("Job failed");
+			if ($api_http_status !== REST_Controller::HTTP_OK) {
+				$msg = $this->_fastapi_job_error_message($upstream);
+				$this->set_response(array(
+					'status' => 'failed',
+					'job_status' => 'failed',
+					'message' => $msg,
+					'variables_imported' => 0,
+					'api_response' => $api_response,
+				), $api_http_status >= 400 ? $api_http_status : REST_Controller::HTTP_BAD_GATEWAY);
+				return;
+			}
+
+			if ($job_status === 'failed' || $job_status === 'error') {
+				$msg = $this->_fastapi_job_error_message($upstream);
+				$out = array(
+					'status' => 'failed',
+					'job_status' => $job_status,
+					'message' => $msg,
+					'variables_imported' => 0,
+					'api_response' => $api_response,
+				);
+				if (isset($upstream['detail'])) {
+					$out['detail'] = $upstream['detail'];
+				}
+				$this->set_response($out, REST_Controller::HTTP_BAD_REQUEST);
+				return;
 			}
 
 			$variable_import_result=[];
@@ -601,10 +626,33 @@ class Data extends MY_REST_Controller
 			$api_response=$this->datautils->get_job_status($job_id);
 
 			$api_http_status=isset($api_response['status_code']) ? $api_response['status_code'] : REST_Controller::HTTP_BAD_REQUEST;
-			$job_status=isset($api_response['response']['status']) ? $api_response['response']['status'] : '';
+			$upstream = isset($api_response['response']) && is_array($api_response['response']) ? $api_response['response'] : array();
+			$job_status = isset($upstream['status']) ? $upstream['status'] : '';
 
-			if (!$api_http_status==REST_Controller::HTTP_OK){
-				throw new Exception("Job failed");
+			if ($api_http_status !== REST_Controller::HTTP_OK) {
+				$msg = $this->_fastapi_job_error_message($upstream);
+				$this->set_response(array(
+					'status' => 'failed',
+					'job_status' => 'failed',
+					'message' => $msg,
+					'api_response' => $api_response,
+				), $api_http_status >= 400 ? $api_http_status : REST_Controller::HTTP_BAD_GATEWAY);
+				return;
+			}
+
+			if ($job_status === 'failed' || $job_status === 'error') {
+				$msg = $this->_fastapi_job_error_message($upstream);
+				$out = array(
+					'status' => 'failed',
+					'job_status' => $job_status,
+					'message' => $msg,
+					'api_response' => $api_response,
+				);
+				if (isset($upstream['detail'])) {
+					$out['detail'] = $upstream['detail'];
+				}
+				$this->set_response($out, REST_Controller::HTTP_BAD_REQUEST);
+				return;
 			}
 
 			$csv_file_path=$this->Editor_datafile_model->check_csv_exists($sid, $file_id);
@@ -811,6 +859,20 @@ class Data extends MY_REST_Controller
 		$job_status = isset($upstream['status']) ? $upstream['status'] : '';
 
 		if ($api_http_status === REST_Controller::HTTP_OK) {
+			if ($job_status === 'failed' || $job_status === 'error') {
+				$msg = $this->_fastapi_job_error_message($upstream);
+				$out = [
+					'status' => 'failed',
+					'job_status' => $job_status,
+					'message' => $msg,
+					'api_response' => $api_response,
+				];
+				if (isset($upstream['detail'])) {
+					$out['detail'] = $upstream['detail'];
+				}
+				$this->set_response($out, REST_Controller::HTTP_BAD_REQUEST);
+				return;
+			}
 			$this->set_response([
 				'status' => 'success',
 				'api_response' => $api_response,
@@ -1083,6 +1145,30 @@ class Data extends MY_REST_Controller
 		}
 	}
 
+	/**
+	 * User-facing message from FastAPI job body (after DataUtils normalization).
+	 *
+	 * @param array $body
+	 * @return string
+	 */
+	private function _fastapi_job_error_message($body)
+	{
+		if (!is_array($body)) {
+			return 'Job failed';
+		}
+		if (isset($body['message']) && $body['message'] !== '') {
+			return $body['message'];
+		}
+		if (isset($body['detail'])) {
+			if (is_string($body['detail'])) {
+				return $body['detail'];
+			}
+			if (is_array($body['detail'])) {
+				return json_encode($body['detail']);
+			}
+		}
+		return 'Job failed';
+	}
 
 
 }

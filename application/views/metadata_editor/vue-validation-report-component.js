@@ -114,14 +114,23 @@ Vue.component('validation-report', {
         someExtraFieldsSelected() {
             return this.selected_extra_fields.length > 0 && this.selected_extra_fields.length < this.extraFieldsCount;
         },
-        canManageFields() {
-            return this.hasExtraFields && !this.processing_fields;
+        canManageExtraFields() {
+            if (!this.hasExtraFields || this.processing_fields) {
+                return false;
+            }
+            if (!this.$store.getters.getUserHasEditAccess) {
+                return false;
+            }
+            if (this.$store.getters.getProjectIsLocked) {
+                return false;
+            }
+            return true;
         }
     },
     mounted: function() {
         this.loadSchemaValidation();
         this.loadTemplateValidation();
-        //this.loadExtraFields(); //todo
+        this.loadExtraFields();
 
         // Load variables validation only for microdata/survey projects
         if (this.isMicrodataProject) {
@@ -359,18 +368,16 @@ Vue.component('validation-report', {
             if (!path) {
                 return data;
             }
-            
-            // Split path into segments
+
             const parts = path.split('/');
             let current = data;
-            
+
             for (let i = 0; i < parts.length; i++) {
                 const part = parts[i];
                 if (current === null || current === undefined) {
                     return null;
                 }
-                
-                // Handle array indices
+
                 if (/^\d+$/.test(part)) {
                     const index = parseInt(part, 10);
                     if (Array.isArray(current) && index >= 0 && index < current.length) {
@@ -379,7 +386,6 @@ Vue.component('validation-report', {
                         return null;
                     }
                 } else {
-                    // Object property
                     if (typeof current === 'object' && current !== null && part in current) {
                         current = current[part];
                     } else {
@@ -387,7 +393,7 @@ Vue.component('validation-report', {
                     }
                 }
             }
-            
+
             return current;
         },
         /**
@@ -427,29 +433,22 @@ Vue.component('validation-report', {
             const errors = [];
 
             try {
-                // Process each field
                 paths_to_process.forEach(function(path) {
                     try {
-                        // Get value from path
                         const value = vm.getValueByPath(metadata, path);
-                        
+
                         if (value !== null && value !== undefined) {
-                            // Create additional key from path
                             const additional_key = vm.createAdditionalKey(path);
-                            
-                            // Ensure additional section exists
+
                             if (!metadata.additional) {
                                 vm.$set(metadata, 'additional', {});
                             }
-                            
-                            // Set value in additional section using dot notation
+
                             _.set(metadata.additional, additional_key, value);
-                            
-                            // Remove from original location
-                            // Convert JSON Pointer to dot notation for lodash
+
                             const dot_path = vm.jsonPointerToDot(path);
                             _.unset(metadata, dot_path);
-                            
+
                             moved_count++;
                         }
                     } catch(e) {
@@ -506,14 +505,11 @@ Vue.component('validation-report', {
             const errors = [];
 
             try {
-                // Process each field
                 paths.forEach(function(path) {
                     try {
-                        // Check if field exists
                         const value = vm.getValueByPath(metadata, path);
-                        
+
                         if (value !== null && value !== undefined) {
-                            // Convert JSON Pointer to dot notation for lodash
                             const dot_path = vm.jsonPointerToDot(path);
                             _.unset(metadata, dot_path);
                             removed_count++;
@@ -553,6 +549,13 @@ Vue.component('validation-report', {
         cancelRemoveFields: function() {
             this.show_confirm_remove = false;
             this.fields_to_remove = [];
+        },
+        confirmRemoveSingleField: function(path) {
+            if (!path) {
+                return;
+            }
+            this.fields_to_remove = [path];
+            this.show_confirm_remove = true;
         },
         /**
          * Check if an object/array has numeric keys that indicate it should be an array
@@ -1469,11 +1472,20 @@ Vue.component('validation-report', {
                             </v-card-text>
                         </v-card>
 
-                        <!-- Extra Fields Section -->
-                        <v-card class="mb-4" v-show="false">
+                        <!-- Schema: metadata keys not defined in JSON schema (excludes additional subtree) -->
+                        <v-card class="mb-4">
                             <v-card-title class="pb-2">
                                 <v-icon class="mr-2">mdi-alert-circle-outline</v-icon>
                                 <span>{{$t("extra_fields")}}</span>
+                                <v-chip
+                                    v-if="extra_fields && extraFieldsCount > 0"
+                                    small
+                                    class="ml-3"
+                                    color="warning"
+                                    text-color="white"
+                                >
+                                    {{ extraFieldsCount }}
+                                </v-chip>
                             </v-card-title>
                             <v-card-text>
                                 <div v-if="loading_extra_fields && !extra_fields" class="text-center py-4">
@@ -1503,7 +1515,7 @@ Vue.component('validation-report', {
                                             <h3 class="mb-0">{{$t("extra_fields")}} ({{extraFieldsCount}})</h3>
                                             <div class="d-flex align-center">
                                                 <v-btn
-                                                    v-if="canManageFields"
+                                                    v-if="canManageExtraFields"
                                                     small
                                                     outlined
                                                     color="primary"
@@ -1515,7 +1527,7 @@ Vue.component('validation-report', {
                                                     {{$t("move_selected_to_additional")}}
                                                 </v-btn>
                                                 <v-btn
-                                                    v-if="canManageFields"
+                                                    v-if="canManageExtraFields"
                                                     small
                                                     outlined
                                                     color="error"
@@ -1531,7 +1543,7 @@ Vue.component('validation-report', {
                                         <v-simple-table dense>
                                             <thead>
                                                 <tr>
-                                                    <th style="width: 5%;">
+                                                    <th v-if="canManageExtraFields" style="width: 5%;">
                                                         <v-checkbox
                                                             :input-value="allExtraFieldsSelected"
                                                             :indeterminate="someExtraFieldsSelected"
@@ -1541,10 +1553,10 @@ Vue.component('validation-report', {
                                                         ></v-checkbox>
                                                     </th>
                                                     <th style="width: 5%;"></th>
-                                                    <th style="width: 30%;">{{$t("path")}}</th>
-                                                    <th style="width: 15%;">{{$t("location")}}</th>
-                                                    <th style="width: 15%;">{{$t("type")}}</th>
-                                                    <th style="width: 30%;">{{$t("value_preview")}}</th>
+                                                    <th style="width: 32%;">{{$t("path")}}</th>
+                                                    <th style="width: 12%;">{{$t("type")}}</th>
+                                                    <th style="width: 36%;">{{$t("value_preview")}}</th>
+                                                    <th v-if="canManageExtraFields" style="width: 10%;">{{$t("actions")}}</th>
                                                 </tr>
                                             </thead>
                                             <tbody>
@@ -1552,7 +1564,7 @@ Vue.component('validation-report', {
                                                     v-for="(field, index) in extra_fields.extra_fields" 
                                                     :key="index"
                                                 >
-                                                    <td>
+                                                    <td v-if="canManageExtraFields">
                                                         <v-checkbox
                                                             :value="field.path"
                                                             v-model="selected_extra_fields"
@@ -1566,18 +1578,15 @@ Vue.component('validation-report', {
                                                             v-if="field.path"
                                                             x-small
                                                             text
-                                                        icon
-                                                        @click="navigateToField(field.path)"
-                                                        :title="$t("navigate_to_field")"
+                                                            icon
+                                                            @click="navigateToField(field.path)"
+                                                            :title="$t('navigate_to_field')"
                                                         >
                                                             <v-icon x-small>mdi-open-in-new</v-icon>
                                                         </v-btn>
                                                     </td>
                                                     <td>
-                                                        <code class="text-caption">{{field.path || field.key || '-'}}</code>
-                                                    </td>
-                                                    <td>
-                                                        <span class="text-caption">{{field.location || $t("root")}}</span>
+                                                        <code class="text-caption">{{field.path || field.field || '-'}}</code>
                                                     </td>
                                                     <td>
                                                         <v-chip 
@@ -1591,6 +1600,18 @@ Vue.component('validation-report', {
                                                         <div class="text-body-2 text--secondary">
                                                             {{field.value_preview || '-'}}
                                                         </div>
+                                                    </td>
+                                                    <td v-if="canManageExtraFields">
+                                                        <v-btn
+                                                            x-small
+                                                            text
+                                                            color="error"
+                                                            icon
+                                                            :title="$t('remove_this_field')"
+                                                            @click.stop="confirmRemoveSingleField(field.path)"
+                                                        >
+                                                            <v-icon x-small>mdi-delete-outline</v-icon>
+                                                        </v-btn>
                                                     </td>
                                                 </tr>
                                             </tbody>
@@ -1627,7 +1648,7 @@ Vue.component('validation-report', {
                         <!-- Confirm Remove Dialog -->
                         <v-dialog
                             v-model="show_confirm_remove"
-                            max-width="500"
+                            max-width="640"
                             persistent
                         >
                             <v-card>
@@ -1644,11 +1665,24 @@ Vue.component('validation-report', {
                                         class="mt-3"
                                     >
                                         {{$t("fields_will_be_removed")}}
-                                        <ul class="mt-2 mb-0">
-                                            <li v-for="(path, idx) in fields_to_remove" :key="idx" class="text-caption">
-                                                <code>{{path}}</code>
-                                            </li>
-                                        </ul>
+                                        <div
+                                            class="mt-2 pa-2"
+                                            style="max-height: 220px; overflow-y: auto; overflow-x: hidden; border-radius: 4px; background: rgba(0, 0, 0, 0.04);"
+                                        >
+                                            <ul class="mb-0 pl-0" style="list-style: none;">
+                                                <li
+                                                    v-for="(path, idx) in fields_to_remove"
+                                                    :key="idx"
+                                                    class="text-caption py-1"
+                                                    style="word-break: break-word; overflow-wrap: anywhere;"
+                                                >
+                                                    <code
+                                                        class="text-caption"
+                                                        style="display: block; word-break: break-word; overflow-wrap: anywhere; white-space: pre-wrap;"
+                                                    >{{path}}</code>
+                                                </li>
+                                            </ul>
+                                        </div>
                                     </v-alert>
                                 </v-card-text>
                                 <v-card-actions>

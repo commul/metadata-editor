@@ -234,8 +234,12 @@ Vue.component('datafile-import', {
         },
         importSummaryStatisticsQueueStatusCheck: async function(file_id,job_id){
             await this.sleep(this.sleep_time);
-            let result=await this.$store.dispatch('importDataFileSummaryStatisticsQueueStatusCheck',{file_id:file_id, job_id:job_id});            
-                                
+            let result=await this.$store.dispatch('importDataFileSummaryStatisticsQueueStatusCheck',{file_id:file_id, job_id:job_id});
+
+            if (result.data.job_status === 'failed' || result.data.job_status === 'error') {
+                const msg = result.data.message || (typeof result.data.detail === 'string' ? result.data.detail : '') || 'Job failed';
+                throw new Error(msg);
+            }
             if (result.data.job_status!=='done'){
                 return await this.importSummaryStatisticsQueueStatusCheck(file_id,job_id);
             }else if (result.data.job_status==='done'){
@@ -257,8 +261,12 @@ Vue.component('datafile-import', {
         },         
         generateCsvQueueStatusCheck: async function(file_id,job_id){
             await this.sleep(this.sleep_time);
-            let result=await this.$store.dispatch('generateCsvQueueStatusCheck',{file_id:file_id, job_id:job_id});            
+            let result=await this.$store.dispatch('generateCsvQueueStatusCheck',{file_id:file_id, job_id:job_id});
 
+            if (result.data.job_status === 'failed' || result.data.job_status === 'error') {
+                const msg = result.data.message || (typeof result.data.detail === 'string' ? result.data.detail : '') || 'Job failed';
+                throw new Error(msg);
+            }
             if (result.data.job_status!=='done'){
                 return await this.generateCsvQueueStatusCheck(file_id,job_id);
             }else if (result.data.job_status==='done'){

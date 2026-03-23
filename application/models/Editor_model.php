@@ -239,6 +239,9 @@ class Editor_model extends CI_Model {
 			'metafile', 'dirpath', 'thumbnail',
 			'varcount', 'published', 'is_shared', 'is_locked',
 			'created', 'changed', 'created_by', 'changed_by',
+			'created_utc', 'changed_utc',
+			'schema', 'schema_version',
+			'user_id',
 			'template_uid', 'version_number', 'version_created', 
 			'version_created_by', 'version_notes',
 			'attributes', 'metadata', 			
@@ -740,6 +743,12 @@ class Editor_model extends CI_Model {
 	{
 		$resolved_type = $this->resolve_canonical_type($type);
 		$schema_type = ($resolved_type !== false) ? $resolved_type : $type;
+
+		// Project metadata may include app-managed root keys; variable schema must not strip those names if present
+		if ($schema_type !== 'variable') {
+			$this->load->library('Project_validation');
+			$data = Project_validation::strip_application_managed_metadata_for_schema($data);
+		}
 		
 		// Get schema file path using schema registry (handles aliases and custom schemas)
 		try {

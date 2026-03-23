@@ -223,8 +223,9 @@ class DataUtils
 	 */
 	public function get_job_status($job_id)
 	{
+		$request_url = $this->DataApiUrl . 'jobs/' . $job_id;
 		$client = new Client([
-			'base_uri' => $this->DataApiUrl.'jobs/'.$job_id
+			'base_uri' => $request_url
 		]);
 
 		$api_response = $client->request('GET', '', [
@@ -232,16 +233,102 @@ class DataUtils
 			'http_errors' => false
 		]);
 
+		$status_code = $api_response->getStatusCode();
 		$body_raw = $api_response->getBody()->getContents();
 		$response = json_decode($body_raw, true);
 		if ($response === null && $body_raw !== '') {
 			$response = ['detail' => $body_raw];
 		}
+		if ($response === null) {
+			$response = [
+				'status' => 'failed',
+				'message' => 'Empty response from job service',
+			];
+		}
+		if (!is_array($response)) {
+			$response = [
+				'status' => 'failed',
+				'message' => is_string($response) ? $response : 'Invalid response from job service',
+			];
+		} else {
+			$this->normalize_fastapi_job_status_envelope($response, $status_code);
+		}
+
+		// Log FastAPI job payload for troubleshooting (crashes, empty job_status, shape mismatches).
+		// Enable logging in application/config/config.php, e.g. $config['log_threshold'] = 3; // info and above
+		$body_len = strlen($body_raw);
+		$max_log_bytes = 200000;
+		if ($body_len <= $max_log_bytes) {
+			$body_for_log = $body_raw;
+		} else {
+			$body_for_log = substr($body_raw, 0, $max_log_bytes) . "\n... [truncated for log, total " . $body_len . " bytes]";
+		}
+		log_message(
+			'info',
+			'DataUtils::get_job_status job_id=' . $job_id
+			. ' http_status=' . $status_code
+			. ' url=' . $request_url
+			. ' body_length=' . $body_len
+		);
+		log_message('info', 'DataUtils::get_job_status body_raw=' . $body_for_log);
+
 		return [
 			'response' => $response,
-			'status_code' => $api_response->getStatusCode()
+			'status_code' => $status_code
 		];
-	}	
+	}
+
+	/**
+	 * FastAPI may return error-shaped JSON (e.g. {"detail":"..."}) with HTTP 200 instead of a job envelope with "status".
+	 * Normalize so PHP callers always get a usable $response['status'] (e.g. failed) and $response['message'] when possible.
+	 *
+	 * @param array $response Decoded JSON body (by reference)
+	 * @param int   $http_status HTTP status from the job status request
+	 */
+	private function normalize_fastapi_job_status_envelope(array &$response, $http_status)
+	{
+		$has_status = isset($response['status']) && $response['status'] !== '' && $response['status'] !== null;
+		if ($has_status) {
+			return;
+		}
+
+		$should_fail = ($http_status !== 200)
+			|| isset($response['detail'])
+			|| (isset($response['message']) && !isset($response['data']));
+
+		if (!$should_fail) {
+			return;
+		}
+
+		$response['status'] = 'failed';
+		if (empty($response['message'])) {
+			$response['message'] = $this->fastapi_error_message_from_body($response, $http_status);
+		}
+	}
+
+	/**
+	 * @param array $response
+	 * @param int   $http_status
+	 * @return string
+	 */
+	private function fastapi_error_message_from_body(array $response, $http_status)
+	{
+		if (isset($response['detail'])) {
+			if (is_string($response['detail'])) {
+				return $response['detail'];
+			}
+			if (is_array($response['detail'])) {
+				return json_encode($response['detail']);
+			}
+		}
+		if (isset($response['message']) && is_string($response['message']) && $response['message'] !== '') {
+			return $response['message'];
+		}
+		if ($http_status !== 200) {
+			return 'Job service returned HTTP ' . (int) $http_status;
+		}
+		return 'Job failed';
+	}
 
 
 	public function generate_csv($datafile_path)

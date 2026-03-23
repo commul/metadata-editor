@@ -200,7 +200,11 @@ class ImportMicrodataJob implements JobHandlerInterface
             }
             
             if ($fastapi_status === 'failed' || $fastapi_status === 'error') {
-                $error_msg = isset($status_response['response']['message']) ? $status_response['response']['message'] : 'FastAPI job failed';
+                $body = isset($status_response['response']) && is_array($status_response['response'])
+                    ? $status_response['response'] : array();
+                $error_msg = isset($body['message']) && $body['message'] !== ''
+                    ? $body['message']
+                    : (isset($body['detail']) && is_string($body['detail']) ? $body['detail'] : 'FastAPI job failed');
                 throw new Exception("FastAPI job failed: {$error_msg}");
             }
             
