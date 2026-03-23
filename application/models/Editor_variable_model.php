@@ -628,15 +628,15 @@ class Editor_variable_model extends ci_model {
 			}
 		}
 
-		// var_wgt_id in metadata: must be integer UID; if non-numeric (e.g. VID string), unset so DB column is used on merge
+		// var_wgt_id in metadata: positive integer UID only; 0/"0" mean no weight (omit from metadata)
 		if (array_key_exists('var_wgt_id', $var_metadata)) {
 			$v = $var_metadata['var_wgt_id'];
-			if (is_numeric($v) && (int)$v >= 0) {
+			if (is_numeric($v) && (int)$v > 0) {
 				$var_metadata['var_wgt_id'] = (int)$v;
 			} else {
 				unset($var_metadata['var_wgt_id']);
 			}
-		}		
+		}
 	}
 
 	/**
@@ -890,13 +890,33 @@ class Editor_variable_model extends ci_model {
     }
 
 
-    function get_variable_core_fields($variable)
+    /**
+     * Extract core DB columns from variable metadata. Mutates $variable to keep var_wgt_id in metadata
+     * aligned with the editor rules: character variables cannot reference a weight; 0 / empty / "0" mean none.
+     *
+     * @param array $variable Metadata array (by reference)
+     * @return array Core fields for editor_variables row
+     */
+    function get_variable_core_fields(&$variable)
     {
         //fid,vid,name,labl,sort_order,user_missings,is_weight,field_dtype, field_format
         $missings=(array)array_data_get($variable,'var_invalrng.values','');
         $missings=implode(",",$missings);
         $dtype=array_data_get($variable,'var_format.type','');
         $interval_type=array_data_get($variable,'var_intrvl','');
+
+        $var_wgt_id_out = 0;
+        if ($dtype === 'character') {
+            unset($variable['var_wgt_id']);
+        } elseif (isset($variable['var_wgt_id'])) {
+            $raw = $variable['var_wgt_id'];
+            if ($raw !== '' && $raw !== null && is_numeric($raw) && (int)$raw > 0) {
+                $var_wgt_id_out = (int)$raw;
+                $variable['var_wgt_id'] = $var_wgt_id_out;
+            } else {
+                unset($variable['var_wgt_id']);
+            }
+        }
 
         $core_fields=array(
             'fid'=>$variable['fid'],
@@ -907,8 +927,8 @@ class Editor_variable_model extends ci_model {
             'is_weight'=> isset($variable['var_wgt']) ? (int)$variable['var_wgt'] : 0,
             'is_key'=> isset($variable['is_key']) ? (int)$variable['is_key'] : 0,
             'field_dtype'=>$dtype,
-            'interval_type'=>$interval_type
-            //'field_format'=>$variable['field_format'],
+            'interval_type'=>$interval_type,
+            'var_wgt_id'=>$var_wgt_id_out,
         );
 
         return $core_fields;

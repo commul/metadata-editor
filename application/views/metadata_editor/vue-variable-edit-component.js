@@ -53,8 +53,9 @@ Vue.component('variable-edit', {
             };            
         }
 
-        if (!this.variable.var_wgt_id){
-            this.variable.var_wgt_id=''
+        var _wid = this.variable.var_wgt_id;
+        if (_wid === 0 || _wid === '0' || _wid === null || _wid === undefined || _wid === '' || !(Number(_wid) > 0)) {
+            Vue.set(this.variable, 'var_wgt_id', '');
         }
 
         if (this.variable.var_wgt && Array.isArray(this.variable.var_wgt_id)){
@@ -209,11 +210,13 @@ Vue.component('variable-edit', {
             return categoriesCount + labelsCount;
         },
         isWeighted(){
-            if (this.Variable['var_wgt_id']){
-                return true;
-            }
-            return false;
-        },        
+            var w = this.Variable['var_wgt_id'];
+            return w !== undefined && w !== null && w !== '' && Number(w) > 0;
+        },
+        hasAssignedWeightVariable(){
+            var w = this.variable.var_wgt_id;
+            return w !== undefined && w !== null && w !== '' && Number(w) > 0;
+        },
         WeightedValidRangeCount(){
             let count=0;
             if (!this.Variable.var_catgry){
@@ -307,22 +310,19 @@ Vue.component('variable-edit', {
             return value.toFixed(decimals);
         },
         OnVariableWeightChange(e){
-            
-            if (e){
-                //check variable format type e.g. numeric, character
+            var idNum = (e === null || e === undefined || e === '') ? 0 : Number(e);
+            if (idNum > 0 && !isNaN(idNum)) {
                 if (this.variable.var_format && this.variable.var_format.type){
                     if (this.variable.var_format.type=='character'){
                         Vue.delete(this.variable, 'var_wgt_id');
-                        alert(this.$t('character_variable_cannot_be_weighted', {variable_name: this.variable.name}));                        
+                        alert(this.$t('character_variable_cannot_be_weighted', {variable_name: this.variable.name}));
                         return;
                     }
                 }
-
                 Vue.set(this.variable, 'var_wgt_id', e);
                 Vue.set(this.variable, 'update_required', true);
-            }
-            else{
-                Vue.delete(this.variable, 'var_wgt_id');                
+            } else {
+                Vue.delete(this.variable, 'var_wgt_id');
             }
         },
         sectionEnabled: function(section){
@@ -465,6 +465,9 @@ Vue.component('variable-edit', {
             if (option === 'wgt' && !value) {
                 Vue.set(this.Variable.sum_stats_options, 'mean_wgt', false);
                 Vue.set(this.Variable.sum_stats_options, 'stdev_wgt', false);
+                if (Object.prototype.hasOwnProperty.call(this.variable, 'var_wgt_id')) {
+                    Vue.delete(this.variable, 'var_wgt_id');
+                }
             }
             
             // Flag refresh stats only when a change requires re-running the data API:
@@ -483,7 +486,7 @@ Vue.component('variable-edit', {
             <v-tabs v-model="active_tab">
                 <v-tab key="statistics" href="#statistics">{{$t('statistics')}}</v-tab>
                 <v-tab key="weights" href="#weights">
-                    {{$t('weights')}} <span v-if="variable.var_wgt_id"><v-icon style="color:green;">mdi-circle-medium</v-icon></span></v-tab>
+                    {{$t('weights')}} <span v-if="hasAssignedWeightVariable"><v-icon style="color:green;">mdi-circle-medium</v-icon></span></v-tab>
                 <v-tab key="documentation" href="#documentation">{{$t('documentation')}}</v-tab>
                 <v-tab key="json" href="#json">{{$t('json')}}</v-tab>
 
@@ -617,7 +620,7 @@ Vue.component('variable-edit', {
                 <v-tab-item key="weights" value="weights">
                     <div class="p-3">
                         <variable-weights-component
-                            :key="variable.var_wgt_id" 
+                            :key="'vw-' + (variable.uid != null ? variable.uid : index_key)" 
                             v-model="variable.var_wgt_id"
                             @input="OnVariableWeightChange"
                             :variables="Variables">
