@@ -365,7 +365,7 @@ class Editor_datafile_model extends CI_Model {
 		}
 
 		if ($files['csv']['file_exists']){
-			$files['csv']['file_size']=format_bytes($files['csv']['filepath']);
+			$files['csv']['file_size']=format_bytes(filesize($files['csv']['filepath']));
 		}
 		
 		return $files;
