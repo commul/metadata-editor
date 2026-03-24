@@ -357,6 +357,121 @@ Vue.component('validation-report', {
             return path.replace(/\//g, '.');
         },
         /**
+         * True if value is null, undefined, empty plain object, or empty array.
+         */
+        isVacantMetadataSlot: function(value) {
+            if (value === null || value === undefined) {
+                return true;
+            }
+            if (typeof value !== 'object') {
+                return false;
+            }
+            if (Array.isArray(value)) {
+                return value.length === 0;
+            }
+            return Object.keys(value).length === 0;
+        },
+        /**
+         * Remove null, undefined, empty {}, and empty [] from an array in place (Vue 2–friendly).
+         */
+        pruneVacantArraySlots: function(arr) {
+            if (!Array.isArray(arr)) {
+                return 0;
+            }
+            let removed = 0;
+            for (let i = arr.length - 1; i >= 0; i--) {
+                if (this.isVacantMetadataSlot(arr[i])) {
+                    arr.splice(i, 1);
+                    removed++;
+                }
+            }
+            return removed;
+        },
+        /**
+         * After unset/splice on a JSON Pointer: compact arrays at each numeric index in the path, then remove
+         * empty {} ancestors. Arrays are chosen by prefix-before-numeric (e.g. /a/0/b/1 → compact /a and /a/0/b).
+         */
+        cleanupPathAfterExtraFieldRemoval: function(metadata, pointer) {
+            if (!metadata || !pointer) {
+                return;
+            }
+            const p = pointer.charAt(0) === '/' ? pointer : '/' + pointer;
+            const segs = p.replace(/^\//, '').split('/').filter(function (s) {
+                return s.length > 0;
+            });
+            if (segs.length === 0) {
+                return;
+            }
+            const vm = this;
+
+            function compactArraysOnPath() {
+                for (let i = 0; i < segs.length; i++) {
+                    if (!/^\d+$/.test(segs[i])) {
+                        continue;
+                    }
+                    const parentPath = '/' + segs.slice(0, i).join('/');
+                    const arr = vm.getValueByPath(metadata, parentPath);
+                    if (Array.isArray(arr)) {
+                        vm.pruneVacantArraySlots(arr);
+                    }
+                }
+            }
+
+            compactArraysOnPath();
+            compactArraysOnPath();
+
+            for (let d = segs.length - 2; d >= 0; d--) {
+                const nodePath = '/' + segs.slice(0, d + 1).join('/');
+                const node = vm.getValueByPath(metadata, nodePath);
+                if (node === null || node === undefined) {
+                    continue;
+                }
+                if (typeof node !== 'object' || Array.isArray(node)) {
+                    continue;
+                }
+                if (Object.keys(node).length > 0) {
+                    continue;
+                }
+
+                if (d === 0) {
+                    vm.$delete(metadata, segs[0]);
+                    break;
+                }
+                const parentPath = '/' + segs.slice(0, d).join('/');
+                const parent = vm.getValueByPath(metadata, parentPath);
+                const key = segs[d];
+                if (parent == null) {
+                    break;
+                }
+                if (Array.isArray(parent) && /^\d+$/.test(key)) {
+                    const idx = parseInt(key, 10);
+                    if (idx >= 0 && idx < parent.length) {
+                        parent.splice(idx, 1);
+                    }
+                } else if (typeof parent === 'object' && !Array.isArray(parent)) {
+                    vm.$delete(parent, key);
+                }
+                compactArraysOnPath();
+            }
+        },
+        /**
+         * Run path cleanup for each removed/moved extra field pointer.
+         */
+        cleanupAfterExtraFieldRemovals: function(metadata, pointers) {
+            if (!metadata || !pointers || pointers.length === 0) {
+                return;
+            }
+            const seen = {};
+            const vm = this;
+            pointers.forEach(function (ptr) {
+                if (!ptr || seen[ptr]) {
+                    return;
+                }
+                seen[ptr] = true;
+                vm.cleanupPathAfterExtraFieldRemoval(metadata, ptr);
+            });
+        },
+        /**
          * Get value from metadata using JSON Pointer path
          * @param {object} data Metadata object
          * @param {string} path JSON Pointer path
@@ -397,6 +512,38 @@ Vue.component('validation-report', {
             return current;
         },
         /**
+         * When the leaf is null/undefined (e.g. sparse array hole or explicit null after bad unset),
+         * remove that slot: splice for array index, $delete for object key. Returns true if something changed.
+         */
+        removeVacantSlotAtPointer: function(metadata, pointer) {
+            const p = pointer && (pointer.charAt(0) === '/' ? pointer : '/' + pointer);
+            if (!metadata || !p) {
+                return false;
+            }
+            const segs = p.replace(/^\//, '').split('/').filter(function (s) {
+                return s.length > 0;
+            });
+            if (segs.length === 0) {
+                return false;
+            }
+            const last = segs[segs.length - 1];
+            const parentPath = '/' + segs.slice(0, -1).join('/');
+            const parent = this.getValueByPath(metadata, parentPath);
+            if (Array.isArray(parent) && /^\d+$/.test(last)) {
+                const idx = parseInt(last, 10);
+                if (idx >= 0 && idx < parent.length) {
+                    parent.splice(idx, 1);
+                    return true;
+                }
+                return false;
+            }
+            if (parent && typeof parent === 'object' && !Array.isArray(parent) && Object.prototype.hasOwnProperty.call(parent, last)) {
+                this.$delete(parent, last);
+                return true;
+            }
+            return false;
+        },
+        /**
          * Create additional key from JSON Pointer path
          * @param {string} path JSON Pointer path
          * @returns {string} Dot notation key for additional section
@@ -433,6 +580,7 @@ Vue.component('validation-report', {
             const errors = [];
 
             try {
+                const removal_paths = [];
                 paths_to_process.forEach(function(path) {
                     try {
                         const value = vm.getValueByPath(metadata, path);
@@ -448,7 +596,11 @@ Vue.component('validation-report', {
 
                             const dot_path = vm.jsonPointerToDot(path);
                             _.unset(metadata, dot_path);
+                            removal_paths.push(path);
 
+                            moved_count++;
+                        } else if (vm.removeVacantSlotAtPointer(metadata, path)) {
+                            removal_paths.push(path);
                             moved_count++;
                         }
                     } catch(e) {
@@ -456,6 +608,7 @@ Vue.component('validation-report', {
                         errors.push({ path: path, error: e.message });
                     }
                 });
+                vm.cleanupAfterExtraFieldRemovals(metadata, removal_paths);
 
                 // Mark form as dirty
                 vm.markFormDirty();
@@ -470,11 +623,8 @@ Vue.component('validation-report', {
                 // Clear selection
                 vm.selected_extra_fields = [];
                 
-                // Show success message
                 if (errors.length > 0) {
                     vm.error = `Moved ${moved_count} field(s), but ${errors.length} error(s) occurred.`;
-                } else {
-                    console.log(`Successfully moved ${moved_count} field(s) to additional section. Changes will be saved when you save the project.`);
                 }
             } catch(e) {
                 console.error('Error in moveToAdditional:', e);
@@ -505,6 +655,7 @@ Vue.component('validation-report', {
             const errors = [];
 
             try {
+                const removed_paths = [];
                 paths.forEach(function(path) {
                     try {
                         const value = vm.getValueByPath(metadata, path);
@@ -512,6 +663,10 @@ Vue.component('validation-report', {
                         if (value !== null && value !== undefined) {
                             const dot_path = vm.jsonPointerToDot(path);
                             _.unset(metadata, dot_path);
+                            removed_paths.push(path);
+                            removed_count++;
+                        } else if (vm.removeVacantSlotAtPointer(metadata, path)) {
+                            removed_paths.push(path);
                             removed_count++;
                         }
                     } catch(e) {
@@ -519,6 +674,7 @@ Vue.component('validation-report', {
                         errors.push({ path: path, error: e.message });
                     }
                 });
+                vm.cleanupAfterExtraFieldRemovals(metadata, removed_paths);
 
                 // Mark form as dirty
                 vm.markFormDirty();
@@ -533,11 +689,8 @@ Vue.component('validation-report', {
                 // Clear selection
                 vm.selected_extra_fields = [];
                 
-                // Show success message
                 if (errors.length > 0) {
                     vm.error = `Removed ${removed_count} field(s), but ${errors.length} error(s) occurred.`;
-                } else {
-                    console.log(`Successfully removed ${removed_count} field(s). Changes will be saved when you save the project.`);
                 }
             } catch(e) {
                 console.error('Error in removeFields:', e);
