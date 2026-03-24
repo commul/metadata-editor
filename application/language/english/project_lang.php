@@ -116,7 +116,9 @@ $lang['or']="Or";
 $lang['choose_files']="Choose files";
 $lang['browse']="Browse";
 $lang['import_completed']="Import completed";
-
+$lang['data_import_preparing_upload']="Preparing upload…";
+$lang['data_import_saving_file']="Saving file to project…";
+$lang['data_import_file_progress']="File {current} of {total}";
 $lang['project']="Project";
 $lang['export_package_zip']="Export package (ZIP)";
 $lang['publish_to_nada']="Publish to NADA";

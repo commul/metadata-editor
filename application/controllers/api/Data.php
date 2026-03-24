@@ -65,10 +65,13 @@ class Data extends MY_REST_Controller
 
 
 	/**
-	 * 
-	 * upload data file
-	 * @file_type data
-	 * 
+	 * Upload data file (microdata).
+	 *
+	 * multipart/form-data:
+	 * - file: single-file upload (legacy), or
+	 * - upload_id: completed resumable upload from /api/uploads/* (with store_data, optional overwrite)
+	 * Do not send both file and upload_id.
+	 *
 	 **/ 
 	function datafile_post($sid=null)
 	{		
@@ -81,9 +84,16 @@ class Data extends MY_REST_Controller
 
 			$overwrite=$this->input->post("overwrite") ? (int)$this->input->post("overwrite") : 0;
 			$store_data=$this->input->post("store_data");
+			$upload_id_raw = $this->input->post("upload_id");
+			$upload_id = is_string($upload_id_raw) ? trim($upload_id_raw) : '';
 
 			if ($store_data !== "store" && $store_data !== "remove") {
 				throw new Exception("Invalid value for store_data. Valid values are 'store', 'remove'");
+			}
+
+			$has_file = isset($_FILES['file']['tmp_name']) && is_uploaded_file($_FILES['file']['tmp_name']);
+			if ($upload_id !== '' && $has_file) {
+				throw new Exception("Provide either a file upload or upload_id, not both.");
 			}
 
 			$this->editor_acl->user_has_project_access($sid,$permission='edit',$this->api_user());
@@ -91,7 +101,8 @@ class Data extends MY_REST_Controller
 				$sid,
 				$overwrite,
 				$store_data,
-				$this->get_api_user_id()
+				$this->get_api_user_id(),
+				$upload_id === '' ? null : $upload_id
 			);
 
 			$output=array(
@@ -119,7 +130,8 @@ class Data extends MY_REST_Controller
 	 * POST /api/data/import_microdata/{sid}
 	 * 
 	 * Accepts multipart/form-data with:
-	 *   - file: The data file to upload
+	 *   - file: The data file to upload, or
+	 *   - upload_id: completed resumable upload (do not send both)
 	 *   - overwrite: (optional) 0 or 1, default 0
 	 *   - store_data: (optional) "store" or "remove", default "store"
 	 * 
@@ -138,9 +150,14 @@ class Data extends MY_REST_Controller
 				throw new Exception("Project not found");
 			}
 
-			// Validate file upload exists
-			if (!isset($_FILES['file']) || !is_uploaded_file($_FILES['file']['tmp_name'])) {
-				throw new Exception("File upload is required");
+			$upload_id_raw = $this->input->post("upload_id");
+			$upload_id = is_string($upload_id_raw) ? trim($upload_id_raw) : '';
+			$has_file = isset($_FILES['file']['tmp_name']) && is_uploaded_file($_FILES['file']['tmp_name']);
+			if ($upload_id !== '' && $has_file) {
+				throw new Exception("Provide either a file upload or upload_id, not both.");
+			}
+			if ($upload_id === '' && !$has_file) {
+				throw new Exception("File upload is required, or provide upload_id after completing a chunked upload.");
 			}
 
 			$overwrite=$this->input->post("overwrite") ? (int)$this->input->post("overwrite") : 0;
@@ -156,12 +173,13 @@ class Data extends MY_REST_Controller
 
 			$this->editor_acl->user_has_project_access($sid,$permission='edit',$this->api_user());
 			
-			// Step 1: Upload file
+			// Step 1: Upload file (multipart or completed resumable upload)
 			$upload_result=$this->Editor_datafile_model->upload_create(
 				$sid,
 				$overwrite,
 				$store_data,
-				$this->get_api_user_id()
+				$this->get_api_user_id(),
+				$upload_id === '' ? null : $upload_id
 			);
 
 			if (empty($upload_result['file_id'])) {

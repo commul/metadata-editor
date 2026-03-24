@@ -124,7 +124,9 @@ $lang['or']="O";
 $lang['choose_files']="Elegir archivos";
 $lang['browse']="Examinar";
 $lang['import_completed']="Importación completada";
-
+$lang['data_import_preparing_upload']="Preparando la subida…";
+$lang['data_import_saving_file']="Guardando el archivo en el proyecto…";
+$lang['data_import_file_progress']="Archivo {current} de {total}";
 $lang['project']="Proyecto";
 $lang['export_package_zip']="Paquete de exportación (ZIP)";
 $lang['publish_to_nada']="Publicar en NADA";

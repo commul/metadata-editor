@@ -155,6 +155,7 @@
             echo $this->load->view("metadata_editor/vue-files-component.js",null,true);
             echo $this->load->view("metadata_editor/vue-external-resources-component.js",null,true);
             echo $this->load->view("metadata_editor/vue-external-resources-edit-component.js",null,true);
+            echo $this->load->view("metadata_editor/vue-resumable-chunk-uploader.js",null,true);
             echo $this->load->view("metadata_editor/vue-resumable-file-upload-component.js",null,true);
             echo $this->load->view("metadata_editor/vue-external-resources-create-component.js",null,true);
             echo $this->load->view("metadata_editor/vue-datafiles-component.js",null,true);

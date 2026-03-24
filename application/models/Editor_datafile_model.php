@@ -56,11 +56,42 @@ class Editor_datafile_model extends CI_Model {
 	/**
 	 * 
 	 * Create new data file by uploading a data file (csv, dta, sav)
+	 *
+	 * Provide either a standard multipart field `file` or a completed resumable `upload_id`, not both.
 	 * 
 	 */
-	function upload_create($sid,$overwrite=false, $store_data=null,$user_id=null)
+	function upload_create($sid,$overwrite=false, $store_data=null,$user_id=null,$upload_id=null)
 	{
-		$datafile_info=$this->check_uploaded_file_exists($sid);
+		$upload_id = ($upload_id !== null && $upload_id !== '') ? trim((string)$upload_id) : '';
+		$has_file = isset($_FILES['file']['tmp_name']) && is_uploaded_file($_FILES['file']['tmp_name']);
+
+		if ($upload_id !== '' && $has_file) {
+			throw new Exception("Provide either a file upload or upload_id, not both.");
+		}
+		if ($upload_id === '' && !$has_file) {
+			throw new Exception("File upload is required, or provide upload_id after completing a chunked upload.");
+		}
+
+		if ($upload_id !== '') {
+			$this->load->library('Resumable_upload', null, 'uploader');
+			$upload_info = $this->uploader->get_completed_upload($upload_id);
+			if (!$upload_info) {
+				throw new Exception("Resumable upload not found or not complete. Upload all chunks before registering the data file.");
+			}
+			// Must use sanitized `filename` (not original_filename): that is what move_resumable_upload
+			// stores on disk and what we persist as file_name. Using original broke duplicate detection
+			// when sanitize_filename() changed the basename (e.g. spaces → underscores).
+			$datafile_info = $this->data_file_by_name($sid, $this->filename_part($upload_info['filename']));
+			// Also match legacy rows created before that fix (file_name from original basename).
+			if (!$datafile_info && isset($upload_info['original_filename'])) {
+				$by_original = $this->data_file_by_name($sid, $this->filename_part($upload_info['original_filename']));
+				if ($by_original) {
+					$datafile_info = $by_original;
+				}
+			}
+		} else {
+			$datafile_info = $this->check_uploaded_file_exists($sid);
+		}
 
 		if ($overwrite==false && $datafile_info){
 			throw new Exception("Data file already exists. To overwrite, use the overwrite parameter.");
@@ -71,8 +102,11 @@ class Editor_datafile_model extends CI_Model {
 			$this->delete_physical_file($sid, $datafile_info['file_id']);
 		}
 
-		//upload file
-		$upload_result=$this->Editor_resource_model->upload_file($sid,$file_type='data',$file_field_name='file', $remove_spaces=false);
+		if ($upload_id !== '') {
+			$upload_result = $this->Editor_resource_model->move_resumable_upload($sid, 'data', $upload_id);
+		} else {
+			$upload_result = $this->Editor_resource_model->upload_file($sid,$file_type='data',$file_field_name='file', $remove_spaces=false);
+		}
 		$uploaded_file_name=$upload_result['file_name'];
 		$uploaded_path=$upload_result['full_path'];
 
