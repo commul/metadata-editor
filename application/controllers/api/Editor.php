@@ -480,25 +480,33 @@ class Editor extends MY_REST_Controller
 	 * 
 	 * 
 	 * Update project options
+	 *
 	 * set:
 	 * 	- template
 	 * 	- thumbnail
-	 * 	- created_by
-	 * 	- changed_by
-	 * 	- created
-	 * 	- changed
 	 * 	- idno
+	 *
 	 * 
 	 */
 	function options_post($sid=null)
 	{
 		try{
 			$options=$this->raw_json_input();
+			if (!is_array($options)){
+				$options=array();
+			}
 			$user_id=$this->get_api_user_id();
 			$sid=$this->get_sid($sid);
 
-			$options['created_by']=$user_id;
+			if (isset($options['created_by'])){
+				unset($options['created_by']);
+			}
+			if (isset($options['created'])){
+				unset($options['created']);
+			}
+
 			$options['changed_by']=$user_id;
+			$options['changed']=date("U");
 			$options['sid']=$sid;
 
 			// ADMIN access is required to set project template, other options require edit access
