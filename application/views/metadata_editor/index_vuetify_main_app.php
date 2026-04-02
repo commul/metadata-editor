@@ -163,6 +163,8 @@
             echo $this->load->view("metadata_editor/vue-datafile-component.js",null,true);
             echo $this->load->view("metadata_editor/vue-datafile-import-component.js",null,true);
             echo $this->load->view("metadata_editor/vue-datafile-data-explorer-component.js",null,true);
+            echo $this->load->view("metadata_editor/vue-indicator-timeseries-data-explorer-component.js",null,true);
+            echo $this->load->view("metadata_editor/vue-data-explorer-host-component.js",null,true);
             echo $this->load->view("metadata_editor/vue-dialog-datafile-export-component.js",null,true);
             echo $this->load->view("metadata_editor/vue-dialog-batch-export-component.js",null,true);
             echo $this->load->view("metadata_editor/vue-dialog-batch-sum-stats-options-component.js",null,true);
@@ -269,7 +271,7 @@
         let user_has_edit_access=<?php echo $user_has_edit_access ? 'true' : 'false';?>;
 
         // DSD features
-        var dsd_temporary_features_enabled = false;
+        var dsd_temporary_features_enabled = true;
 
         //Define route components
         const main = {props:['element_id'],template: '<div><form-main/></div>' }
@@ -283,7 +285,7 @@
         const Datafiles ={template: '<div><datafiles/></div>'}
         const Datafile = {props: ['file_id'],template: '<div><datafile/></div>' }
         const DatafileEdit=VueDatafileEdit;
-        const DatafileExplorer = {props: ['file_id'],template: '<div><datafile-data-explorer/></div>' }
+        const DatafileExplorer = {props: ['file_id'],template: '<div><data-explorer-host :file_id="file_id" /></div>' }
         const DatafileImport = {template: '<div><datafile-import/></div>' }
         const Variables ={props: ['file_id'],template: '<div><variables/></div>'}
         const VariableGroups ={template: '<div><variable-groups /> </div>'}
