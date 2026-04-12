@@ -1062,7 +1062,8 @@ html {
 
 
 /* project search box */
-.v-text-field__slot label{
+.v-text-field__slot label,
+.v-select__slot label {
     font-size: 14px;
     font-weight: normal;
 }
@@ -1228,8 +1229,73 @@ tr .action-buttons-hover {
     line-height: 22px !important;
   }
 
-  .custom-xs .v-input__prepend-inner{
+  .custom-xs .v-input__prepend-inner {
     margin-top: 2px !important;
+  }
+
+  /* filter-input-sm: compact outlined input at 32px height */
+  .filter-input-sm.v-input.v-input--dense.v-text-field.v-text-field--outlined {
+    min-height: 24px !important;
+    height: 24px !important;
+    font-size: 0.8125rem;
+  }
+
+  .filter-input-sm.v-input .v-input__slot {
+    min-height: 24px !important;
+    height: 24px !important;
+    padding: 0 6px !important;
+  }
+
+  .filter-input-sm.v-input input {
+    height: 22px !important;
+    line-height: 22px !important;
+    font-size: 0.8125rem !important;
+    padding: 0 !important;
+  }
+
+  .filter-input-sm.v-input fieldset {
+    top: 0 !important;
+    min-height: 24px !important;
+  }
+
+  .filter-input-sm.v-input .v-input__append-inner {
+    margin-top: 1px !important;
+    padding-left: 0 !important;
+  }
+
+  .filter-input-sm.v-input .v-input__icon {
+    min-width: 18px !important;
+    width: 18px !important;
+  }
+
+  .filter-input-sm.v-input .v-input__icon i {
+    font-size: 16px !important;
+  }
+
+  /* label positioning for custom-xs outlined inputs */
+  .custom-xs.v-input .v-label {
+    font-size: 0.75rem !important;
+    top: 4px !important;
+  }
+
+  .custom-xs.v-input .v-label--active {
+    top: 0 !important;
+    transform: translateY(-12px) scale(0.75) !important;
+  }
+
+  /* append icons (dropdown arrow, clear) */
+  .custom-xs.v-input .v-input__icon {
+    min-width: 18px !important;
+    width: 18px !important;
+  }
+
+  .custom-xs.v-input .v-input__icon i {
+    font-size: 16px !important;
+  }
+
+  .custom-xs.v-input .v-input__append-inner {
+    margin-top: 2px !important;
+    padding-left: 0 !important;
   }
 
   .font-weight-normal .label,

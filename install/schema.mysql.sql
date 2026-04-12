@@ -915,6 +915,39 @@ CREATE TABLE `project_tags` (
   KEY `idx_tag_id` (`tag_id`)
 ) DEFAULT CHARSET=utf8mb4;
 
+-- Local codelists (see install/schema-local-codelists.sql); field_id = owning row id in app (e.g. indicator_dsd.id)
+CREATE TABLE `local_codelists` (
+  `id` BIGINT NOT NULL AUTO_INCREMENT,
+  `sid` INT NOT NULL,
+  `field_id` BIGINT NOT NULL,
+  `name` VARCHAR(255) NULL,
+  `description` TEXT NULL,
+  `created_at` TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `changed_at` TIMESTAMP NULL DEFAULT NULL ON UPDATE CURRENT_TIMESTAMP,
+  `created_by` INT NULL,
+  `changed_by` INT NULL,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uq_local_codelist_sid_field` (`sid`, `field_id`),
+  KEY `idx_sid` (`sid`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE `local_codelist_items` (
+  `id` BIGINT NOT NULL AUTO_INCREMENT,
+  `local_codelist_id` BIGINT NOT NULL,
+  `code` VARCHAR(150) NOT NULL,
+  `label` TEXT NOT NULL,
+  `sort_order` INT NOT NULL DEFAULT 0,
+  `created_at` TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `changed_at` TIMESTAMP NULL DEFAULT NULL ON UPDATE CURRENT_TIMESTAMP,
+  `created_by` INT NULL,
+  `changed_by` INT NULL,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uq_item_code_per_list` (`local_codelist_id`, `code`),
+  KEY `idx_list_sort` (`local_codelist_id`, `sort_order`, `id`),
+  CONSTRAINT `fk_local_codelist_items_list`
+    FOREIGN KEY (`local_codelist_id`) REFERENCES `local_codelists` (`id`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
 CREATE TABLE `indicator_dsd` (
   `id` int NOT NULL AUTO_INCREMENT,
   `sid` int NOT NULL,
@@ -927,14 +960,22 @@ CREATE TABLE `indicator_dsd` (
   `code_list` json DEFAULT NULL,
   `code_list_reference` json DEFAULT NULL,
   `metadata` json DEFAULT NULL,
+  `sum_stats` json DEFAULT NULL COMMENT 'Column profile from DuckDB: row_count, non_null_count, null_count, distinct_count, freq (max 100); missing = NULL/trim empty',
+  `codelist_type` enum('none','global','local') NOT NULL DEFAULT 'none',
+  `global_codelist_id` bigint NULL DEFAULT NULL COMMENT 'Registry codelists.id when codelist_type=global',
+  `local_codelist_id` bigint NULL DEFAULT NULL,
   `sort_order` int DEFAULT '0',
   `created` int DEFAULT NULL,
   `changed` int DEFAULT NULL,
   `created_by` int DEFAULT NULL,
   `changed_by` int DEFAULT NULL,
-  PRIMARY KEY (`id`),  
+  PRIMARY KEY (`id`),
   KEY `idx_sid_column_type` (`sid`, `column_type`),
-  KEY `idx_sid_sort_order` (`sid`, `sort_order`)
+  KEY `idx_sid_sort_order` (`sid`, `sort_order`),
+  KEY `idx_local_codelist` (`local_codelist_id`),
+  KEY `idx_indicator_dsd_global_codelist` (`global_codelist_id`),
+  CONSTRAINT `fk_indicator_dsd_local_codelist`
+    FOREIGN KEY (`local_codelist_id`) REFERENCES `local_codelists` (`id`) ON DELETE SET NULL
 ) ENGINE=InnoDB AUTO_INCREMENT=1 DEFAULT CHARSET=utf8mb4;
 
 

@@ -248,6 +248,8 @@
             echo $this->load->view("metadata_editor/vue-geospatial-feature-description-component.js",null,true);
 
             echo $this->load->view("metadata_editor/vue-indicator-dsd-component.js",null,true);
+            echo $this->load->view("metadata_editor/vue-indicator-dsd-local-codelist-grid-component.js",null,true);
+            echo $this->load->view("metadata_editor/vue-indicator-dsd-global-codelist-preview-component.js",null,true);
             echo $this->load->view("metadata_editor/vue-indicator-dsd-edit-component.js",null,true);
             echo $this->load->view("metadata_editor/vue-indicator-dsd-import-component.js",null,true);
             echo $this->load->view("metadata_editor/vue-indicator-dsd-chart-component.js",null,true);

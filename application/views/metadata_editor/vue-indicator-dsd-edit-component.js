@@ -1,6 +1,35 @@
 // Indicator DSD edit form component
 Vue.component('indicator-dsd-edit', {
-    props: ['column', 'index_key'],
+    props: {
+        column: { type: Object, required: true },
+        /** Project sid for /api/local_codelists/... */
+        projectSid: { type: [Number, String], required: true },
+        index_key: { default: null },
+        dictionaries: {
+            type: Object,
+            default: function() {
+                return { time_period_formats: [], freq_codes: [] };
+            }
+        },
+        /** All DSD columns for this project (detect FREQ / periodicity row). */
+        allColumns: {
+            type: Array,
+            default: function() {
+                return [];
+            }
+        },
+        /** Global codelists list fetched once by the parent component. */
+        globalCodelistsList: {
+            type: Array,
+            default: function() {
+                return [];
+            }
+        },
+        globalCodelistsLoading: {
+            type: Boolean,
+            default: false
+        }
+    },
     data: function() {
         return {
             data_types: {
@@ -23,35 +52,13 @@ Vue.component('indicator-dsd-edit', {
                 "observation_value": this.$t("observation_value") || "Observation Value",
                 "periodicity": this.$t("periodicity") || "Periodicity"
             },
-            time_period_formats: {
-                "YYYY": "YYYY",
-                "YYYY-MM": "YYYY-MM",
-                "YYYY-MM-DD": "YYYY-MM-DD",
-                "YYYY-MM-DDTHH:MM:SS": "YYYY-MM-DDTHH:MM:SS",
-                "YYYY-MM-DDTHH:MM:SSZ": "YYYY-MM-DDTHH:MM:SSZ"
-            },
-            code_list_template: [
-                {
-                    "key": "code",
-                    "title": this.$t("code") || "Code",
-                    "type": "text"
-                },
-                {
-                    "key": "label",
-                    "title": this.$t("label") || "Label",
-                    "type": "text"
-                },
-                /*
-                {
-                    "key": "description",
-                    "title": this.$t("description") || "Description",
-                    "type": "textarea"
-                }*/
-            ]
+            /** Display label when global_codelist_id is not in the first page of /api/codelists. */
+            linkedGlobalDisplayName: '',
+            globalResolveLoading: false,
+            globalResolveSeq: 0
         }
     },
     created: function() {
-        // Initialize code_list if not present
         if (!this.column.code_list) {
             Vue.set(this.column, 'code_list', []);
         }
@@ -71,9 +78,36 @@ Vue.component('indicator-dsd-edit', {
         if (!this.column.metadata) {
             Vue.set(this.column, 'metadata', {});
         }
-        if (!this.column.metadata.hasOwnProperty('value_label_column')) {
+        var _ctInit = this.column.column_type;
+        if (_ctInit === 'time_period' || _ctInit === 'observation_value') {
+            if (this.column.metadata.hasOwnProperty('value_label_column')) {
+                Vue.delete(this.column.metadata, 'value_label_column');
+            }
+            var selfInit = this;
+            this.$nextTick(function() {
+                selfInit.OnValueUpdate();
+            });
+        } else if (!this.column.metadata.hasOwnProperty('value_label_column')) {
             Vue.set(this.column.metadata, 'value_label_column', this.column.metadata.value_label_column || '');
         }
+        if (!this.column.metadata.hasOwnProperty('freq')) {
+            Vue.set(this.column.metadata, 'freq', '');
+        }
+        var legacyFreq = this.column.metadata.import_freq_code;
+        if (legacyFreq != null && legacyFreq !== '' && (!this.column.metadata.freq || String(this.column.metadata.freq).trim() === '')) {
+            Vue.set(this.column.metadata, 'freq', String(legacyFreq));
+        }
+        if (this.column.metadata.hasOwnProperty('import_freq_code')) {
+            Vue.delete(this.column.metadata, 'import_freq_code');
+        }
+        this.initSdmxAttributeFields();
+        if (!this.column.codelist_type) {
+            Vue.set(this.column, 'codelist_type', 'none');
+        }
+        if (this.column.global_codelist_id === undefined) {
+            Vue.set(this.column, 'global_codelist_id', null);
+        }
+        this.resolveLinkedGlobalCodelist();
     },
     watch: {
         column: {
@@ -81,6 +115,15 @@ Vue.component('indicator-dsd-edit', {
                 this.$emit('input', newVal);
             },
             deep: true
+        },
+        'column.codelist_type': function() {
+            this.resolveLinkedGlobalCodelist();
+        },
+        'column.global_codelist_id': function() {
+            this.resolveLinkedGlobalCodelist();
+        },
+        'column.id': function() {
+            this.resolveLinkedGlobalCodelist();
         }
     },
     methods: {
@@ -91,7 +134,8 @@ Vue.component('indicator-dsd-edit', {
             });
         },
         onValueLabelColumnInput: function(value) {
-            var val = value == null ? '' : String(value);
+            var raw = value == null ? '' : String(value);
+            var val = raw ? raw.toUpperCase() : '';
             if (!this.column.metadata) {
                 Vue.set(this.column, 'metadata', {});
             }
@@ -103,18 +147,6 @@ Vue.component('indicator-dsd-edit', {
                 self.$emit('input', self.column);
             });
         },
-        onCodeListInput: function(newList) {
-            var list = newList && Array.isArray(newList) ? newList : [];
-            var normalized = list.map(function(row) {
-                return {
-                    code: row && row.code != null ? row.code : '',
-                    label: row && row.label != null ? row.label : '',
-                    description: row && row.description != null ? row.description : ''
-                };
-            });
-            Vue.set(this.column, 'code_list', normalized);
-            this.OnValueUpdate();
-        },
         clearCodeListReference: function() {
             Vue.set(this.column, 'code_list_reference', {
                 id: '',
@@ -124,25 +156,295 @@ Vue.component('indicator-dsd-edit', {
                 note: ''
             });
             this.OnValueUpdate();
+        },
+        /** Resolve display name for column.global_codelist_id (registry PK). */
+        resolveLinkedGlobalCodelist: function() {
+            var vm = this;
+            var seq = ++vm.globalResolveSeq;
+            if (vm.column.codelist_type !== 'global') {
+                vm.linkedGlobalDisplayName = '';
+                vm.globalResolveLoading = false;
+                return;
+            }
+            var pkRaw = vm.column.global_codelist_id;
+            var pk = pkRaw != null && pkRaw !== '' ? parseInt(pkRaw, 10) : NaN;
+            if (isNaN(pk) || pk <= 0) {
+                vm.linkedGlobalDisplayName = '';
+                vm.globalResolveLoading = false;
+                return;
+            }
+            vm.globalResolveLoading = true;
+            var row = (vm.globalCodelistsList || []).find(function(x) {
+                return String(x.id) === String(pk);
+            });
+            if (row) {
+                vm.linkedGlobalDisplayName = (row.name && String(row.name).trim() !== '')
+                    ? String(row.name).trim()
+                    : (String(row.agency || '') + ':' + String(row.codelist_id || ''));
+                if (seq === vm.globalResolveSeq) {
+                    vm.globalResolveLoading = false;
+                }
+                return;
+            }
+            axios.get(CI.base_url + '/api/codelists/single/' + pk)
+                .then(function(res) {
+                    if (seq !== vm.globalResolveSeq) {
+                        return;
+                    }
+                    var data = res.data || {};
+                    var cl = data.codelist;
+                    if (cl && cl.id != null) {
+                        vm.linkedGlobalDisplayName = (cl.name && String(cl.name).trim() !== '')
+                            ? String(cl.name).trim()
+                            : (String(cl.agency || '') + ':' + String(cl.codelist_id || ''));
+                    } else {
+                        vm.linkedGlobalDisplayName = '';
+                    }
+                })
+                .catch(function() {
+                    if (seq !== vm.globalResolveSeq) {
+                        return;
+                    }
+                    vm.linkedGlobalDisplayName = '';
+                })
+                .then(function() {
+                    if (seq === vm.globalResolveSeq) {
+                        vm.globalResolveLoading = false;
+                    }
+                });
+        },
+        metaSelectValue: function(key) {
+            var v = this.column.metadata && this.column.metadata[key];
+            return v == null || v === '' ? '' : String(v);
+        },
+        setMetaInt: function(key, raw) {
+            if (!this.column.metadata) {
+                Vue.set(this.column, 'metadata', {});
+            }
+            var v = raw === '' || raw === null ? null : parseInt(raw, 10);
+            if (v === null || isNaN(v)) {
+                Vue.delete(this.column.metadata, key);
+            } else {
+                Vue.set(this.column.metadata, key, v);
+            }
+            this.OnValueUpdate();
+        },
+        setMetaString: function(key, raw) {
+            if (!this.column.metadata) {
+                Vue.set(this.column, 'metadata', {});
+            }
+            var v = raw === '' || raw === null ? '' : String(raw).trim();
+            if (v === '') {
+                Vue.delete(this.column.metadata, key);
+            } else {
+                Vue.set(this.column.metadata, key, v);
+            }
+            this.OnValueUpdate();
+        },
+        validateColumnName: function() {
+            var n = this.column.name != null ? String(this.column.name) : '';
+            if (n.length > 0 && n.charAt(0) === '_') {
+                if (typeof EventBus !== 'undefined' && EventBus.$emit) {
+                    EventBus.$emit('onFail', this.$t('dsd_name_reserved_underscore') || 'Column names cannot start with underscore (_); reserved for system fields.');
+                }
+            }
+        },
+        stripValueLabelColumnForDisallowedTypes: function() {
+            var t = this.column.column_type;
+            if (t !== 'time_period' && t !== 'observation_value') {
+                return;
+            }
+            if (!this.column.metadata) {
+                Vue.set(this.column, 'metadata', {});
+            }
+            if (this.column.metadata.hasOwnProperty('value_label_column')) {
+                Vue.delete(this.column.metadata, 'value_label_column');
+            }
+        },
+        onColumnTypeChange: function() {
+            this.stripValueLabelColumnForDisallowedTypes();
+            this.initSdmxAttributeFields();
+            this.OnValueUpdate();
+        },
+        initSdmxAttributeFields: function() {
+            if (!this.column.metadata) {
+                Vue.set(this.column, 'metadata', {});
+            }
+        },
+        onCodelistTypeChange: function(ev) {
+            var val = ev && ev.target ? String(ev.target.value) : String(ev);
+            Vue.set(this.column, 'codelist_type', val);
+            if (val !== 'global') {
+                Vue.set(this.column, 'global_codelist_id', null);
+                this.linkedGlobalDisplayName = '';
+            }
+            this.OnValueUpdate();
+        },
+        globalDimensionCodelistSelectValue: function() {
+            var g = this.column.global_codelist_id;
+            var gNum = g != null && g !== '' ? parseInt(g, 10) : NaN;
+            if (!isNaN(gNum) && gNum > 0) {
+                return String(gNum);
+            }
+            return '';
+        },
+        onGlobalDimensionCodelistChange: function(raw) {
+            if (!raw) {
+                Vue.set(this.column, 'global_codelist_id', null);
+                this.linkedGlobalDisplayName = '';
+                this.OnValueUpdate();
+                return;
+            }
+            var cl = (this.globalCodelistsList || []).find(function(x) { return String(x.id) === String(raw); });
+            if (cl) {
+                var idNum = parseInt(cl.id, 10);
+                Vue.set(this.column, 'global_codelist_id', (!isNaN(idNum) && idNum > 0) ? idNum : null);
+                this.linkedGlobalDisplayName = (cl.name && String(cl.name).trim() !== '')
+                    ? String(cl.name).trim()
+                    : String(cl.agency || '') + ':' + String(cl.codelist_id || '');
+            }
+            this.OnValueUpdate();
+        },
+        onLocalCodelistListId: function(id) {
+            Vue.set(this.column, 'local_codelist_id', id);
+            this.OnValueUpdate();
         }
     },
     computed: {
-        showTimePeriodFormat: function() {
-            return this.column.column_type === 'time_period';
-        },
-        showCodeList: function() {
-            return true; //show for all types
-            // Show code list for dimensions and other column types that might use codes
-            //return ['dimension', 'attribute', 'geography'].includes(this.column.column_type);
-        },
-        codeListColumns: function() {
-            var cols = this.code_list_template.slice();
-            var codeCol = cols.find(function(c) { return c.key === 'code'; });
-            if (codeCol) {
-                codeCol = Object.assign({}, codeCol, { is_unique: true });
-                cols = cols.map(function(c) { return c.key === 'code' ? codeCol : c; });
+        /** First DSD row typed as periodicity (FREQ from file). */
+        freqColumnRow: function() {
+            var cols = this.allColumns || [];
+            for (var i = 0; i < cols.length; i++) {
+                var c = cols[i];
+                if (c && c.column_type === 'periodicity' && c.name && String(c.name).trim() !== '') {
+                    return c;
+                }
             }
-            return cols;
+            return null;
+        },
+        projectHasFreqColumn: function() {
+            return this.freqColumnRow != null;
+        },
+        freqColumnDisplayName: function() {
+            return this.freqColumnRow ? String(this.freqColumnRow.name) : '';
+        },
+        timePeriodFormatOptions: function() {
+            var d = this.dictionaries && this.dictionaries.time_period_formats;
+            return Array.isArray(d) ? d : [];
+        },
+        freqCodeOptions: function() {
+            var d = this.dictionaries && this.dictionaries.freq_codes;
+            return Array.isArray(d) ? d : [];
+        },
+        /** True when global type and a registry codelist PK is set. */
+        columnHasGlobalCodelistIdentity: function() {
+            if (!this.column || this.column.codelist_type !== 'global') {
+                return false;
+            }
+            var g = this.column.global_codelist_id;
+            var gNum = g != null && g !== '' ? parseInt(g, 10) : NaN;
+            return !isNaN(gNum) && gNum > 0;
+        },
+        /** Registry PK for code preview. */
+        effectiveGlobalRegistryPk: function() {
+            var g = this.column && this.column.global_codelist_id;
+            var gNum = g != null && g !== '' ? parseInt(g, 10) : NaN;
+            return !isNaN(gNum) && gNum > 0 ? gNum : null;
+        },
+        /** Whether the resolved registry id appears in the picker list (first page). */
+        globalCodelistPickerIncludesLinked: function() {
+            var id = this.effectiveGlobalRegistryPk;
+            if (!id) {
+                return true;
+            }
+            var list = this.globalCodelistsList || [];
+            return list.some(function(cl) {
+                return String(cl.id) === String(id);
+            });
+        },
+        /** Published-data profile from indicator_dsd.sum_stats (DuckDB). */
+        hasSumStatsPayload: function() {
+            var s = this.column && this.column.sum_stats;
+            return s != null && typeof s === 'object' && Object.keys(s).length > 0;
+        },
+        sumStatsComputeFailed: function() {
+            var s = this.column && this.column.sum_stats;
+            return !!(s && s.compute && s.compute.ok === false);
+        },
+        sumStatsComputeMessage: function() {
+            var s = this.column && this.column.sum_stats;
+            if (!s || !s.compute || s.compute.ok !== false) {
+                return '';
+            }
+            return (s.compute.message || s.compute.error_code || '') || (this.$t('sum_stats_unavailable') || 'Statistics unavailable');
+        },
+        sumStatsDataField: function() {
+            var s = this.column && this.column.sum_stats;
+            if (s && s.field) {
+                return String(s.field);
+            }
+            return this.column && this.column.name != null ? String(this.column.name) : '';
+        },
+        sumStatsFreqRows: function() {
+            var s = this.column && this.column.sum_stats;
+            if (!s || !Array.isArray(s.freq)) {
+                return [];
+            }
+            return s.freq;
+        },
+        showValueLabelColumnField: function() {
+            var t = this.column.column_type;
+            return t !== 'time_period' && t !== 'observation_value';
+        },
+        /** DSD columns typed as attribute (for value label source); excludes the row being edited. */
+        valueLabelAttributeOptions: function() {
+            var cols = this.allColumns || [];
+            var cur = this.column;
+            var currentId = cur && cur.id != null ? cur.id : null;
+            var currentName = cur && cur.name != null ? String(cur.name).trim() : '';
+            var out = [];
+            for (var i = 0; i < cols.length; i++) {
+                var c = cols[i];
+                if (!c || c.column_type !== 'attribute') {
+                    continue;
+                }
+                var n = c.name != null ? String(c.name).trim() : '';
+                if (!n) {
+                    continue;
+                }
+                if (currentId != null && c.id != null && String(c.id) === String(currentId)) {
+                    continue;
+                }
+                if (currentId == null && currentName && n === currentName) {
+                    continue;
+                }
+                var lab = (c.label != null && String(c.label).trim() !== '') ? String(c.label).trim() : n;
+                out.push({ name: n, label: lab });
+            }
+            out.sort(function(a, b) {
+                return a.name.localeCompare(b.name);
+            });
+            return out;
+        },
+        valueLabelColumnSelectValue: function() {
+            var v = this.column && this.column.metadata && this.column.metadata.value_label_column;
+            // Normalize to uppercase so the value always matches DSD column names (which are uppercase).
+            return v == null || v === '' ? '' : String(v).toUpperCase();
+        },
+        /** Saved value_label_column that does not match any attribute name (legacy or typo). */
+        valueLabelOrphanName: function() {
+            var v = this.valueLabelColumnSelectValue;
+            if (!v) {
+                return '';
+            }
+            var vUpper = v.toUpperCase();
+            var opts = this.valueLabelAttributeOptions;
+            for (var i = 0; i < opts.length; i++) {
+                if (opts[i].name.toUpperCase() === vUpper) {
+                    return '';
+                }
+            }
+            return v;
         }
     },
     template: `
@@ -158,6 +460,7 @@ Vue.component('indicator-dsd-edit', {
                             class="form-control form-control-sm" 
                             v-model="column.name" 
                             @input="OnValueUpdate"
+                            @blur="validateColumnName"
                             :pattern="'^[a-zA-Z0-9_]*$'"
                             maxlength="100"
                             required
@@ -207,7 +510,7 @@ Vue.component('indicator-dsd-edit', {
                         <label>{{$t("column_type") || "Column Type"}} <span class="text-danger">*</span></label>
                         <select 
                             v-model="column.column_type" 
-                            @change="OnValueUpdate"
+                            @change="onColumnTypeChange"
                             class="form-control form-control-sm form-field-dropdown"
                             required
                         >
@@ -218,113 +521,231 @@ Vue.component('indicator-dsd-edit', {
                         </select>
                     </div>
 
-                    <!-- Value label column (CSV/data column used for value labels, e.g. for dimensions) -->
-                    <div class="form-group form-field">
-                        <label>{{$t("value_label_column") || "Value label column"}}</label>
-                        <input 
-                            type="text" 
-                            class="form-control form-control-sm" 
-                            :value="(column.metadata && column.metadata.value_label_column) || ''"
-                            @input="onValueLabelColumnInput($event.target.value)"
-                            @blur="OnValueUpdate"
-                            :placeholder="$t('value_label_column_placeholder') || 'CSV column name for labels'"
-                        />
-                        <small class="form-text text-muted">{{$t("value_label_column_hint") || "Optional: column name in the data file that holds labels for this field (used for value_labels)"}}</small>
-                    </div>
+                    <!-- Periodicity (FREQ column): inline help after column type -->
+                    <template v-if="column.column_type === 'periodicity'">
+                        <p class="text-muted small mb-2">
+                            {{$t('dsd_freq_column_intro') || 'This field type marks the CSV column that contains SDMX FREQ codes (e.g. A, M, Q) per row. Pair it with a Time period column: you do not set a global time period format on the time row when this column exists.'}}
+                        </p>
+                        <details class="mb-3" v-if="freqCodeOptions.length">
+                            <summary class="small" style="cursor:pointer;">{{$t('dsd_freq_code_reference') || 'FREQ codes (reference from config)'}}</summary>
+                            <ul class="small text-muted pl-3 mb-0 mt-1" style="max-height: 12rem; overflow-y: auto;">
+                                <li v-for="f in freqCodeOptions" :key="'ref-' + f.code"><code>{{ f.code }}</code> — {{ f.label }}</li>
+                            </ul>
+                            <small class="form-text text-muted d-block mt-1">{{$t('dsd_freq_codes_hint') || 'Map CSV values to these SDMX FREQ codes.'}}</small>
+                        </details>
+                    </template>
 
-                    <!-- Time Period Format (only for time_period column type) -->
-                    <div class="form-group form-field" v-if="showTimePeriodFormat">
-                        <label>{{$t("time_period_format") || "Time Period Format"}}</label>
-                        <select 
-                            v-model="column.time_period_format" 
-                            @change="OnValueUpdate"
+                    <!-- Time period: format + constant FREQ right after column type -->
+                    <template v-else-if="column.column_type === 'time_period'">
+                        <div v-if="projectHasFreqColumn" class="alert alert-info py-2 small mb-3" role="alert">
+                            <strong>{{$t('dsd_time_mode_freq_from_data') || 'FREQ from data'}}</strong>
+                            — {{$t('dsd_time_mode_freq_from_data_body') || 'A FREQ column is defined in this DSD:'}}
+                            <code class="mx-1">{{ freqColumnDisplayName }}</code>.
+                            {{$t('dsd_time_mode_freq_from_data_tail') || 'Frequency comes from that column; time period values are interpreted using platform rules per FREQ. You do not need a separate time period format here.'}}
+                        </div>
+                        <template v-else>
+                            <div class="form-group form-field">
+                                <label>{{$t("time_period_format") || "Time period format"}} <span class="text-danger">*</span></label>
+                                <select
+                                    v-model="column.time_period_format"
+                                    @change="OnValueUpdate"
+                                    class="form-control form-control-sm form-field-dropdown"
+                                >
+                                    <option value="">-</option>
+                                    <option v-for="row in timePeriodFormatOptions" :key="row.code" :value="row.code">
+                                        {{ row.label }} ({{ row.code }})
+                                    </option>
+                                </select>
+                                <small class="form-text text-muted">{{$t('dsd_time_format_required_help') || 'Required when there is no FREQ column (e.g. YYYY, YYYY-MM).'}}</small>
+                            </div>
+                            <div class="form-group form-field">
+                                <label>{{$t('dsd_constant_series_freq') || 'Series frequency (FREQ)'}} <span class="text-danger">*</span></label>
+                                <select
+                                    class="form-control form-control-sm form-field-dropdown"
+                                    :value="metaSelectValue('freq')"
+                                    @change="setMetaString('freq', $event.target.value)"
+                                >
+                                    <option value="">{{ $t('choose') || '— Choose —' }}</option>
+                                    <option v-for="f in freqCodeOptions" :key="'ifc-' + f.code" :value="f.code">
+                                        {{ f.label }} ({{ f.code }})
+                                    </option>
+                                </select>
+                                <small class="form-text text-muted">{{$t('dsd_constant_series_freq_help') || 'Single SDMX FREQ code for the whole series (e.g. A, M, Q). Required when no FREQ column exists.'}}</small>
+                            </div>
+                        </template>
+                    </template>
+
+                    <!-- Value label column: attribute DSD field whose values provide labels -->
+                    <div class="form-group form-field" v-if="showValueLabelColumnField">
+                        <label>{{$t("value_label_column") || "Value label column"}}</label>
+                        <select
                             class="form-control form-control-sm form-field-dropdown"
+                            :value="valueLabelColumnSelectValue"
+                            @change="onValueLabelColumnInput($event.target.value)"
                         >
-                            <option value="">-</option>
-                            <option v-for="(label, value) in time_period_formats" :key="value" :value="value">
-                                {{label}}
+                            <option value="">{{ $t('select_none') || '— None —' }}</option>
+                            <option
+                                v-for="opt in valueLabelAttributeOptions"
+                                :key="'vlab-' + opt.name"
+                                :value="opt.name"
+                            >
+                                {{ opt.label }} ({{ opt.name }})
+                            </option>
+                            <option
+                                v-if="valueLabelOrphanName"
+                                :value="valueLabelOrphanName"
+                            >
+                                {{ valueLabelOrphanName }} — {{ $t('value_label_column_not_in_dsd') || 'not listed as attribute' }}
                             </option>
                         </select>
+                        <small class="form-text text-muted" v-if="valueLabelAttributeOptions.length === 0 && !valueLabelOrphanName">
+                            {{ $t('value_label_column_no_attributes') || 'No Attribute columns in this DSD yet. Add one under Column type, or clear this to use none.' }}
+                        </small>
                     </div>
 
-                    <!-- Code List (for dimensions and other types) - uses table-grid for sort, copy/paste, unique validation -->
-                    <div class="form-group form-field" v-if="showCodeList">
-                        <label class="mb-2">{{$t("code_list") || "Code List"}} [{{column.code_list.length}}]</label>
-
-                        <table-grid-component
-                            :value="column.code_list"
-                            @input="onCodeListInput"
-                            :columns="codeListColumns"
-                            :field="{}"
-                            class="border elevation-1"
-                            style="max-height: 400px; overflow-y: auto;"
-                        >
-                        </table-grid-component>
-                    </div>
-
-                    <!-- Code List Reference -->
-                    <div class="form-group form-field" v-if="showCodeList">
-                        <div class="d-flex justify-content-between align-items-center mb-2">
-                            <label>{{$t("code_list_reference") || "Code List Reference"}}</label>
-                            <button 
-                                type="button" 
-                                class="btn btn-sm btn-link" 
-                                @click="clearCodeListReference"
-                                v-if="column.code_list_reference && column.code_list_reference.uri"
+                    <!-- Attachment level + value presence (attribute / annotation only) -->
+                    <template v-if="column.column_type === 'attribute' || column.column_type === 'annotation'">
+                        <div class="form-group form-field">
+                            <label>{{$t('dsd_attachment_level') || 'Applies at'}}</label>
+                            <select
+                                class="form-control form-control-sm form-field-dropdown"
+                                :value="metaSelectValue('attachment_level')"
+                                @change="setMetaString('attachment_level', $event.target.value)"
                             >
-                                {{$t("clear") || "Clear"}}
-                            </button>
+                                <option value="">— not set —</option>
+                                <option value="Observation">{{$t('dsd_attachment_observation') || 'Observation'}}</option>
+                                <option value="Series">{{$t('dsd_attachment_series') || 'Series'}}</option>
+                                <option value="DataSet">{{$t('dsd_attachment_dataset') || 'DataSet'}}</option>
+                            </select>
+                            <small class="form-text text-muted">{{$t('dsd_attachment_level_hint') || 'Observation = once per data row; Series = once per series; DataSet = once for the whole file. Defaults to Observation if not set.'}}</small>
                         </div>
-                        
-                        <div v-if="column.code_list_reference">
-                            <div class="form-group form-field">
-                                <label>{{$t("uri") || "URI"}} <span class="text-danger">*</span></label>
-                                <input 
-                                    type="text" 
-                                    class="form-control form-control-sm" 
-                                    v-model="column.code_list_reference.uri" 
-                                    @input="OnValueUpdate"
-                                    placeholder="https://..."
-                                />
+                        <div class="form-group form-field">
+                            <label>{{$t('dsd_assignment_status') || 'Value presence'}}</label>
+                            <select
+                                class="form-control form-control-sm form-field-dropdown"
+                                :value="metaSelectValue('assignment_status')"
+                                @change="setMetaString('assignment_status', $event.target.value)"
+                            >
+                                <option value="">— not set —</option>
+                                <option value="Conditional">{{$t('dsd_assignment_conditional') || 'Conditional'}}</option>
+                                <option value="Mandatory">{{$t('dsd_assignment_mandatory') || 'Mandatory'}}</option>
+                            </select>
+                            <small class="form-text text-muted">{{$t('dsd_assignment_status_hint') || 'Mandatory = a value must always be present in exported data; Conditional = value can be absent. Defaults to Conditional if not set.'}}</small>
+                        </div>
+                    </template>
+
+                    <!-- Codelist type: none / project codelist / global standard -->
+                    <div class="form-group form-field">
+                        <label>{{$t('dsd_vocabulary') || 'Codelist type'}}</label>
+                        <select
+                            class="form-control form-control-sm form-field-dropdown"
+                            :value="column.codelist_type || 'none'"
+                            @change="onCodelistTypeChange($event)"
+                        >
+                            <option value="none">{{$t('dsd_vocab_none') || 'None'}}</option>
+                            <option value="local">{{$t('dsd_vocab_local') || 'Codelist (local)'}}</option>
+                            <option value="global">{{$t('dsd_vocab_global') || 'Global standard codelist'}}</option>
+                        </select>
+                    </div>
+                    <div class="form-group form-field" v-if="column.codelist_type === 'global'">
+                        <label>{{$t('dsd_global_codelist_pick') || 'Standard codelist'}}</label>
+                        <select
+                            class="form-control form-control-sm form-field-dropdown"
+                            :disabled="globalCodelistsLoading || globalResolveLoading"
+                            :value="globalDimensionCodelistSelectValue()"
+                            @change="onGlobalDimensionCodelistChange($event.target.value)"
+                        >
+                            <option value="">{{ $t('select_none') || '— None —' }}</option>
+                            <option
+                                v-if="effectiveGlobalRegistryPk && !globalCodelistPickerIncludesLinked"
+                                :key="'gvocab-linked-' + effectiveGlobalRegistryPk"
+                                :value="String(effectiveGlobalRegistryPk)"
+                            >
+                                {{ linkedGlobalDisplayName || ('#' + effectiveGlobalRegistryPk) }}
+                            </option>
+                            <option v-for="cl in globalCodelistsList" :key="'gvocab-' + cl.id" :value="String(cl.id)">
+                                {{ cl.name }} <template v-if="cl.codelist_id">({{ cl.agency }}: {{ cl.codelist_id }})</template>
+                            </option>
+                        </select>
+                        <div v-if="globalResolveLoading" class="small text-muted mt-1">{{ $t('loading') || 'Loading…' }}</div>
+                        <indicator-dsd-global-codelist-preview
+                            v-if="columnHasGlobalCodelistIdentity"
+                            :registry-codelist-id="effectiveGlobalRegistryPk"
+                            :codelist-name="linkedGlobalDisplayName"
+                        ></indicator-dsd-global-codelist-preview>
+                    </div>
+                    <!-- Codelist grid (separate component) -->
+                    <div class="form-group form-field mb-3" v-if="column.codelist_type === 'local'">
+                        <label class="d-block font-weight-bold mb-2">{{$t('local_codelist') || 'Codelist'}}</label>
+                        <div v-if="!column.id" class="text-muted small">
+                            {{$t('dsd_save_column_for_local_codelist') || 'Save this column first to create and edit the local codelist.'}}
+                        </div>
+                        <indicator-dsd-local-codelist-grid
+                            v-else
+                            :project-sid="projectSid"
+                            :dsd-field-id="column.id"
+                            :local-list-id="column.local_codelist_id"
+                            :list-display-name="(column.label || column.name || '')"
+                            @update:local-list-id="onLocalCodelistListId"
+                        />
+                    </div>
+
+                    <!-- Summary statistics from DuckDB timeseries (sum_stats) — bottom of form -->
+                    <div class="card border-secondary mb-0 mt-4" v-if="hasSumStatsPayload">
+                        <div class="card-header py-2 px-3 bg-light d-flex flex-wrap justify-content-between align-items-center">
+                            <strong>{{$t('sum_stats_panel_title') || 'Summary statistics'}}</strong>
+                            <small class="text-muted" v-if="column.sum_stats.computed_at">{{ column.sum_stats.computed_at }}</small>
+                        </div>
+                        <div class="card-body py-2 px-3 small">
+                            <div v-if="sumStatsComputeFailed" class="alert alert-warning py-2 mb-0">
+                                <strong>{{$t('data_field') || 'Data field'}}:</strong> {{ sumStatsDataField }}<br/>
+                                {{ sumStatsComputeMessage }}
                             </div>
-                            <div class="form-group form-field">
-                                <label>{{$t("id") || "ID"}}</label>
-                                <input 
-                                    type="text" 
-                                    class="form-control form-control-sm" 
-                                    v-model="column.code_list_reference.id" 
-                                    @input="OnValueUpdate"
-                                />
-                            </div>
-                            <div class="form-group form-field">
-                                <label>{{$t("name") || "Name"}}</label>
-                                <input 
-                                    type="text" 
-                                    class="form-control form-control-sm" 
-                                    v-model="column.code_list_reference.name" 
-                                    @input="OnValueUpdate"
-                                />
-                            </div>
-                            <div class="form-group form-field">
-                                <label>{{$t("version") || "Version"}}</label>
-                                <input 
-                                    type="text" 
-                                    class="form-control form-control-sm" 
-                                    v-model="column.code_list_reference.version" 
-                                    @input="OnValueUpdate"
-                                />
-                            </div>
-                            <div class="form-group form-field">
-                                <label>{{$t("note") || "Note"}}</label>
-                                <textarea 
-                                    class="form-control form-control-sm" 
-                                    v-model="column.code_list_reference.note" 
-                                    @input="OnValueUpdate"
-                                    rows="2"
-                                ></textarea>
-                            </div>
+                            <template v-else>
+                                <div class="mb-2">
+                                    <strong>{{$t('field_in_data') || 'Field in data'}}:</strong>
+                                    <code class="ml-1">{{ sumStatsDataField }}</code>
+                                </div>
+                                <div class="row mb-2">
+                                    <div class="col-6 col-md-4 col-lg-3 mb-1">
+                                        <span class="text-muted">{{$t('rows') || 'Rows'}}</span>
+                                        <div class="font-weight-medium">{{ column.sum_stats.row_count != null ? column.sum_stats.row_count : '—' }}</div>
+                                    </div>
+                                    <div class="col-6 col-md-4 col-lg-3 mb-1">
+                                        <span class="text-muted">{{$t('present') || 'Present'}}</span>
+                                        <div class="font-weight-medium">{{ column.sum_stats.non_null_count != null ? column.sum_stats.non_null_count : '—' }}</div>
+                                    </div>
+                                    <div class="col-6 col-md-4 col-lg-3 mb-1">
+                                        <span class="text-muted">{{$t('missing') || 'Missing'}}</span>
+                                        <div class="font-weight-medium">{{ column.sum_stats.null_count != null ? column.sum_stats.null_count : '—' }}</div>
+                                    </div>
+                                    <div class="col-6 col-md-4 col-lg-3 mb-1">
+                                        <span class="text-muted">{{$t('distinct') || 'Distinct'}}</span>
+                                        <div class="font-weight-medium">{{ column.sum_stats.distinct_count != null ? column.sum_stats.distinct_count : '—' }}</div>
+                                    </div>
+                                </div>
+                                <div v-if="column.sum_stats.freq_max != null || column.sum_stats.freq_truncated" class="text-muted mb-2">
+                                    <span v-if="column.sum_stats.freq_max != null">{{$t('top_frequencies') || 'Top frequencies'}}: {{ column.sum_stats.freq_max }}</span>
+                                    <span v-if="column.sum_stats.freq_truncated" class="ml-2">({{ $t('truncated') || 'truncated' }})</span>
+                                </div>
+                                <div v-if="sumStatsFreqRows.length" class="table-responsive border rounded" style="max-height: 14rem; overflow-y: auto;">
+                                    <table class="table table-sm table-striped mb-0">
+                                        <thead class="thead-light"><tr><th>{{$t('value') || 'Value'}}</th><th class="text-right">{{$t('count') || 'Count'}}</th></tr></thead>
+                                        <tbody>
+                                            <tr v-for="(fr, idx) in sumStatsFreqRows" :key="'sumfreq-' + idx">
+                                                <td class="text-break"><code>{{ fr.value }}</code></td>
+                                                <td class="text-right">{{ fr.count }}</td>
+                                            </tr>
+                                        </tbody>
+                                    </table>
+                                </div>
+                                <p v-else class="text-muted mb-0">{{$t('sum_stats_no_freq') || 'No frequency breakdown (no present values).'}}</p>
+                            </template>
                         </div>
                     </div>
+                    <p v-else class="text-muted small mb-0 mt-4">
+                        {{$t('sum_stats_none_hint') || 'No profile data yet. Use “Refresh Stats” on the data structure list to compute statistics for this field.'}}
+                    </p>
                 </div>
             </div>
         </div>

@@ -309,6 +309,7 @@ CREATE TABLE `indicator_dsd` (
   `code_list` json DEFAULT NULL,
   `code_list_reference` json DEFAULT NULL,
   `metadata` json DEFAULT NULL,
+  `sum_stats` json DEFAULT NULL COMMENT 'Column profile from DuckDB: row_count, non_null_count, null_count, distinct_count, freq (max 100); missing = NULL/trim empty',
   `sort_order` int DEFAULT '0',
   `created` int DEFAULT NULL,
   `changed` int DEFAULT NULL,

@@ -60,7 +60,11 @@ class Indicator_util
 	 */
 	public function dsd_row_to_schema_item($column)
 	{
-		$allowed = array('name', 'label', 'description', 'data_type', 'column_type', 'time_period_format', 'code_list', 'code_list_reference');
+		$allowed = array(
+			'name', 'label', 'description', 'data_type', 'column_type', 'time_period_format',
+			'code_list', 'code_list_reference',
+			'codelist_type', 'global_codelist_id', 'local_codelist_id',
+		);
 		$item = array();
 		foreach ($allowed as $key) {
 			if (!array_key_exists($key, $column)) {
@@ -78,6 +82,17 @@ class Indicator_util
 				$item[$key] = $val;
 			}
 		}
+		// Persist selected metadata fields on the schema item for export/round-trip
+		if (!empty($column['metadata']) && is_array($column['metadata'])) {
+			foreach (array('paired_time_column_id', 'value_label_column', 'freq') as $mk) {
+				if (array_key_exists($mk, $column['metadata']) && $column['metadata'][$mk] !== '' && $column['metadata'][$mk] !== null) {
+					$item[$mk] = $column['metadata'][$mk];
+				}
+			}
+			if (!isset($item['freq']) && array_key_exists('import_freq_code', $column['metadata']) && $column['metadata']['import_freq_code'] !== '' && $column['metadata']['import_freq_code'] !== null) {
+				$item['freq'] = $column['metadata']['import_freq_code'];
+			}
+		}
 		return $item;
 	}
 
@@ -91,7 +106,11 @@ class Indicator_util
 	 */
 	public function schema_item_to_dsd_row($item, $sort_order, $user_id)
 	{
-		$allowed = array('name', 'label', 'description', 'data_type', 'column_type', 'time_period_format', 'code_list', 'code_list_reference');
+		$allowed = array(
+			'name', 'label', 'description', 'data_type', 'column_type', 'time_period_format',
+			'code_list', 'code_list_reference',
+			'codelist_type', 'global_codelist_id', 'local_codelist_id',
+		);
 		$row = array(
 			'sort_order' => (int) $sort_order,
 			'created_by' => $user_id,
@@ -101,6 +120,21 @@ class Indicator_util
 			if (array_key_exists($key, $item)) {
 				$row[$key] = $item[$key];
 			}
+		}
+		$meta_patch = array();
+		foreach (array('paired_time_column_id', 'value_label_column', 'freq') as $mk) {
+			if (array_key_exists($mk, $item)) {
+				$meta_patch[$mk] = $item[$mk];
+			}
+		}
+		if (array_key_exists('import_freq_code', $item) && !array_key_exists('freq', $item)) {
+			$meta_patch['freq'] = $item['import_freq_code'];
+		}
+		if (!empty($meta_patch)) {
+			$existing = (isset($item['metadata']) && is_array($item['metadata'])) ? $item['metadata'] : array();
+			$row['metadata'] = array_merge($existing, $meta_patch);
+		} elseif (isset($item['metadata']) && is_array($item['metadata'])) {
+			$row['metadata'] = $item['metadata'];
 		}
 		return $row;
 	}

@@ -571,5 +571,56 @@ $lang['import_language_hint'] = 'Upload a zip file exported from this applicatio
 $lang['import_zip_label'] = 'Language zip file';
 $lang['url']='URL';
 
+// Shared UI — metadata editor tables, filters, pagination, DSD
+$lang['structure'] = 'Structure';
+$lang['validation'] = 'Validation';
+$lang['warnings'] = 'Warnings';
+$lang['data_errors'] = 'Data errors';
+$lang['data_warnings'] = 'Data warnings';
+$lang['skipped'] = 'Skipped';
+$lang['continue'] = 'Continue';
+$lang['no_options'] = 'No options';
+$lang['rows_per_page'] = 'Rows per page';
+$lang['per_page'] = 'Per page';
+$lang['chart'] = 'Chart';
+$lang['export_chart'] = 'Export Chart';
+$lang['apply_filters'] = 'Apply Filters';
+$lang['distinct'] = 'Distinct';
+$lang['count'] = 'Count';
+$lang['column'] = 'Column';
+$lang['values'] = 'Values';
+$lang['values_lowercase'] = 'values';
+$lang['no_data'] = 'No data';
+$lang['pick_column_first'] = 'Pick a column first';
+$lang['apply_filter'] = 'Apply filter';
+$lang['nullable'] = 'nullable';
+$lang['filter_by_column_values'] = 'Filter rows by column values';
+$lang['collapse'] = 'Collapse';
+$lang['expand'] = 'Expand';
+$lang['previous'] = 'Previous';
+$lang['next'] = 'Next';
+$lang['showing'] = 'Showing';
+$lang['of'] = 'of';
+$lang['added'] = 'Added';
+$lang['deleted'] = 'Deleted';
+$lang['request_failed'] = 'Request failed.';
+$lang['could_not_save'] = 'Could not save';
+$lang['none'] = 'None';
+$lang['select_none'] = '— None —';
+$lang['choose'] = '— Choose —';
+$lang['optional_lowercase'] = 'optional';
+$lang['integer'] = 'Integer';
+$lang['float'] = 'Float';
+$lang['double'] = 'Double';
+$lang['date'] = 'Date';
+$lang['boolean'] = 'Boolean';
+$lang['search_codes_or_labels'] = 'Search code or label…';
+$lang['present'] = 'Present';
+$lang['missing'] = 'Missing';
+$lang['data_field'] = 'Data field';
+$lang['field_in_data'] = 'Field in data';
+$lang['truncated'] = 'truncated';
+$lang['top_frequencies'] = 'Top frequencies';
+
 /* End of file general_lang.php */
 /* Location: ./application/language/english/general_lang.php */
