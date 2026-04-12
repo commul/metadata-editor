@@ -1459,16 +1459,19 @@
 						]
 					},
 					"time_period_format": {
-						"title": "Time period format",
-						"type": "string",
-						"enum": [
-							"YYYY",
-							"YYYY-MM",
-							"YYYY-MM-DD",
-							"YYYY-MM-DDTHH:MM:SS",
-							"YYYY-MM-DDTHH:MM:SSZ"
-						]
-					},
+					"title": "Time period format",
+					"type": "string",
+					"enum": [
+						"YYYY",
+						"YYYY-Sn",
+						"YYYY-Qn",
+						"YYYY-MM",
+						"YYYY-Www",
+						"YYYY-MM-DD",
+						"YYYY-MM-DDTHH:mm:ss",
+						"YYYY-MM-DDTHH:mm:ssZ"
+					]
+				},
 					"code_list": {
 						"title": "Code list",
 						"type": "array",

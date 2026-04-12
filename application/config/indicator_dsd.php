@@ -14,11 +14,14 @@ defined('BASEPATH') OR exit('No direct script access allowed');
  */
 
 $config['dsd_time_period_formats'] = array(
-	array('code' => 'YYYY', 'label' => 'Year (YYYY)'),
-	array('code' => 'YYYY-MM', 'label' => 'Year-month (YYYY-MM)'),
-	array('code' => 'YYYY-MM-DD', 'label' => 'Date (YYYY-MM-DD)'),
-	array('code' => 'YYYY-MM-DDTHH:MM:SS', 'label' => 'Date-time local (ISO 8601 without timezone)'),
-	array('code' => 'YYYY-MM-DDTHH:MM:SSZ', 'label' => 'Date-time UTC (Z)'),
+	array('code' => 'YYYY',                  'label' => 'Year'),
+	array('code' => 'YYYY-Sn',               'label' => 'Half-year'),
+	array('code' => 'YYYY-Qn',               'label' => 'Quarter'),
+	array('code' => 'YYYY-MM',               'label' => 'Year-month'),
+	array('code' => 'YYYY-Www',              'label' => 'Week (ISO)'),
+	array('code' => 'YYYY-MM-DD',            'label' => 'Date'),
+	array('code' => 'YYYY-MM-DDTHH:mm:ss',   'label' => 'Date-time local'),
+	array('code' => 'YYYY-MM-DDTHH:mm:ssZ',  'label' => 'Date-time UTC'),
 );
 
 $config['dsd_freq_codes'] = array(
@@ -62,9 +65,12 @@ $config['dsd_freq_codes'] = array(
  * Keys must match codes in dsd_time_period_formats; values must exist in dsd_freq_codes code list.
  */
 $config['dsd_default_freq_by_time_period_format'] = array(
-	'YYYY' => 'A',
-	'YYYY-MM' => 'M',
-	'YYYY-MM-DD' => 'D',
-	'YYYY-MM-DDTHH:MM:SS' => 'D',
-	'YYYY-MM-DDTHH:MM:SSZ' => 'D',
+	'YYYY'                   => 'A',
+	'YYYY-Sn'                => 'S',
+	'YYYY-Qn'                => 'Q',
+	'YYYY-MM'                => 'M',
+	'YYYY-Www'               => 'W',
+	'YYYY-MM-DD'             => 'D',
+	'YYYY-MM-DDTHH:mm:ss'    => 'D',
+	'YYYY-MM-DDTHH:mm:ssZ'   => 'D',
 );

@@ -44,7 +44,14 @@ Vue.component('indicator-dsd-import', {
             /** From GET /api/indicator_dsd/{sid} ?detailed=1 — time_period_formats, freq_codes */
             dsdDictionaries: { time_period_formats: [], freq_codes: [] },
             /** CSV column used for last duckdb distinct fetch; avoids refetch (and stepper flicker) when only other roles change */
-            _distinctFetchIndicatorColumn: ''
+            _distinctFetchIndicatorColumn: '',
+            // SDMX DSD import mode
+            importMode: 'csv', // 'csv' | 'sdmx'
+            sdmxFile: null,
+            sdmxUrl: '',
+            sdmxImporting: false,
+            sdmxErrors: [],
+            sdmxResult: null
         }
     },
     created: async function() {
@@ -1165,6 +1172,46 @@ Vue.component('indicator-dsd-import', {
 
             // Accepted navigation; remember new hash
             this._lastHash = window.location.hash || '';
+        },
+        importSdmxDsd: async function() {
+            const vm = this;
+            if (!vm.sdmxFile && !vm.sdmxUrl.trim()) {
+                vm.sdmxErrors = ['Please select an XML file or enter an SDMX URL.'];
+                return;
+            }
+            vm.sdmxErrors = [];
+            vm.sdmxResult = null;
+            vm.sdmxImporting = true;
+
+            try {
+                const formData = new FormData();
+                if (vm.sdmxFile) {
+                    formData.append('file', vm.sdmxFile);
+                } else {
+                    formData.append('sdmx_url', vm.sdmxUrl.trim());
+                }
+
+                const response = await axios.post(
+                    CI.base_url + '/api/indicator_dsd/import_sdmx_dsd/' + vm.dataset_id,
+                    formData,
+                    { headers: { 'Content-Type': 'multipart/form-data' } }
+                );
+
+                if (response.data && response.data.status === 'success') {
+                    vm.sdmxResult = response.data;
+                    await vm.loadExistingColumns();
+                    vm.hasUnsavedChanges = false;
+                } else {
+                    vm.sdmxErrors = [response.data && response.data.message ? response.data.message : 'Import failed'];
+                }
+            } catch (err) {
+                const msg = err.response && err.response.data && err.response.data.message
+                    ? err.response.data.message
+                    : (err.message || 'Import failed');
+                vm.sdmxErrors = [msg];
+            } finally {
+                vm.sdmxImporting = false;
+            }
         }
     },
     computed: {
@@ -1367,15 +1414,112 @@ Vue.component('indicator-dsd-import', {
             <v-card>
                 <v-card-title class="d-flex justify-space-between align-center">
                     <div>
-                        <h4>{{$t("import_csv_data_structure") || "Import CSV - Data Structure"}}</h4>
-                        <small class="text-muted">{{$t("import_csv_description") || "Upload a CSV file to create data structure columns"}}</small>
+                        <h4 v-if="importMode === 'csv'">{{$t("import_csv_data_structure") || "Import CSV - Data Structure"}}</h4>
+                        <h4 v-else>{{$t("import_sdmx_dsd") || "Import SDMX Data Structure Definition"}}</h4>
+                        <small class="text-muted" v-if="importMode === 'csv'">{{$t("import_csv_description") || "Upload a CSV file to create data structure columns"}}</small>
+                        <small class="text-muted" v-else>{{$t("import_sdmx_description") || "Import a DSD from an SDMX 2.1 or 3.0 structure message"}}</small>
                     </div>
                     <v-btn icon @click="cancel">
                         <v-icon>mdi-close</v-icon>
                     </v-btn>
                 </v-card-title>
 
-                <v-card-text>
+                <!-- Import mode tabs -->
+                <v-tabs class="px-4" background-color="transparent" color="primary">
+                    <v-tab @click="importMode = 'csv'; sdmxResult = null; sdmxErrors = []">
+                        <v-icon left small>mdi-file-delimited</v-icon>
+                        {{$t("import_mode_csv") || "CSV"}}
+                    </v-tab>
+                    <v-tab @click="importMode = 'sdmx'">
+                        <v-icon left small>mdi-xml</v-icon>
+                        {{$t("import_mode_sdmx") || "SDMX DSD"}}
+                    </v-tab>
+                </v-tabs>
+                <v-divider></v-divider>
+
+                <!-- SDMX DSD import panel -->
+                <v-card-text v-if="importMode === 'sdmx'">
+                    <!-- Destructive action warning -->
+                    <v-alert type="warning" outlined dense class="mb-4">
+                        <strong>{{$t("sdmx_dsd_import_warning_title") || "This will replace your entire data structure and delete all data."}}</strong>
+                        <div class="mt-1" style="font-size: 13px;">
+                            {{$t("sdmx_dsd_import_warning_body") || "Importing a DSD removes all existing data structure columns and permanently deletes all published timeseries data for this project. This cannot be undone."}}
+                        </div>
+                    </v-alert>
+
+                    <!-- File upload -->
+                    <v-file-input
+                        v-model="sdmxFile"
+                        :label="$t('select_sdmx_xml_file') || 'Select SDMX-ML structure file (.xml)'"
+                        accept=".xml"
+                        outlined
+                        dense
+                        prepend-inner-icon="mdi-xml"
+                        clearable
+                        :disabled="sdmxImporting || !!sdmxUrl.trim()"
+                        class="mb-2"
+                    ></v-file-input>
+
+                    <div class="d-flex align-center mb-3" style="gap: 8px;">
+                        <v-divider></v-divider>
+                        <span class="caption grey--text px-2">{{$t("or") || "or"}}</span>
+                        <v-divider></v-divider>
+                    </div>
+
+                    <!-- URL input -->
+                    <v-text-field
+                        v-model="sdmxUrl"
+                        :label="$t('sdmx_registry_url') || 'SDMX registry URL'"
+                        placeholder="https://registry.sdmx.org/sdmxapi/rest/datastructure/WB/WDI/1.0?references=codelists"
+                        outlined
+                        dense
+                        clearable
+                        prepend-inner-icon="mdi-link"
+                        :disabled="sdmxImporting || !!sdmxFile"
+                        class="mb-2"
+                    ></v-text-field>
+
+                    <p class="caption grey--text mt-n2 mb-4">
+                        {{$t("sdmx_url_hint") || "SDMX 2.1 and 3.0 REST structure endpoints are supported. Add ?references=codelists to include inline codelists for automatic local codelist creation."}}
+                    </p>
+
+                    <!-- Errors -->
+                    <v-alert v-if="sdmxErrors.length" type="error" dense class="mb-3">
+                        <div v-for="err in sdmxErrors" :key="err">{{err}}</div>
+                    </v-alert>
+
+                    <!-- Success result -->
+                    <v-alert v-if="sdmxResult" type="success" dense outlined class="mb-3">
+                        <div>{{$t("sdmx_import_success") || "DSD imported successfully."}}</div>
+                        <div class="caption mt-1">
+                            {{sdmxResult.created}} {{$t("columns_created") || "columns created"}}.
+                            <template v-if="sdmxResult.codelists_created">
+                                {{sdmxResult.codelists_created}} {{$t("local_codelists_created") || "local codelists created"}}.
+                            </template>
+                            <template v-if="sdmxResult.sdmx_version">
+                                SDMX {{sdmxResult.sdmx_version}}.
+                            </template>
+                        </div>
+                        <div v-if="sdmxResult.warnings && sdmxResult.warnings.length" class="caption mt-1 amber--text text--darken-3">
+                            <div v-for="w in sdmxResult.warnings" :key="w">&#9888; {{w}}</div>
+                        </div>
+                    </v-alert>
+
+                    <div class="d-flex align-center" style="gap: 8px;">
+                        <v-btn
+                            color="error"
+                            :loading="sdmxImporting"
+                            :disabled="sdmxImporting || (!sdmxFile && !sdmxUrl.trim())"
+                            @click="importSdmxDsd"
+                        >
+                            <v-icon left>mdi-import</v-icon>
+                            {{$t("import_dsd") || "Import DSD"}}
+                        </v-btn>
+                        <v-btn text @click="cancel">{{$t("cancel") || "Cancel"}}</v-btn>
+                    </div>
+                </v-card-text>
+
+                <v-card-text v-if="importMode === 'csv'">
                     <!-- Step 1: Upload CSV → load into staging (staging is always replaced on upload) -->
                     <div v-if="step === 1 && !isProcessing">
                         <v-file-input
@@ -1914,7 +2058,7 @@ Vue.component('indicator-dsd-import', {
                         </v-progress-linear>
                         <p class="text-center">{{importStatus}}</p>
                     </div>
-                </v-card-text>
+                </v-card-text><!-- end csv v-card-text -->
             </v-card>
         </div>
     `

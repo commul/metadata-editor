@@ -968,7 +968,8 @@ class Indicator_dsd_model extends CI_Model {
             'updated' => 0,
             'skipped' => 0,
             'errors' => array(),
-            'rows_imported' => 0
+            'rows_imported' => 0,
+            'local_codelists_pending' => 0,
         );
 
         if (!file_exists($csv_file_path)) {
@@ -1109,6 +1110,13 @@ class Indicator_dsd_model extends CI_Model {
                     if (!empty($required_field_label_columns[$col_type]) && is_string($required_field_label_columns[$col_type])) {
                         $metadata['value_label_column'] = trim($required_field_label_columns[$col_type]);
                     }
+                    // For dimension/attribute columns: use labelColumn from mapping as value_label_column
+                    if (empty($metadata['value_label_column'])) {
+                        $label_col = isset($mapping['labelColumn']) && is_string($mapping['labelColumn']) ? trim($mapping['labelColumn']) : '';
+                        if ($label_col !== '') {
+                            $metadata['value_label_column'] = $label_col;
+                        }
+                    }
                     if (isset($mapping['metadata']) && is_array($mapping['metadata'])) {
                         $metadata = array_merge($metadata, $mapping['metadata']);
                     }
@@ -1136,6 +1144,16 @@ class Indicator_dsd_model extends CI_Model {
                         'changed_by' => $user_id
                     );
 
+                    // Auto-promote to local codelist when a label column was mapped and the column
+                    // type supports coded vocabularies; only if not already explicitly configured.
+                    $non_codelist_types = array('time_period', 'observation_value', 'periodicity', 'measure', 'indicator_name', 'annotation');
+                    $has_label_col = !empty($metadata['value_label_column']);
+                    $existing_codelist_type = isset($existing_column['codelist_type']) ? $existing_column['codelist_type'] : 'none';
+                    if ($has_label_col && !in_array($col_type, $non_codelist_types) && $existing_codelist_type === 'none') {
+                        $update_data['codelist_type'] = 'local';
+                        $result['local_codelists_pending']++;
+                    }
+
                     $this->update($sid, $existing_column['id'], $update_data);
                     $result['updated']++;
                 } else {
@@ -1144,6 +1162,13 @@ class Indicator_dsd_model extends CI_Model {
                     $col_type = isset($mapping['columnType']) ? $mapping['columnType'] : 'dimension';
                     if (!empty($required_field_label_columns[$col_type]) && is_string($required_field_label_columns[$col_type])) {
                         $metadata['value_label_column'] = trim($required_field_label_columns[$col_type]);
+                    }
+                    // For dimension/attribute columns: use labelColumn from mapping as value_label_column
+                    if (empty($metadata['value_label_column'])) {
+                        $label_col = isset($mapping['labelColumn']) && is_string($mapping['labelColumn']) ? trim($mapping['labelColumn']) : '';
+                        if ($label_col !== '') {
+                            $metadata['value_label_column'] = $label_col;
+                        }
                     }
                     if ($col_type === 'time_period') {
                         if (!empty($mapping['timePeriodFreqCode']) && is_string($mapping['timePeriodFreqCode']) && trim($mapping['timePeriodFreqCode']) !== '') {
@@ -1155,6 +1180,14 @@ class Indicator_dsd_model extends CI_Model {
                     }
                     $this->normalize_metadata_freq_key_for_storage($metadata);
 
+                    // Auto-promote to local codelist when a label column was mapped
+                    $non_codelist_types = array('time_period', 'observation_value', 'periodicity', 'measure', 'indicator_name', 'annotation');
+                    $has_label_col = !empty($metadata['value_label_column']);
+                    $auto_codelist_type = ($has_label_col && !in_array($col_type, $non_codelist_types)) ? 'local' : 'none';
+                    if ($auto_codelist_type === 'local') {
+                        $result['local_codelists_pending']++;
+                    }
+
                     // Create new column
                     $insert_data = array(
                         'name' => $column_name, // Already uppercase
@@ -1165,6 +1198,7 @@ class Indicator_dsd_model extends CI_Model {
                         'time_period_format' => isset($mapping['timePeriodFormat']) ? $mapping['timePeriodFormat'] : null,
                         'code_list' => isset($mapping['codeList']) ? $mapping['codeList'] : null,
                         'code_list_reference' => isset($mapping['codeListReference']) ? $mapping['codeListReference'] : null,
+                        'codelist_type' => $auto_codelist_type,
                         'metadata' => $metadata,
                         'sort_order' => $this->get_max_sort_order($sid) + 1,
                         'created_by' => $user_id
@@ -3321,6 +3355,231 @@ class Indicator_dsd_model extends CI_Model {
                 'total_records' => count($records),
                 'source' => 'csv',
             ),
+        );
+    }
+
+    // -------------------------------------------------------------------------
+    // SDMX DSD import
+    // -------------------------------------------------------------------------
+
+    /**
+     * Column-type heuristic map: concept id (uppercase) → column_type.
+     * Checked after element_type rules.
+     */
+    private static $SDMX_CONCEPT_COLUMN_TYPE_MAP = array(
+        'TIME_PERIOD'      => 'time_period',
+        'TIME'             => 'time_period',
+        'REF_AREA'         => 'geography',
+        'GEO'              => 'geography',
+        'GEOGRAPHY'        => 'geography',
+        'REF_GEOGRAPHY'    => 'geography',
+        'COUNTRY'          => 'geography',
+        'REGION'           => 'geography',
+        'AREA'             => 'geography',
+        'FREQ'             => 'periodicity',
+        'FREQUENCY'        => 'periodicity',
+        'PERIODICITY'      => 'periodicity',
+        'OBS_VALUE'        => 'observation_value',
+        'OBSVALUE'         => 'observation_value',
+        'VALUE'            => 'observation_value',
+        'OBS'              => 'observation_value',
+        'INDICATOR'        => 'indicator_id',
+        'INDICATOR_ID'     => 'indicator_id',
+        'SERIES'           => 'indicator_id',
+        'SERIES_CODE'      => 'indicator_id',
+        'SERIES_ID'        => 'indicator_id',
+        'INDICATOR_CODE'   => 'indicator_id',
+        'INDICATOR_NAME'   => 'indicator_name',
+        'SERIES_NAME'      => 'indicator_name',
+    );
+
+    /**
+     * Determine column_type for a parsed DSD component.
+     *
+     * @param array $component  Component from SdmxDsdImporter
+     * @return string  One of the valid column_type values
+     */
+    private function _sdmx_component_column_type(array $component)
+    {
+        $elementType = isset($component['element_type']) ? $component['element_type'] : '';
+        $conceptId   = strtoupper(isset($component['concept_id']) ? (string) $component['concept_id'] : '');
+        $compId      = strtoupper(isset($component['id']) ? (string) $component['id'] : '');
+
+        // Element-type-based rules (strongest signal)
+        if ($elementType === 'TimeDimension') {
+            return 'time_period';
+        }
+        if ($elementType === 'Measure') {
+            return 'observation_value';
+        }
+        if ($elementType === 'Attribute') {
+            return 'attribute';
+        }
+
+        // Concept-id look-up (try concept_id first, then component id)
+        foreach (array($conceptId, $compId) as $key) {
+            if ($key !== '' && isset(self::$SDMX_CONCEPT_COLUMN_TYPE_MAP[$key])) {
+                return self::$SDMX_CONCEPT_COLUMN_TYPE_MAP[$key];
+            }
+        }
+
+        // Default for remaining Dimensions
+        return 'dimension';
+    }
+
+    /**
+     * Import a parsed SDMX DSD into indicator_dsd, replacing everything.
+     *
+     * Steps:
+     *  1. Drop DuckDB timeseries (data no longer matches the new structure)
+     *  2. Delete all existing indicator_dsd rows for the project (cascades local codelists)
+     *  3. Insert new rows from DSD components
+     *  4. For components with inline codes, create a local codelist
+     *
+     * @param int   $sid
+     * @param array $dsd       Parsed DSD from SdmxDsdImporter::parseString/File/Url
+     * @param int   $user_id
+     * @return array {
+     *   'created'           => int,
+     *   'codelists_created' => int,
+     *   'timeseries_dropped'=> bool,
+     *   'warnings'          => string[],
+     * }
+     * @throws Exception
+     */
+    public function import_sdmx_dsd($sid, array $dsd, $user_id)
+    {
+        $this->Editor_model->check_project_editable($sid);
+
+        $warnings          = array();
+        $timeseries_dropped = false;
+
+        // 1. Drop DuckDB timeseries — data must be re-imported after a DSD change
+        $this->load->library('indicator_duckdb_service');
+        $drop = $this->indicator_duckdb_service->timeseries_drop($sid);
+        if (is_array($drop) && !empty($drop['error'])) {
+            $warnings[] = 'Could not drop timeseries: '
+                . (isset($drop['message']) ? $drop['message'] : 'unknown error');
+        } else {
+            $timeseries_dropped = true;
+        }
+
+        // Also drop any staging draft
+        $this->indicator_duckdb_service->draft_drop($sid);
+
+        // 2. Delete all existing DSD rows
+        $existing = $this->select_all($sid, false);
+        if (!empty($existing)) {
+            $ids = array_column($existing, 'id');
+            $this->delete($sid, $ids);
+        }
+
+        // 3. Insert new DSD rows from components
+        $components        = isset($dsd['components']) ? $dsd['components'] : array();
+        $created           = 0;
+        $codelists_created = 0;
+
+        $this->load->model('Local_codelists_model');
+
+        foreach ($components as $i => $comp) {
+            $name        = isset($comp['id']) ? (string) $comp['id'] : ('COL_' . ($i + 1));
+            $column_type = $this->_sdmx_component_column_type($comp);
+
+            // Derive label from component names (prefer English)
+            $names = isset($comp['names']) && is_array($comp['names']) ? $comp['names'] : array();
+            $label = isset($names['en']) ? $names['en'] : (reset($names) ?: $name);
+
+            // Build codelist reference metadata when the DSD references an external codelist
+            $code_list_reference = null;
+            if (!empty($comp['codelist_id'])) {
+                $code_list_reference = array(
+                    'agency'  => $comp['codelist_agency'],
+                    'id'      => $comp['codelist_id'],
+                    'version' => $comp['codelist_version'],
+                );
+            }
+
+            // Has inline codes → codelist_type = local; otherwise none
+            $hasCodes      = !empty($comp['codes']);
+            $codelist_type = $hasCodes ? 'local' : 'none';
+
+            // data_type from parsed TextFormat; validate against allowed values
+            $allowed_data_types = array('string', 'integer', 'float', 'double', 'date', 'boolean');
+            $raw_data_type = isset($comp['data_type']) ? $comp['data_type'] : null;
+            $data_type = ($raw_data_type !== null && in_array($raw_data_type, $allowed_data_types, true))
+                ? $raw_data_type
+                : 'string';
+
+            $row = array(
+                'name'                => $name,
+                'label'               => $label,
+                'column_type'         => $column_type,
+                'data_type'           => $data_type,
+                'codelist_type'       => $codelist_type,
+                'sort_order'          => $i + 1,
+                'created_by'          => $user_id,
+                'changed_by'          => $user_id,
+            );
+
+            if ($code_list_reference !== null) {
+                $row['code_list_reference'] = $code_list_reference;
+            }
+
+            try {
+                $dsd_id = $this->insert($sid, $row, false);
+                $created++;
+
+                // 4. Create local codelist with inline codes
+                if ($hasCodes && $dsd_id) {
+                    try {
+                        $list_id = $this->Local_codelists_model->insert_list(
+                            $sid,
+                            $dsd_id,
+                            array(
+                                'name'        => $label ?: $name,
+                                'description' => isset($comp['codelist_id']) ? $comp['codelist_id'] : null,
+                                'created_by'  => $user_id,
+                                'changed_by'  => $user_id,
+                            ),
+                            $user_id
+                        );
+
+                        foreach ($comp['codes'] as $code) {
+                            $this->Local_codelists_model->insert_item(
+                                $sid,
+                                $list_id,
+                                array(
+                                    'code'       => $code['code'],
+                                    'label'      => isset($code['label']) ? $code['label'] : $code['code'],
+                                    'sort_order' => isset($code['sort_order']) ? (int) $code['sort_order'] : 0,
+                                    'created_by' => $user_id,
+                                    'changed_by' => $user_id,
+                                ),
+                                $user_id
+                            );
+                        }
+
+                        // Update the DSD row to link the local codelist
+                        $this->update($sid, $dsd_id, array(
+                            'local_codelist_id' => $list_id,
+                            'changed_by'        => $user_id,
+                        ), false);
+
+                        $codelists_created++;
+                    } catch (Exception $e) {
+                        $warnings[] = 'Could not create local codelist for column "' . $name . '": ' . $e->getMessage();
+                    }
+                }
+            } catch (Exception $e) {
+                $warnings[] = 'Skipped component "' . $name . '": ' . $e->getMessage();
+            }
+        }
+
+        return array(
+            'created'            => $created,
+            'codelists_created'  => $codelists_created,
+            'timeseries_dropped' => $timeseries_dropped,
+            'warnings'           => $warnings,
         );
     }
 }

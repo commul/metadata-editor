@@ -398,43 +398,64 @@ class Indicator_dsd extends MY_REST_Controller
 				$required_field_label_columns
 			);
 
-			$response = array(
-				'status' => 'success',
-				'sid' => $sid,
-				'message' => 'CSV imported successfully',
-				'created' => $result['created'],
-				'updated' => $result['updated'],
-				'skipped' => $result['skipped'],
-				'errors' => $result['errors']
-			);
-			if (isset($result['rows_imported'])) {
-				$response['rows_imported'] = (int) $result['rows_imported'];
+		$response = array(
+			'status' => 'success',
+			'sid' => $sid,
+			'message' => 'CSV imported successfully',
+			'created' => $result['created'],
+			'updated' => $result['updated'],
+			'skipped' => $result['skipped'],
+			'errors' => $result['errors']
+		);
+		if (isset($result['rows_imported'])) {
+			$response['rows_imported'] = (int) $result['rows_imported'];
+		}
+
+		// Include file information if file was stored
+		if (isset($result['file_id'])) {
+			$response['file_id'] = $result['file_id'];
+			$response['file_name'] = $result['file_name'];
+		}
+
+		// After successful DSD import: drop DuckDB staging (data already in timeseries via promote) and remove wizard CSV.
+		if (empty($result['errors'])) {
+			// Auto-populate local codelists for columns where a label column was mapped.
+			// Timeseries is already promoted at this point; errors are non-fatal warnings.
+			if (!empty($result['local_codelists_pending'])) {
+				$cl_result = $this->Indicator_dsd_model->populate_local_codelists_from_timeseries($sid, $user_id);
+				$response['local_codelists_populated'] = isset($cl_result['updated']) ? (int) $cl_result['updated'] : 0;
+				$cl_warnings = array();
+				if (!empty($cl_result['errors'])) {
+					foreach ($cl_result['errors'] as $e) {
+						$cl_warnings[] = 'Codelist: ' . $e;
+					}
+				}
+				if (!empty($cl_result['warnings'])) {
+					foreach ($cl_result['warnings'] as $w) {
+						$cl_warnings[] = 'Codelist: ' . $w;
+					}
+				}
+				if (!empty($cl_warnings)) {
+					$response['warnings'] = isset($response['warnings']) ? array_merge($response['warnings'], $cl_warnings) : $cl_warnings;
+				}
 			}
 
-			// Include file information if file was stored
-			if (isset($result['file_id'])) {
-				$response['file_id'] = $result['file_id'];
-				$response['file_name'] = $result['file_name'];
+			$cleanup_warnings = array();
+			$this->load->library('indicator_duckdb_service');
+			$drop = $this->indicator_duckdb_service->draft_drop($sid);
+			if (! is_array($drop) || ! empty($drop['error'])) {
+				$cleanup_warnings[] = isset($drop['message'])
+					? 'DuckDB staging was not removed: ' . $drop['message']
+					: 'DuckDB staging cleanup request failed';
 			}
-
-			// After successful DSD import: drop DuckDB staging (data already in timeseries via promote) and remove wizard CSV.
-			if (empty($result['errors'])) {
-				$cleanup_warnings = array();
-				$this->load->library('indicator_duckdb_service');
-				$drop = $this->indicator_duckdb_service->draft_drop($sid);
-				if (! is_array($drop) || ! empty($drop['error'])) {
-					$cleanup_warnings[] = isset($drop['message'])
-						? 'DuckDB staging was not removed: ' . $drop['message']
-						: 'DuckDB staging cleanup request failed';
-				}
-				$csv_path = $this->indicator_staging_upload_realpath($sid);
-				if ($csv_path !== null && is_file($csv_path) && ! @unlink($csv_path)) {
-					$cleanup_warnings[] = 'Could not delete saved staging CSV file on disk';
-				}
-				if (! empty($cleanup_warnings)) {
-					$response['warnings'] = $cleanup_warnings;
-				}
+			$csv_path = $this->indicator_staging_upload_realpath($sid);
+			if ($csv_path !== null && is_file($csv_path) && ! @unlink($csv_path)) {
+				$cleanup_warnings[] = 'Could not delete saved staging CSV file on disk';
 			}
+			if (! empty($cleanup_warnings)) {
+				$response['warnings'] = isset($response['warnings']) ? array_merge($response['warnings'], $cleanup_warnings) : $cleanup_warnings;
+			}
+		}
 
 			$this->set_response($response, REST_Controller::HTTP_OK);
 		}
@@ -1379,6 +1400,79 @@ class Indicator_dsd extends MY_REST_Controller
 				'status' => 'failed',
 				'message' => $e->getMessage(),
 			), REST_Controller::HTTP_BAD_REQUEST);
+		}
+	}
+
+	/**
+	 * Import an SDMX-ML DataStructureDefinition (DSD) to replace the project's data structure.
+	 *
+	 * WARNING: Importing replaces ALL existing DSD columns and drops all published timeseries
+	 * data for the project. This action cannot be undone.
+	 *
+	 * POST /api/indicator_dsd/import_sdmx_dsd/{sid}
+	 * Body: multipart/form-data
+	 *   - file:      SDMX-ML structure XML file (.xml)   — mutually exclusive with sdmx_url
+	 *   - sdmx_url:  URL of an SDMX REST structure endpoint — mutually exclusive with file
+	 *
+	 * Response on success:
+	 *   { status, created, codelists_created, timeseries_dropped, sdmx_version, warnings }
+	 */
+	function import_sdmx_dsd_post($sid = null)
+	{
+		$tmp_path = null;
+
+		try {
+			$sid = $this->get_sid($sid);
+			$this->editor_acl->user_has_project_access($sid, $permission = 'edit', $this->api_user);
+
+			$this->load->library('SDMX/SdmxDsdImporter');
+
+			if (isset($_FILES['file']) && is_uploaded_file($_FILES['file']['tmp_name'])) {
+				$ext = strtolower(pathinfo($_FILES['file']['name'], PATHINFO_EXTENSION));
+				if ($ext !== 'xml') {
+					throw new Exception('Only XML files are supported for SDMX DSD import');
+				}
+				$result = $this->sdmxdsdimporter->parseFile($_FILES['file']['tmp_name']);
+			} else {
+				$url = $this->input->post('sdmx_url');
+				if (empty($url)) {
+					throw new Exception('Either a file upload or sdmx_url is required');
+				}
+				$result = $this->sdmxdsdimporter->parseUrl(trim($url));
+			}
+
+			if ($result['status'] !== 'success') {
+				throw new Exception('Could not parse SDMX file: ' . $result['message']);
+			}
+
+			$user_id    = $this->get_api_user_id();
+			$import_res = $this->Indicator_dsd_model->import_sdmx_dsd($sid, $result['dsd'], $user_id);
+
+			$warnings = array_merge(
+				isset($result['warnings']) ? $result['warnings'] : array(),
+				$import_res['warnings']
+			);
+
+			$this->set_response(array(
+				'status'             => 'success',
+				'message'            => 'DSD imported successfully',
+				'sdmx_version'       => $result['sdmx_version'],
+				'created'            => $import_res['created'],
+				'codelists_created'  => $import_res['codelists_created'],
+				'timeseries_dropped' => $import_res['timeseries_dropped'],
+				'warnings'           => $warnings,
+			), REST_Controller::HTTP_OK);
+		}
+		catch (Exception $e) {
+			$this->set_response(array(
+				'status'  => 'failed',
+				'message' => $e->getMessage(),
+			), REST_Controller::HTTP_BAD_REQUEST);
+		}
+		finally {
+			if ($tmp_path !== null && is_file($tmp_path)) {
+				@unlink($tmp_path);
+			}
 		}
 	}
 

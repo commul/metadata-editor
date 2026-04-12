@@ -2286,23 +2286,35 @@
                             "enum": [
                                 {
                                     "code": "YYYY",
-                                    "label": "YYYY"
+                                    "label": "Year (YYYY)"
+                                },
+                                {
+                                    "code": "YYYY-Sn",
+                                    "label": "Half-year (YYYY-Sn)"
+                                },
+                                {
+                                    "code": "YYYY-Qn",
+                                    "label": "Quarter (YYYY-Qn)"
                                 },
                                 {
                                     "code": "YYYY-MM",
-                                    "label": "YYYY-MM"
+                                    "label": "Year-month (YYYY-MM)"
+                                },
+                                {
+                                    "code": "YYYY-Www",
+                                    "label": "Week ISO (YYYY-Www)"
                                 },
                                 {
                                     "code": "YYYY-MM-DD",
-                                    "label": "YYYY-MM-DD"
+                                    "label": "Date (YYYY-MM-DD)"
                                 },
                                 {
-                                    "code": "YYYY-MM-DDTHH:MM:SS",
-                                    "label": "YYYY-MM-DDTHH:MM:SS"
+                                    "code": "YYYY-MM-DDTHH:mm:ss",
+                                    "label": "Date-time local (YYYY-MM-DDTHH:mm:ss)"
                                 },
                                 {
-                                    "code": "YYYY-MM-DDTHH:MM:SSZ",
-                                    "label": "YYYY-MM-DDTHH:MM:SSZ"
+                                    "code": "YYYY-MM-DDTHH:mm:ssZ",
+                                    "label": "Date-time UTC (YYYY-MM-DDTHH:mm:ssZ)"
                                 }
                             ]
                         },
