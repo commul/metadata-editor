@@ -253,6 +253,7 @@
             echo $this->load->view("metadata_editor/vue-indicator-dsd-edit-component.js",null,true);
             echo $this->load->view("metadata_editor/vue-indicator-dsd-import-component.js",null,true);
             echo $this->load->view("metadata_editor/vue-indicator-dsd-chart-component.js",null,true);
+            echo $this->load->view("metadata_editor/vue-indicator-dsd-overview-component.js",null,true);
         ?>
 
         <?php if (empty($metadata)):?>
@@ -309,6 +310,7 @@
         const IndicatorDsd ={template: '<div><indicator-dsd/></div>'}
         const IndicatorDsdImport ={template: '<div><indicator-dsd-import/></div>'}
         const IndicatorDsdChart ={template: '<div><indicator-dsd-chart/></div>'}
+        const IndicatorDsdOverview ={template: '<div><indicator-dsd-overview/></div>'}
         const ProjectHistory ={template: '<div><project-history/></div>'}
         const AdminMetadataHistory ={template: '<div><admin-metadata-history/></div>'}
         const SdmxCsvExport = {template: '<div><sdmx-csv-export-options/></div>'}
@@ -352,6 +354,7 @@
             { path: '/indicator-dsd', component: IndicatorDsd, name: 'indicator-dsd', props: true },
             { path: '/indicator-dsd-import', component: IndicatorDsdImport, name: 'indicator-dsd-import', props: true },
             { path: '/indicator-dsd-chart', component: IndicatorDsdChart, name: 'indicator-dsd-chart', props: true },
+            { path: '/indicator-dsd-overview', component: IndicatorDsdOverview, name: 'indicator-dsd-overview', props: true },
             { path: '/change-log', component: ProjectHistory },
             { path: '/sdmx-csv-export', component: SdmxCsvExport },
             { path: '/validation-report', component: ValidationReport, name: 'validation-report', props: true },

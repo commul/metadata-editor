@@ -286,12 +286,11 @@ class Editor extends MY_REST_Controller
 				$idno=$this->Editor_model->generate_uuid();
 			}
 
-			// check if project already exists
-			$sid=$this->Editor_model->get_project_id_by_idno($idno);
-			
-			if ($sid){
-				throw new Exception("Project with this IDNO already exists: ".$idno);
-			}
+			$overwrite_raw = $project_options['overwrite'] ?? false;
+			$overwrite = is_string($overwrite_raw)
+				? in_array(strtolower(trim($overwrite_raw)), ['true', 'yes'], true)
+				: (bool) $overwrite_raw;
+			unset($project_options['overwrite']);
 
 			//collection IDs
 			$collection_ids = null;
@@ -301,6 +300,31 @@ class Editor extends MY_REST_Controller
 			}
 
 			$this->_batch_validate_collection_access($collection_ids);
+
+			// check if project already exists
+			$sid=$this->Editor_model->get_project_id_by_idno($idno);
+
+			if ($sid && $overwrite) {
+				// Verify the existing project is the same type before overwriting
+				if (!$this->Editor_model->check_id_exists($sid, $type)) {
+					throw new Exception("Cannot overwrite: existing project with IDNO [".$idno."] is a different type");
+				}
+
+				if (!empty($project_options)) {
+					$this->_update_project_metadata($type, $sid, $project_options, false, $this->api_user(), $user_id);
+				}
+
+				$this->_add_project_to_collections($sid, $collection_ids, $user_id);
+				$this->audit_log->log_event('project', $sid, 'update', null, $user_id, null);
+
+				$this->set_response(array('status' => 'success', 'id' => $sid), REST_Controller::HTTP_OK);
+				return;
+			}
+
+			if ($sid){
+				throw new Exception("Project with this IDNO already exists: ".$idno);
+			}
+
 			$this->validate_project_idno($idno);
 						
 			$options=array(

@@ -207,3 +207,29 @@ $lang['other_columns_step_title'] = 'Other columns';
 $lang['unassigned'] = 'unassigned';
 $lang['other_columns_caption'] = 'Columns not covered by the steps above. Assign a type to each unassigned column before importing.';
 $lang['other_columns_none'] = 'No additional columns to classify.';
+
+// Import workflow selection (step 1 when a DSD already exists)
+$lang['workflow_data_only_label'] = 'Import data';
+$lang['workflow_data_only_hint'] = 'Use the existing structure. Extra columns in the CSV are added as attributes.';
+$lang['workflow_replace_label'] = 'Replace data and structure';
+$lang['workflow_replace_hint'] = 'Delete the existing structure and all data, then define everything from the new CSV.';
+
+// Import workflow — step 2 breadcrumb
+$lang['change'] = 'Change';
+
+// Import workflow — Workflow 2 (data only) step 2
+$lang['preflight_checking'] = 'Checking CSV columns against structure…';
+$lang['preflight_required_missing'] = 'Required structure columns missing from CSV:';
+$lang['preflight_new_attributes'] = 'New columns will be added to the structure as attributes:';
+$lang['preflight_missing_dsd'] = 'Structure columns not in CSV (no data for these):';
+$lang['preflight_ok'] = 'All required structure columns found in CSV.';
+$lang['select_indicator_value'] = 'Select the indicator to import';
+$lang['choose_indicator_value'] = 'Choose indicator value…';
+$lang['loading_indicator_values'] = 'Loading indicator values from CSV…';
+$lang['no_indicator_values'] = 'No indicator values found in CSV';
+$lang['import_data'] = 'Import Data';
+$lang['data_preview'] = 'Preview';
+
+// SDMX import tab
+$lang['select_sdmx_xml_file'] = 'Select SDMX XML file';
+$lang['sdmx_registry_url'] = 'SDMX Registry URL';

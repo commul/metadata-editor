@@ -321,12 +321,13 @@ class Indicator_dsd extends MY_REST_Controller
 	 * 
 	 * POST /api/indicator_dsd/dsd_import/{sid}
 	 * Body: multipart/form-data
-	 *   - file: CSV file
+	 *   - file: CSV file (direct upload), or
+	 *   - upload_id: completed resumable upload from /api/uploads/* (do not send both)
 	 *   - column_mappings: JSON string with column mappings
 	 *   - overwrite_existing: 0|1
 	 *   - skip_existing: 0|1
 	 *
-	 * When multipart file is omitted, uses data/indicator_staging_upload.csv from the project folder (copy to temp; staging file is not mutated).
+	 * When neither file nor upload_id is provided, uses data/indicator_staging_upload.csv from the project folder (copy to temp; staging file is not mutated).
 	 *
 	 * On success (no import errors), drops project_{sid}.staging in DuckDB via FastAPI and deletes data/indicator_staging_upload.csv when present.
 	 *
@@ -334,22 +335,40 @@ class Indicator_dsd extends MY_REST_Controller
 	function dsd_import_post($sid = null)
 	{
 		$tmp_staging_copy = null;
+		$resumable_upload_id = null;
 
 		try{
 			$sid = $this->get_sid($sid);
 			$this->editor_acl->user_has_project_access($sid, $permission = 'edit', $this->api_user);
 
-			if (isset($_FILES['file']) && is_uploaded_file($_FILES['file']['tmp_name'])) {
-				$file = $_FILES['file'];
-				$file_name = $file['name'];
-				$file_tmp = $file['tmp_name'];
+			$upload_id_raw = $this->input->post('upload_id');
+			$upload_id = is_string($upload_id_raw) ? trim($upload_id_raw) : '';
+			$has_file = isset($_FILES['file']) && is_uploaded_file($_FILES['file']['tmp_name']);
 
-				$file_ext = strtolower(pathinfo($file_name, PATHINFO_EXTENSION));
+			if ($upload_id !== '' && $has_file) {
+				throw new Exception('Provide either a file upload or upload_id, not both');
+			}
+
+			if ($has_file) {
+				$file_ext = strtolower(pathinfo($_FILES['file']['name'], PATHINFO_EXTENSION));
 				if ($file_ext !== 'csv') {
 					throw new Exception("Only CSV files are supported");
 				}
-			}
-			else {
+				$file_tmp = $_FILES['file']['tmp_name'];
+			} elseif ($upload_id !== '') {
+				// Resumable upload path
+				$this->load->library('Resumable_upload', null, 'uploader');
+				$completed = $this->uploader->get_completed_upload($upload_id);
+				if (!$completed) {
+					throw new Exception('Resumable upload not found or not yet complete');
+				}
+				$file_ext = strtolower(pathinfo($completed['filename'], PATHINFO_EXTENSION));
+				if ($file_ext !== 'csv') {
+					throw new Exception('Only CSV files are supported');
+				}
+				$file_tmp = $completed['file_path'];
+				$resumable_upload_id = $upload_id;
+			} else {
 				$src = $this->indicator_staging_upload_realpath($sid);
 				if (!$src) {
 					throw new Exception("CSV file is required (upload a file, or ensure the staging CSV exists on the server)");
@@ -417,8 +436,12 @@ class Indicator_dsd extends MY_REST_Controller
 			$response['file_name'] = $result['file_name'];
 		}
 
+		// keep_staging=1: caller will run promote AFTER dsd_import (Workflow 1 ordering fix).
+		// When set, staging and the on-disk CSV are preserved so the subsequent promote can use them.
+		$keep_staging = $this->input->post('keep_staging') === '1';
+
 		// After successful DSD import: drop DuckDB staging (data already in timeseries via promote) and remove wizard CSV.
-		if (empty($result['errors'])) {
+		if (empty($result['errors']) && !$keep_staging) {
 			// Auto-populate local codelists for columns where a label column was mapped.
 			// Timeseries is already promoted at this point; errors are non-fatal warnings.
 			if (!empty($result['local_codelists_pending'])) {
@@ -470,6 +493,9 @@ class Indicator_dsd extends MY_REST_Controller
 			if ($tmp_staging_copy !== null && is_file($tmp_staging_copy)) {
 				@unlink($tmp_staging_copy);
 			}
+			if ($resumable_upload_id !== null) {
+				$this->uploader->delete_upload($resumable_upload_id);
+			}
 		}
 	}
 
@@ -513,6 +539,231 @@ class Indicator_dsd extends MY_REST_Controller
 				'message' => $e->getMessage()
 			);
 			$this->set_response($error_output, REST_Controller::HTTP_BAD_REQUEST);
+		}
+	}
+
+	/**
+	 * Full reset for Workflow 1 (full replace): deletes all MySQL DSD column rows and drops the
+	 * DuckDB timeseries table so the project can be reimported from scratch.
+	 * POST /api/indicator_dsd/reset/{sid}
+	 * No body required. Returns { dsd_columns_deleted, timeseries_dropped }.
+	 */
+	function reset_post($sid = null)
+	{
+		try {
+			$sid = $this->get_sid($sid);
+			$this->editor_acl->user_has_project_access($sid, $permission = 'edit', $this->api_user);
+
+			$deleted = $this->Indicator_dsd_model->delete_all_for_project($sid);
+
+			$this->load->library('indicator_duckdb_service');
+			$drop = $this->indicator_duckdb_service->timeseries_drop($sid);
+
+			$ts_dropped = true;
+			$warnings   = array();
+			if (is_array($drop) && !empty($drop['error'])) {
+				$hc = isset($drop['http_code']) ? (int) $drop['http_code'] : 0;
+				if ($hc !== 404) {
+					$ts_dropped = false;
+					$warnings[] = isset($drop['message']) ? $drop['message'] : 'Timeseries drop failed';
+				}
+			}
+
+			$response = array(
+				'status'              => 'success',
+				'dsd_columns_deleted' => isset($deleted['rows']) ? (int) $deleted['rows'] : 0,
+				'timeseries_dropped'  => $ts_dropped,
+			);
+			if (!empty($warnings)) {
+				$response['warnings'] = $warnings;
+			}
+
+			$this->set_response($response, REST_Controller::HTTP_OK);
+		}
+		catch (Throwable $e) {
+			$this->set_response(array(
+				'status'  => 'failed',
+				'message' => $e->getMessage(),
+			), REST_Controller::HTTP_BAD_REQUEST);
+		}
+	}
+
+	/**
+	 * Add extra CSV columns (by name) to the DSD as attribute-type rows (Workflow 2).
+	 * POST /api/indicator_dsd/add_attributes/{sid}
+	 * JSON body: { "columns": ["COL_A", "COL_B", ...] }
+	 *
+	 * Adds new DSD columns without a column_type so the user can classify them via the UI.
+	 * - Columns already in the DSD are skipped (no overwrite).
+	 * - Columns with invalid names (special chars, starts with _, too long) are skipped with a warning.
+	 * Returns { added: [], skipped_existing: [], skipped_invalid: [] }
+	 */
+	function add_attributes_post($sid = null)
+	{
+		try {
+			$sid  = $this->get_sid($sid);
+			$this->editor_acl->user_has_project_access($sid, $permission = 'edit', $this->api_user);
+
+			$body    = (array) $this->raw_json_input();
+			$columns = isset($body['columns']) && is_array($body['columns']) ? $body['columns'] : array();
+
+			if (empty($columns)) {
+				$this->set_response(array(
+					'status'           => 'success',
+					'added'            => array(),
+					'skipped_existing' => array(),
+					'skipped_invalid'  => array(),
+				), REST_Controller::HTTP_OK);
+				return;
+			}
+
+			$existing     = $this->Indicator_dsd_model->select_all($sid, false);
+			$exist_upper  = array_map(function ($c) {
+				return strtoupper(trim((string) $c['name']));
+			}, $existing);
+
+			$user_id      = $this->get_api_user_id();
+			$name_pattern = '/^[a-zA-Z0-9_]+$/';
+
+			$added            = array();
+			$skipped_existing = array();
+			$skipped_invalid  = array();
+
+			foreach ($columns as $raw) {
+				$name  = trim((string) $raw);
+				$upper = strtoupper($name);
+
+				if (in_array($upper, $exist_upper)) {
+					$skipped_existing[] = $upper;
+					continue;
+				}
+
+				if (
+					$name === ''
+					|| !preg_match($name_pattern, $name)
+					|| $name[0] === '_'
+					|| strlen($name) > 255
+				) {
+					$skipped_invalid[] = $name;
+					continue;
+				}
+
+				try {
+				$this->Indicator_dsd_model->insert($sid, array(
+					'name'        => $upper,
+					'label'       => '',
+					'description' => '',
+				), false);
+					$added[]      = $upper;
+					$exist_upper[] = $upper;
+				}
+				catch (Throwable $e) {
+					$skipped_invalid[] = $name . ' (' . $e->getMessage() . ')';
+				}
+			}
+
+			$this->set_response(array(
+				'status'           => 'success',
+				'added'            => $added,
+				'skipped_existing' => $skipped_existing,
+				'skipped_invalid'  => $skipped_invalid,
+			), REST_Controller::HTTP_OK);
+		}
+		catch (Throwable $e) {
+			$this->set_response(array(
+				'status'  => 'failed',
+				'message' => $e->getMessage(),
+			), REST_Controller::HTTP_BAD_REQUEST);
+		}
+	}
+
+	/**
+	 * Pre-flight: compare staging CSV columns against the saved DSD structure.
+	 * GET /api/indicator_dsd/validate_draft/{sid}
+	 *
+	 * Useful before a data-only import to confirm that the CSV covers the required DSD columns.
+	 *
+	 * Response fields:
+	 *   staging_exists  bool    — whether project_{sid}.staging exists in DuckDB
+	 *   dsd_exists      bool    — whether MySQL indicator_dsd has rows for this project
+	 *   matched         string[]  — DSD column names present in draft (normalised uppercase)
+	 *   missing_dsd     string[]  — DSD column names NOT in draft (data will be null for these)
+	 *   extra_csv       string[]  — draft columns not in DSD (will be ignored in data-only mode)
+	 *   required_missing array   — required-role DSD columns (geography/time_period/etc.) missing from draft
+	 *   has_errors      bool    — true if any required-role DSD column is absent from draft
+	 */
+	function validate_draft_get($sid = null)
+	{
+		try {
+			$sid = $this->get_sid($sid);
+			$this->editor_acl->user_has_project_access($sid, $permission = 'view', $this->api_user);
+
+			$this->load->library('indicator_duckdb_service');
+			$staging_meta = $this->indicator_duckdb_service->draft_describe($sid);
+
+			$staging_exists = is_array($staging_meta) && !empty($staging_meta['exists']);
+			$staging_col_upper = array();
+			if ($staging_exists && !empty($staging_meta['columns']) && is_array($staging_meta['columns'])) {
+				foreach ($staging_meta['columns'] as $col) {
+					$raw = is_array($col) && isset($col['name']) ? (string) $col['name'] : (string) $col;
+					$u = strtoupper(trim($raw));
+					if ($u !== '') {
+						$staging_col_upper[] = $u;
+					}
+				}
+			}
+
+			$dsd_columns = $this->Indicator_dsd_model->select_all($sid, false);
+			$dsd_exists = !empty($dsd_columns);
+
+			$matched = array();
+			$missing_dsd = array();
+			foreach ($dsd_columns as $col) {
+				$name_u = strtoupper(trim((string) $col['name']));
+				if (in_array($name_u, $staging_col_upper)) {
+					$matched[] = $name_u;
+				} else {
+					$missing_dsd[] = $name_u;
+				}
+			}
+
+			$dsd_names_upper = array_map(function ($c) {
+				return strtoupper(trim((string) $c['name']));
+			}, $dsd_columns);
+
+			$extra_csv = array();
+			foreach ($staging_col_upper as $name_u) {
+				if (!in_array($name_u, $dsd_names_upper)) {
+					$extra_csv[] = $name_u;
+				}
+			}
+
+			// Required-role columns: must be present in staging for a valid promote
+			$required_types = array('geography', 'time_period', 'indicator_id', 'observation_value');
+			$required_missing = array();
+			foreach ($dsd_columns as $col) {
+				$name_u = strtoupper(trim((string) $col['name']));
+				if (in_array($col['column_type'], $required_types) && !in_array($name_u, $staging_col_upper)) {
+					$required_missing[] = array('name' => $name_u, 'type' => $col['column_type']);
+				}
+			}
+
+			$this->set_response(array(
+				'status' => 'success',
+				'staging_exists' => $staging_exists,
+				'dsd_exists' => $dsd_exists,
+				'matched' => $matched,
+				'missing_dsd' => $missing_dsd,
+				'extra_csv' => $extra_csv,
+				'required_missing' => $required_missing,
+				'has_errors' => !empty($required_missing),
+			), REST_Controller::HTTP_OK);
+		}
+		catch (Throwable $e) {
+			$this->set_response(array(
+				'status' => 'failed',
+				'message' => $e->getMessage(),
+			), REST_Controller::HTTP_BAD_REQUEST);
 		}
 	}
 
@@ -617,7 +868,7 @@ class Indicator_dsd extends MY_REST_Controller
 				'data' => $chart_data,
 			), REST_Controller::HTTP_OK);
 		}
-		catch (Exception $e) {
+		catch (Throwable $e) {
 			$this->set_response(array(
 				'status' => 'failed',
 				'message' => $e->getMessage(),
@@ -642,7 +893,7 @@ class Indicator_dsd extends MY_REST_Controller
 				'data' => $payload,
 			), REST_Controller::HTTP_OK);
 		}
-		catch (Exception $e) {
+		catch (Throwable $e) {
 			$this->set_response(array(
 				'status' => 'failed',
 				'message' => $e->getMessage(),
@@ -677,7 +928,7 @@ class Indicator_dsd extends MY_REST_Controller
 
 			$this->set_response($response, REST_Controller::HTTP_OK);
 		}
-		catch (Exception $e) {
+		catch (Throwable $e) {
 			$error_output = array(
 				'status' => 'failed',
 				'message' => $e->getMessage()
@@ -711,7 +962,7 @@ class Indicator_dsd extends MY_REST_Controller
 			);
 			$this->set_response($response, REST_Controller::HTTP_OK);
 		}
-		catch (Exception $e) {
+		catch (Throwable $e) {
 			$this->set_response(array(
 				'status' => 'failed',
 				'message' => $e->getMessage(),
@@ -753,7 +1004,7 @@ class Indicator_dsd extends MY_REST_Controller
 				'data' => $data,
 			), REST_Controller::HTTP_OK);
 		}
-		catch (Exception $e) {
+		catch (Throwable $e) {
 			$this->set_response(array(
 				'status' => 'failed',
 				'message' => $e->getMessage(),
@@ -764,7 +1015,10 @@ class Indicator_dsd extends MY_REST_Controller
 	/**
 	 * Upload CSV and queue import into the draft buffer (project_{sid}.staging).
 	 * POST /api/indicator_dsd/data_draft/{sid}
-	 * multipart: file, optional delimiter, optional dsd_columns (JSON array of column name strings)
+	 * Accepts one of:
+	 *   - multipart file field "file" (direct upload), or
+	 *   - form field "upload_id" referencing a completed resumable upload from /api/uploads/*
+	 * Optional: delimiter, dsd_columns (JSON array of column name strings)
 	 */
 	function data_draft_post($sid = null)
 	{
@@ -772,13 +1026,12 @@ class Indicator_dsd extends MY_REST_Controller
 			$sid = $this->get_sid($sid);
 			$this->editor_acl->user_has_project_access($sid, $permission = 'edit', $this->api_user);
 
-			if (!isset($_FILES['file']) || !is_uploaded_file($_FILES['file']['tmp_name'])) {
-				throw new Exception('CSV file is required');
-			}
+			$upload_id_raw = $this->input->post('upload_id');
+			$upload_id = is_string($upload_id_raw) ? trim($upload_id_raw) : '';
+			$has_file = isset($_FILES['file']) && is_uploaded_file($_FILES['file']['tmp_name']);
 
-			$ext = strtolower(pathinfo($_FILES['file']['name'], PATHINFO_EXTENSION));
-			if ($ext !== 'csv') {
-				throw new Exception('Only CSV files are supported');
+			if ($upload_id !== '' && $has_file) {
+				throw new Exception('Provide either a file upload or upload_id, not both');
 			}
 
 			$this->Editor_model->create_project_folder($sid);
@@ -793,8 +1046,33 @@ class Indicator_dsd extends MY_REST_Controller
 			}
 
 			$dest = $data_dir . '/indicator_staging_upload.csv';
-			if (!@move_uploaded_file($_FILES['file']['tmp_name'], $dest)) {
-				throw new Exception('Failed to save uploaded CSV');
+
+			if ($upload_id !== '') {
+				// Resumable upload path
+				$this->load->library('Resumable_upload', null, 'uploader');
+				$completed = $this->uploader->get_completed_upload($upload_id);
+				if (!$completed) {
+					throw new Exception('Resumable upload not found or not yet complete');
+				}
+				$ext = strtolower(pathinfo($completed['filename'], PATHINFO_EXTENSION));
+				if ($ext !== 'csv') {
+					throw new Exception('Only CSV files are supported');
+				}
+				if (!@copy($completed['file_path'], $dest)) {
+					throw new Exception('Failed to save uploaded CSV');
+				}
+				$this->uploader->delete_upload($upload_id);
+			} elseif ($has_file) {
+				// Direct multipart upload path
+				$ext = strtolower(pathinfo($_FILES['file']['name'], PATHINFO_EXTENSION));
+				if ($ext !== 'csv') {
+					throw new Exception('Only CSV files are supported');
+				}
+				if (!@move_uploaded_file($_FILES['file']['tmp_name'], $dest)) {
+					throw new Exception('Failed to save uploaded CSV');
+				}
+			} else {
+				throw new Exception('CSV file is required');
 			}
 
 			$real_path = realpath($dest);
@@ -842,7 +1120,7 @@ class Indicator_dsd extends MY_REST_Controller
 				'message' => isset($queue['message']) ? $queue['message'] : 'Staging import queued',
 			), REST_Controller::HTTP_OK);
 		}
-		catch (Exception $e) {
+		catch (Throwable $e) {
 			$this->set_response(array(
 				'status' => 'failed',
 				'message' => $e->getMessage(),
@@ -905,7 +1183,7 @@ class Indicator_dsd extends MY_REST_Controller
 				),
 			), REST_Controller::HTTP_OK);
 		}
-		catch (Exception $e) {
+		catch (Throwable $e) {
 			$this->set_response(array(
 				'status' => 'failed',
 				'message' => $e->getMessage(),
@@ -942,7 +1220,7 @@ class Indicator_dsd extends MY_REST_Controller
 				'data' => $data,
 			), REST_Controller::HTTP_OK);
 		}
-		catch (Exception $e) {
+		catch (Throwable $e) {
 			$this->set_response(array(
 				'status' => 'failed',
 				'message' => $e->getMessage(),
@@ -1021,7 +1299,7 @@ class Indicator_dsd extends MY_REST_Controller
 				'data' => $data,
 			), REST_Controller::HTTP_OK);
 		}
-		catch (Exception $e) {
+		catch (Throwable $e) {
 			$msg = $e->getMessage();
 			$code = $e->getCode();
 			if ($code === REST_Controller::HTTP_NOT_FOUND) {
@@ -1145,7 +1423,7 @@ class Indicator_dsd extends MY_REST_Controller
 				'not_found_in_timeseries' => $missing,
 			), REST_Controller::HTTP_OK);
 		}
-		catch (Exception $e) {
+		catch (Throwable $e) {
 			$msg = $e->getMessage();
 			$code = $e->getCode();
 			if ($code === REST_Controller::HTTP_NOT_FOUND) {
@@ -1182,7 +1460,7 @@ class Indicator_dsd extends MY_REST_Controller
 			}
 			exit;
 		}
-		catch (Exception $e) {
+		catch (Throwable $e) {
 			$this->set_response(array(
 				'status' => 'failed',
 				'message' => $e->getMessage(),
@@ -1214,7 +1492,56 @@ class Indicator_dsd extends MY_REST_Controller
 				'row_count' => isset($result['row_count']) ? (int) $result['row_count'] : 0,
 			), REST_Controller::HTTP_OK);
 		}
-		catch (Exception $e) {
+		catch (Throwable $e) {
+			$this->set_response(array(
+				'status'  => 'failed',
+				'message' => $e->getMessage(),
+			), REST_Controller::HTTP_BAD_REQUEST);
+		}
+	}
+
+	/**
+	 * Delete timeseries rows for a specific indicator value (Workflow 2 — always replace).
+	 * DELETE /api/indicator_dsd/timeseries_delete_by_indicator/{sid}
+	 * Query params: indicator_column, indicator_value
+	 *
+	 * Called before promoting staging rows so that existing data for the chosen indicator is
+	 * fully replaced rather than appended/upserted.
+	 * A 404 from FastAPI (no rows existed yet) is treated as success.
+	 */
+	function timeseries_delete_by_indicator_delete($sid = null)
+	{
+		try {
+			$sid = $this->get_sid($sid);
+			$this->editor_acl->user_has_project_access($sid, $permission = 'edit', $this->api_user);
+
+			$indicator_column = trim((string) ($this->input->get('indicator_column') ?? ''));
+			$indicator_value  = $this->input->get('indicator_value');
+
+			if ($indicator_column === '') {
+				throw new Exception('indicator_column query param is required');
+			}
+			if ($indicator_value === null || $indicator_value === '') {
+				throw new Exception('indicator_value query param is required');
+			}
+
+			$this->load->library('indicator_duckdb_service');
+			$result = $this->indicator_duckdb_service->timeseries_delete_by_indicator($sid, $indicator_column, (string) $indicator_value);
+
+			// 404 = table / rows did not exist yet — not an error
+			if (is_array($result) && !empty($result['error'])) {
+				$hc = isset($result['http_code']) ? (int) $result['http_code'] : 0;
+				if ($hc !== 404) {
+					throw new Exception(isset($result['message']) ? $result['message'] : 'FastAPI filtered delete failed');
+				}
+			}
+
+			$this->set_response(array(
+				'status'  => 'success',
+				'message' => 'Deleted',
+			), REST_Controller::HTTP_OK);
+		}
+		catch (Throwable $e) {
 			$this->set_response(array(
 				'status'  => 'failed',
 				'message' => $e->getMessage(),
@@ -1257,7 +1584,7 @@ class Indicator_dsd extends MY_REST_Controller
 				'data' => $data,
 			), REST_Controller::HTTP_OK);
 		}
-		catch (Exception $e) {
+		catch (Throwable $e) {
 			$this->set_response(array(
 				'status' => 'failed',
 				'message' => $e->getMessage(),
@@ -1305,7 +1632,7 @@ class Indicator_dsd extends MY_REST_Controller
 				'message' => isset($queue['message']) ? $queue['message'] : 'Promote queued',
 			), REST_Controller::HTTP_OK);
 		}
-		catch (Exception $e) {
+		catch (Throwable $e) {
 			$this->set_response(array(
 				'status' => 'failed',
 				'message' => $e->getMessage(),
@@ -1355,7 +1682,7 @@ class Indicator_dsd extends MY_REST_Controller
 				'message' => isset($queue['message']) ? $queue['message'] : 'Time-derived columns recompute queued',
 			), REST_Controller::HTTP_OK);
 		}
-		catch (Exception $e) {
+		catch (Throwable $e) {
 			$this->set_response(array(
 				'status' => 'failed',
 				'message' => $e->getMessage(),
@@ -1395,7 +1722,7 @@ class Indicator_dsd extends MY_REST_Controller
 				'message' => $res['message'],
 			), REST_Controller::HTTP_OK);
 		}
-		catch (Exception $e) {
+		catch (Throwable $e) {
 			$this->set_response(array(
 				'status' => 'failed',
 				'message' => $e->getMessage(),
@@ -1463,7 +1790,7 @@ class Indicator_dsd extends MY_REST_Controller
 				'warnings'           => $warnings,
 			), REST_Controller::HTTP_OK);
 		}
-		catch (Exception $e) {
+		catch (Throwable $e) {
 			$this->set_response(array(
 				'status'  => 'failed',
 				'message' => $e->getMessage(),

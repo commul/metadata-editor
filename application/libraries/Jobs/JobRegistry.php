@@ -26,17 +26,21 @@ class JobRegistry
             $files = glob($handlers_path . '*Job.php');
             
             foreach ($files as $file) {
-                require_once $file;
-                
-                $class_name = basename($file, '.php');
-                
-                if (class_exists($class_name)) {
-                    $handler = new $class_name();
+                try {
+                    require_once $file;
                     
-                    if ($handler instanceof JobHandlerInterface) {
-                        $job_type = $handler->getJobType();
-                        self::$handlers[$job_type] = $handler;
+                    $class_name = basename($file, '.php');
+                    
+                    if (class_exists($class_name)) {
+                        $handler = new $class_name();
+                        
+                        if ($handler instanceof JobHandlerInterface) {
+                            $job_type = $handler->getJobType();
+                            self::$handlers[$job_type] = $handler;
+                        }
                     }
+                } catch (Throwable $e) {
+                    log_message('error', 'JobRegistry: failed to load handler ' . basename($file) . ': ' . $e->getMessage());
                 }
             }
         }

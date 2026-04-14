@@ -556,6 +556,40 @@ class Indicator_dsd_model extends CI_Model {
     }
 
     /**
+     * Delete ALL DSD columns for a project (full reset before reimport).
+     * Cleans up associated local codelist entries first.
+     *
+     * @param int $sid
+     * @return array { rows: int }
+     */
+    public function delete_all_for_project($sid)
+    {
+        $sid = (int) $sid;
+        if ($sid <= 0) {
+            return array('rows' => 0);
+        }
+
+        $this->db->select('id');
+        $this->db->where('sid', $sid);
+        $existing = $this->db->get('indicator_dsd')->result_array();
+
+        if (empty($existing)) {
+            return array('rows' => 0);
+        }
+
+        $id_list = array_column($existing, 'id');
+        $this->load->model('Local_codelists_model');
+        foreach ($id_list as $dsd_id) {
+            $this->Local_codelists_model->delete_list_by_field($sid, (int) $dsd_id);
+        }
+
+        $this->db->where('sid', $sid);
+        $this->db->delete('indicator_dsd');
+
+        return array('rows' => $this->db->affected_rows());
+    }
+
+    /**
      * 
      * Validate DSD column data
      * 
@@ -876,25 +910,68 @@ class Indicator_dsd_model extends CI_Model {
      */
     private function rewrite_csv_with_normalized_headers($csv_file_path)
     {
-        $content = file_get_contents($csv_file_path);
-        if ($content === false) {
-            throw new Exception("Failed to read CSV file");
+        $in = @fopen($csv_file_path, 'rb');
+        if ($in === false) {
+            throw new Exception('Failed to read CSV file');
         }
-        list($first_line_len, $line_ending) = $this->find_first_csv_line_length($content);
-        $first_line = substr($content, 0, $first_line_len - strlen($line_ending));
-        $rest = substr($content, $first_line_len);
 
-        $headers = str_getcsv($first_line);
+        // Read the first line only — keep memory usage O(1) regardless of file size.
+        $raw_first_line = fgets($in);
+        if ($raw_first_line === false) {
+            fclose($in);
+            throw new Exception('CSV file has no header row');
+        }
+
+        // Detect and preserve the original line ending.
+        if (substr($raw_first_line, -2) === "\r\n") {
+            $line_ending = "\r\n";
+        } elseif (substr($raw_first_line, -1) === "\r") {
+            $line_ending = "\r";
+        } else {
+            $line_ending = "\n";
+        }
+        $first_line_stripped = rtrim($raw_first_line, "\r\n");
+
+        $headers = str_getcsv($first_line_stripped);
         if (empty($headers)) {
-            throw new Exception("CSV file has no header row");
+            fclose($in);
+            throw new Exception('CSV file has no header row');
         }
-        $normalized_headers = $this->normalize_csv_column_names($headers);
-        $new_first_line = $this->csv_line_from_values($normalized_headers);
 
-        $new_content = $new_first_line . $line_ending . $rest;
-        if (file_put_contents($csv_file_path, $new_content) === false) {
-            throw new Exception("Failed to rewrite CSV with normalized column names");
+        $normalized_headers = $this->normalize_csv_column_names($headers);
+        $new_first_line     = $this->csv_line_from_values($normalized_headers);
+
+        // If nothing changed we can skip the rewrite entirely.
+        if ($new_first_line === $first_line_stripped) {
+            fclose($in);
+            return $normalized_headers;
         }
+
+        // Stream-write to a temp file next to the original, then atomically replace it.
+        $tmp_path = $csv_file_path . '.rewrite_' . uniqid('', true);
+        $out = @fopen($tmp_path, 'wb');
+        if ($out === false) {
+            fclose($in);
+            throw new Exception('Failed to create temp file for CSV header rewrite');
+        }
+
+        fwrite($out, $new_first_line . $line_ending);
+
+        while (!feof($in)) {
+            $chunk = fread($in, 65536);
+            if ($chunk !== false && $chunk !== '') {
+                fwrite($out, $chunk);
+            }
+        }
+
+        fclose($in);
+        fclose($out);
+
+        if (!rename($tmp_path, $csv_file_path)) {
+            @unlink($tmp_path);
+            throw new Exception('Failed to replace CSV with normalised header version');
+        }
+
         return $normalized_headers;
     }
 
@@ -1022,7 +1099,7 @@ class Indicator_dsd_model extends CI_Model {
                 $indicator_id_mapping['csvColumn'],
                 $project_idno
             );
-        } catch (Exception $e) {
+        } catch (Throwable $e) {
             $result['errors'][] = $e->getMessage();
             return $result; // Stop here, don't create columns
         }
@@ -1033,7 +1110,7 @@ class Indicator_dsd_model extends CI_Model {
             $upload_result = $this->upload_indicator_csv($sid, $csv_file_path, $user_id);
             $result['file_id'] = $upload_result['file_id'];
             $result['file_name'] = $upload_result['file_name'];
-        } catch (Exception $e) {
+        } catch (Throwable $e) {
             $result['errors'][] = "Failed to store CSV file: " . $e->getMessage();
             return $result; // Stop here if file storage fails
         }
@@ -1207,7 +1284,7 @@ class Indicator_dsd_model extends CI_Model {
                     $this->insert($sid, $insert_data);
                     $result['created']++;
                 }
-            } catch (Exception $e) {
+            } catch (Throwable $e) {
                 $result['errors'][] = "Error processing column '{$mapping['csvColumn']}': " . $e->getMessage();
             }
         }
@@ -1381,6 +1458,9 @@ class Indicator_dsd_model extends CI_Model {
     {
         $this->load->library('indicator_duckdb_service');
 
+        // Only validate against published timeseries data.
+        // Staging (upload buffer) is provisional and must not be used here —
+        // it would produce false validation errors before the import is complete.
         $page = $this->indicator_duckdb_service->timeseries_page($sid, 0, 1);
         if (is_array($page) && empty($page['error']) && !empty($page['columns']) && is_array($page['columns'])) {
             $map = array();
@@ -1404,34 +1484,6 @@ class Indicator_dsd_model extends CI_Model {
                     'source' => 'timeseries',
                     'column_keys' => $map,
                     'row_count' => isset($page['total_row_count']) ? (int) $page['total_row_count'] : null,
-                    'warning' => null,
-                );
-            }
-        }
-
-        $st = $this->indicator_duckdb_service->draft_describe($sid);
-        if (is_array($st) && empty($st['error']) && !empty($st['exists']) && !empty($st['columns']) && is_array($st['columns'])) {
-            $map = array();
-            foreach ($st['columns'] as $col) {
-                $nm = '';
-                if (is_array($col) && isset($col['name'])) {
-                    $nm = trim((string) $col['name']);
-                } elseif (is_string($col)) {
-                    $nm = trim($col);
-                }
-                if ($nm === '') {
-                    continue;
-                }
-                $k = $this->dsd_physical_column_key($nm);
-                if ($k !== '') {
-                    $map[$k] = $nm;
-                }
-            }
-            if (count($map) > 0) {
-                return array(
-                    'source' => 'staging',
-                    'column_keys' => $map,
-                    'row_count' => isset($st['row_count']) ? (int) $st['row_count'] : null,
                     'warning' => null,
                 );
             }
@@ -1800,7 +1852,7 @@ class Indicator_dsd_model extends CI_Model {
         $page = $this->validation_synthetic_page_from_column_keys($ctx);
         try {
             $slice_ctx = $this->chart_timeseries_slice_context($sid, $page, self::chart_observation_key_slice_column_types());
-        } catch (Exception $e) {
+        } catch (Throwable $e) {
             $meta['reason'] = 'Could not derive observation key from DSD and data columns: ' . $e->getMessage();
 
             return array($errors, $warnings, $meta);
@@ -2070,7 +2122,7 @@ class Indicator_dsd_model extends CI_Model {
 
         $ctx = $this->resolve_indicator_data_validation_context($sid);
         if ($ctx === null) {
-            $data_validation['reason'] = 'No indicator data in DuckDB (published timeseries or staging) found; data checks were not run.';
+            $data_validation['reason'] = 'No published timeseries data found; data checks were not run.';
 
             return $this->merge_dsd_validation_response($structure, $data_validation);
         }
@@ -2403,7 +2455,7 @@ class Indicator_dsd_model extends CI_Model {
                             array('name' => !empty($column['label']) ? $column['label'] : $column['name']),
                             $user_id
                         );
-                    } catch (Exception $e) {
+                    } catch (Throwable $e) {
                         $result['errors'][] = $column['name'] . ': ' . $e->getMessage();
 
                         continue;
@@ -2414,7 +2466,7 @@ class Indicator_dsd_model extends CI_Model {
                         'local_codelist_id' => $list_id,
                         'changed_by' => $user_id,
                     ), false);
-                } catch (Exception $e) {
+                } catch (Throwable $e) {
                     $result['errors'][] = $column['name'] . ': ' . $e->getMessage();
 
                     continue;
@@ -2424,7 +2476,7 @@ class Indicator_dsd_model extends CI_Model {
             try {
                 $this->Local_codelists_model->replace_all_items($sid, $list_id, $pairs, $user_id);
                 $result['updated']++;
-            } catch (Exception $e) {
+            } catch (Throwable $e) {
                 $result['errors'][] = $column['name'] . ': ' . $e->getMessage();
             }
         }
@@ -2528,7 +2580,7 @@ class Indicator_dsd_model extends CI_Model {
             try {
                 $this->update($sid, $column['id'], $update_data, false);
                 $result['updated']++;
-            } catch (Exception $e) {
+            } catch (Throwable $e) {
                 $result['errors'][] = $column['name'] . ': ' . $e->getMessage();
             }
         }
@@ -2902,7 +2954,7 @@ class Indicator_dsd_model extends CI_Model {
 
         try {
             $ctx = $this->chart_timeseries_slice_context($sid, $page);
-        } catch (Exception $e) {
+        } catch (Throwable $e) {
             return array(
                 'column_counts' => array(),
                 'metadata' => array('source' => 'none', 'message' => $e->getMessage()),
@@ -3566,11 +3618,11 @@ class Indicator_dsd_model extends CI_Model {
                         ), false);
 
                         $codelists_created++;
-                    } catch (Exception $e) {
+                    } catch (Throwable $e) {
                         $warnings[] = 'Could not create local codelist for column "' . $name . '": ' . $e->getMessage();
                     }
                 }
-            } catch (Exception $e) {
+            } catch (Throwable $e) {
                 $warnings[] = 'Skipped component "' . $name . '": ' . $e->getMessage();
             }
         }

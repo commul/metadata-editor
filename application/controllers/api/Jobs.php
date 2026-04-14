@@ -554,6 +554,105 @@ class Jobs extends MY_REST_Controller
 	}
 
 	/**
+	 * Create an indicator data import job (convenience endpoint)
+	 *
+	 * POST /api/jobs/import_indicator_data
+	 *
+	 * Imports a CSV file into the timeseries data store for an indicator/timeseries project.
+	 * Handles the full workflow as a single background job:
+	 *   1. Loads the CSV into the draft buffer
+	 *   2. Validates that all required DSD columns are present
+	 *   3. Imports data for each indicator value found in the CSV
+	 *
+	 * The CSV must be uploaded first via POST /api/uploads/* to obtain an upload_id.
+	 *
+	 * Request body:
+	 *   {
+	 *     "project_id": 885,
+	 *     "upload_id": "abc123",
+	 *     "delimiter": ",",
+	 *     "indicator_value": "NY.GDP.PCAP.CD"
+	 *   }
+	 *
+	 * Required fields:
+	 *   - project_id: ID of an indicator or timeseries project
+	 *   - upload_id:  Completed resumable upload ID (from POST /api/uploads/*)
+	 *
+	 * Optional fields:
+	 *   - indicator_value: (required) Only import rows whose indicator_id column matches this value.
+	 *   - delimiter:    CSV field delimiter character (default: ',')
+	 *   - priority:     Job queue priority (default: 0)
+	 *   - max_attempts: Maximum retry attempts (default: 1)
+	 *
+	 * Returns: { status, uuid, job }
+	 * Poll status via GET /api/jobs/{uuid}
+	 */
+	function import_indicator_data_post()
+	{
+		try {
+			$input = json_decode($this->input->raw_input_stream, true);
+			if (!$input) {
+				$input = $this->input->post();
+			}
+			if (empty($input)) {
+				throw new Exception('Request body is required');
+			}
+			if (empty($input['project_id'])) {
+				throw new Exception('project_id is required');
+			}
+			if (empty($input['upload_id'])) {
+				throw new Exception('upload_id is required — upload the CSV first via POST /api/uploads/*');
+			}
+			if (!isset($input['indicator_value']) || trim((string) $input['indicator_value']) === '') {
+				throw new Exception('indicator_value is required');
+			}
+
+			$payload = array(
+				'project_id' => (int) $input['project_id'],
+				'upload_id'  => (string) $input['upload_id'],
+			);
+			if (!empty($input['delimiter'])) {
+				$payload['delimiter'] = (string) $input['delimiter'];
+			}
+			$payload['indicator_value'] = trim((string) $input['indicator_value']);
+
+			$job_type     = 'import_indicator_data';
+			$priority     = isset($input['priority']) ? (int) $input['priority'] : 0;
+			// Default to 1 attempt — retrying a partial import could duplicate rows
+			$max_attempts = isset($input['max_attempts']) ? (int) $input['max_attempts'] : 1;
+
+			if (!$this->Job_queue_model->is_valid_job_type($job_type)) {
+				$available_types = $this->Job_queue_model->get_job_types();
+				throw new Exception("Invalid job_type: {$job_type}. Available types: " . implode(', ', $available_types));
+			}
+
+			$handler = JobRegistry::getHandler($job_type);
+			if ($handler) {
+				$handler->validatePayload($payload);
+			}
+
+			$job_id = $this->Job_queue_model->enqueue($job_type, $payload, $this->user_id, $priority, $max_attempts);
+			$job    = $this->Job_queue_model->get($job_id);
+
+			$job_response = $this->sanitize_job_for_api($job);
+			$job_uuid     = isset($job['uuid']) ? $job['uuid'] : null;
+
+			$this->set_response(array(
+				'status'  => 'success',
+				'message' => 'Import job created. Poll GET /api/jobs/' . $job_uuid . ' for status.',
+				'uuid'    => $job_uuid,
+				'job'     => $job_response,
+			), REST_Controller::HTTP_CREATED);
+
+		} catch (Exception $e) {
+			$this->set_response(array(
+				'status'  => 'failed',
+				'message' => $e->getMessage(),
+			), REST_Controller::HTTP_BAD_REQUEST);
+		}
+	}
+
+	/**
 	 * Get available job types
 	 * 
 	 * Returns a list of all registered job types that can be created

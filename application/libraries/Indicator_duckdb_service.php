@@ -743,6 +743,56 @@ class Indicator_duckdb_service {
 	}
 
 	/**
+	 * Delete timeseries rows for a specific indicator value before reimporting (Workflow 2).
+	 *
+	 * FastAPI: DELETE timeseries/indicators/timeseries/by-indicator
+	 * Query params: project_id, indicator_column, indicator_value
+	 *
+	 * @param int $sid
+	 * @param string $indicator_column Physical column name in timeseries that holds indicator codes
+	 * @param string $indicator_value  The indicator code whose rows should be deleted
+	 * @return array Decoded JSON on 2xx, or [ 'error' => true, 'message' => ..., 'http_code' => int ]
+	 */
+	public function timeseries_delete_by_indicator($sid, $indicator_column, $indicator_value)
+	{
+		$url = $this->base_url . 'timeseries/indicators/timeseries/by-indicator';
+		$client = new Client(array('timeout' => 120, 'http_errors' => false));
+
+		try {
+			$response = $client->request('DELETE', $url, array(
+				'query' => array(
+					'project_id'       => (string) (int) $sid,
+					'indicator_column' => (string) $indicator_column,
+					'indicator_value'  => (string) $indicator_value,
+				),
+			));
+
+			$code = (int) $response->getStatusCode();
+			$raw  = (string) $response->getBody();
+			$body = json_decode($raw, true);
+
+			if ($code >= 200 && $code < 300) {
+				return is_array($body) ? $body : array('ok' => true);
+			}
+
+			return array(
+				'error'     => true,
+				'message'   => is_array($body) && isset($body['detail']) ? $body['detail'] : ($raw !== '' ? $raw : 'HTTP ' . $code),
+				'http_code' => $code,
+			);
+		}
+		catch (RequestException $e) {
+			$raw = $e->hasResponse() ? (string) $e->getResponse()->getBody() : $e->getMessage();
+
+			return array(
+				'error'     => true,
+				'message'   => $raw,
+				'http_code' => $e->hasResponse() ? $e->getResponse()->getStatusCode() : 0,
+			);
+		}
+	}
+
+	/**
 	 * Drop project_{sid}.timeseries in DuckDB (delete all published indicator data).
 	 *
 	 * FastAPI: DELETE timeseries/indicators/timeseries?project_id=

@@ -1201,6 +1201,11 @@
             return;
           }
 
+          if (node.type=='indicator-dsd-container'){
+            router.push('/indicator-dsd-overview');
+            return;
+          }
+
           if (node.type=='indicator-dsd'){
             router.push('/indicator-dsd');
             return;

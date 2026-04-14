@@ -45,6 +45,14 @@ Vue.component('indicator-dsd-import', {
             dsdDictionaries: { time_period_formats: [], freq_codes: [] },
             /** CSV column used for last duckdb distinct fetch; avoids refetch (and stepper flicker) when only other roles change */
             _distinctFetchIndicatorColumn: '',
+            // Which import workflow the user chose on step 1.
+            // null = not yet chosen (shown when DSD exists); 'replace' = Workflow 1 (full replace);
+            // 'data_only' = Workflow 2 (data only, match existing structure).
+            // When no DSD exists the workflow is implicitly 'replace' and no choice is presented.
+            importWorkflow: null,
+            // Pre-flight result from GET /api/indicator_dsd/validate_draft/{sid} (Workflow 2 only)
+            preflightResult: null,
+            preflightLoading: false,
             // SDMX DSD import mode
             importMode: 'csv', // 'csv' | 'sdmx'
             sdmxFile: null,
@@ -309,6 +317,9 @@ Vue.component('indicator-dsd-import', {
                 this.hasUnsavedChanges = true;
                 this.$nextTick(function() {
                     this.runAfterStagingReady();
+                    if (this.importWorkflow === 'data_only') {
+                        this.runPreflightValidation();
+                    }
                 }.bind(this));
             } catch (e) {
                 console.log('data_draft_status', e);
@@ -404,24 +415,43 @@ Vue.component('indicator-dsd-import', {
                 return;
             }
             this.isProcessing = true;
-            this.importStatus = 'Uploading and loading into staging…';
-            this.importProgress = 10;
+            this.importStatus = 'Uploading CSV…';
+            this.importProgress = 5;
             try {
+                // Phase 1: chunked resumable upload → get upload_id
+                const self = this;
+                const uploadResult = await ResumableChunkUploader.uploadFileChunks(this.file, {
+                    projectId: this.dataset_id,
+                    fileType: 'data',
+                    onInitializing: function(initializing) {
+                        if (initializing) {
+                            self.importStatus = 'Initializing upload…';
+                        }
+                    },
+                    onProgress: function(prog) {
+                        // Scale chunk upload progress to 5–30% of the overall bar
+                        self.importProgress = 5 + Math.round(prog.progress * 0.25);
+                        self.importStatus = 'Uploading CSV (' + prog.progress + '%)…';
+                    }
+                });
+
+                // Phase 2: hand upload_id to the staging endpoint
+                this.importProgress = 30;
+                this.importStatus = 'Loading CSV into staging (DuckDB)…';
                 const fd = new FormData();
-                fd.append('file', this.file);
+                fd.append('upload_id', uploadResult.upload_id);
                 fd.append('delimiter', ',');
                 // Do not send dsd_columns here: staging must accept any CSV headers; the user maps
                 // columns in step 2. Sending DSD names forces FastAPI to reject files whose headers
                 // do not match the current structure (e.g. a new or reorganized extract).
                 const post = await axios.post(
                     CI.base_url + '/api/indicator_dsd/data_draft/' + this.dataset_id,
-                    fd,
-                    { headers: { 'Content-Type': 'multipart/form-data' } }
+                    fd
                 );
                 if (post.data.status !== 'success' || !post.data.job_id) {
                     throw new Error(post.data.message || 'Staging request failed');
                 }
-                this.importProgress = 30;
+                this.importProgress = 35;
                 this.importStatus = 'Loading CSV into staging (DuckDB)…';
                 const job = await this.pollDuckdbJob(post.data.job_id);
                 const data = job.data || {};
@@ -455,6 +485,9 @@ Vue.component('indicator-dsd-import', {
                 this.hasUnsavedChanges = true;
                 this.$nextTick(function() {
                     this.runAfterStagingReady();
+                    if (this.importWorkflow === 'data_only') {
+                        this.runPreflightValidation();
+                    }
                 }.bind(this));
             } catch (e) {
                 let msg = (e.response && e.response.data && e.response.data.message) || e.message || 'Staging failed';
@@ -469,23 +502,42 @@ Vue.component('indicator-dsd-import', {
             if (!this.stagingReady || this.step !== 2) {
                 return;
             }
-            var m = this.columnMappings.find(function(x) {
-                return x.selected && x.columnType === 'indicator_id';
-            });
-            if (!m) {
-                this.distinctItems = [];
-                this.selectedIndicatorValue = '';
-                this.distinctTruncated = false;
-                this.distinctError = '';
-                this.validateIndicatorId();
-                return;
+
+            var colName;
+            if (this.importWorkflow === 'data_only') {
+                // Workflow 2: use the indicator_id column from the stored DSD, not from the
+                // auto-mapping wizard (which matches on CSV column names and can pick the wrong column).
+                var idColDsd = this.existingColumns.find(function(c) { return c.column_type === 'indicator_id'; });
+                if (!idColDsd) {
+                    this.distinctItems = [];
+                    this.selectedIndicatorValue = '';
+                    this.distinctTruncated = false;
+                    this.distinctError = '';
+                    return;
+                }
+                colName = idColDsd.name;
+            } else {
+                // Workflow 1: column comes from the user-driven mapping wizard.
+                var m = this.columnMappings.find(function(x) {
+                    return x.selected && x.columnType === 'indicator_id';
+                });
+                if (!m) {
+                    this.distinctItems = [];
+                    this.selectedIndicatorValue = '';
+                    this.distinctTruncated = false;
+                    this.distinctError = '';
+                    this.validateIndicatorId();
+                    return;
+                }
+                colName = m.csvColumn;
             }
+
             this.distinctLoading = true;
             this.distinctError = '';
             try {
                 var url = CI.base_url + '/api/indicator_dsd/data_draft_values/' + this.dataset_id;
                 var res = await axios.get(url, {
-                    params: { column: m.csvColumn, limit: this.distinctListLimit }
+                    params: { column: colName, limit: this.distinctListLimit }
                 });
                 if (res.data.status !== 'success') {
                     throw new Error(res.data.message || 'Distinct request failed');
@@ -606,6 +658,11 @@ Vue.component('indicator-dsd-import', {
             this.hasUnsavedChanges = true;
 
             this.step = 2; // Move to preview step
+
+            // data_only: run pre-flight column comparison immediately after entering step 2
+            if (this.importWorkflow === 'data_only') {
+                this.$nextTick(function() { this.runPreflightValidation(); }.bind(this));
+            }
         },
         parseCSVLine: function(line) {
             const values = [];
@@ -762,150 +819,19 @@ Vue.component('indicator-dsd-import', {
                 EventBus.$emit('onFail', 'No preview data to import');
                 return;
             }
-            if (!this.file && !this.serverStagingHasFile) {
-                    EventBus.$emit('onFail', 'Upload the CSV or ensure the file exists on the server to finish the data-structure import');
-                return;
-            }
 
-            const selectedColumns = this.columnMappings.filter(function(m) { return m.selected; });
-            if (selectedColumns.length === 0) {
-                EventBus.$emit('onFail', 'Please select at least one column to import');
-                return;
-            }
-
-            const validation = this.validateIndicatorId();
-            if (!validation || !validation.valid) {
-                EventBus.$emit('onFail', validation ? validation.error : 'Indicator validation failed');
-                return;
-            }
-
-            const indicatorIdMapping = this.columnMappings.find(function(m) {
-                return m.selected && m.columnType === 'indicator_id';
-            });
-            if (!indicatorIdMapping) {
-                EventBus.$emit('onFail', 'Indicator ID column is required');
-                return;
-            }
+            const workflow = this.importWorkflow || 'replace';
 
             this.isProcessing = true;
-            this.importStatus = 'Publishing indicator data to timeseries…';
-            this.importProgress = 15;
-
+            this.errors = [];
+            this.warnings = [];
             const vm = this;
-            const formData = new FormData();
-            if (this.file) {
-                formData.append('file', this.file);
-            }
-            const selectedMappings = this.columnMappings.filter(function(m) { return m.selected; });
-            const hasFreqFromData = selectedMappings.some(function(m) {
-                return m.columnType === 'periodicity';
-            });
-            // Build a quick lookup: csvColumn → uppercase DSD columnName
-            var csvToColumnName = {};
-            this.columnMappings.forEach(function(m) {
-                if (m.csvColumn && m.columnName) {
-                    csvToColumnName[m.csvColumn] = m.columnName;
-                }
-            });
-
-            const payloadMappings = selectedMappings.map(function(m) {
-                var o = {};
-                Object.keys(m).forEach(function(k) { o[k] = m[k]; });
-                if (!o.columnType) {
-                    o.columnType = 'attribute'; // unassigned columns default to attribute on import
-                }
-                if (m.columnType === 'time_period' && hasFreqFromData) {
-                    o.timePeriodFormat = null;
-                    o.timePeriodFreqCode = null;
-                }
-                // Resolve labelColumn (CSV name) → uppercase DSD column name so the stored
-                // value_label_column matches the column names used everywhere else in the DSD.
-                if (o.labelColumn) {
-                    o.labelColumn = csvToColumnName[o.labelColumn] || o.labelColumn.toUpperCase();
-                }
-                return o;
-            });
-            formData.append('column_mappings', JSON.stringify(payloadMappings));
-            formData.append('overwrite_existing', this.existingColumnsAction === 'overwrite' ? '1' : '0');
-            formData.append('skip_existing', this.existingColumnsAction === 'skip' ? '1' : '0');
-            const idnoForFilter = String(this.selectedIndicatorValue || '').trim()
-                || String(this.editableStudyIdno || this.StudyIDNO || '').trim();
-            formData.append('indicator_idno', idnoForFilter);
-            // Translate required-field label column values from CSV names → uppercase DSD column names.
-            // requiredFieldLabelColumns stores the original CSV column name chosen by the user;
-            // DSD column names are always uppercased, so we must match that before sending.
-            var labelColsPayload = {};
-            var self = this;
-            Object.keys(this.requiredFieldLabelColumns || {}).forEach(function(key) {
-                if (key === 'observation_value') { return; }
-                var csvCol = self.requiredFieldLabelColumns[key];
-                if (!csvCol) { return; }
-                labelColsPayload[key] = csvToColumnName[csvCol] || csvCol.toUpperCase();
-            });
-            formData.append('required_field_label_columns', JSON.stringify(labelColsPayload));
 
             try {
-                const pr = await axios.post(
-                    CI.base_url + '/api/indicator_dsd/data_import/' + vm.dataset_id,
-                    {
-                        indicator_column: indicatorIdMapping.csvColumn,
-                        indicator_value: String(this.selectedIndicatorValue)
-                    },
-                    { headers: { 'Content-Type': 'application/json' } }
-                );
-                if (pr.data.status !== 'success' || !pr.data.job_id) {
-                    throw new Error(pr.data.message || 'Promote request failed');
-                }
-                this.importProgress = 45;
-                this.importStatus = 'Promoting staging to timeseries…';
-                await this.pollDuckdbJob(pr.data.job_id);
-
-                this.importProgress = 65;
-                this.importStatus = 'Updating data structure (MySQL)…';
-
-                let url = CI.base_url + '/api/indicator_dsd/dsd_import/' + vm.dataset_id;
-                let response = await axios.post(url, formData, {
-                    headers: { 'Content-Type': 'multipart/form-data' },
-                    onUploadProgress: (progressEvent) => {
-                        if (this.file && progressEvent.total) {
-                            this.importProgress = 65 + Math.round((progressEvent.loaded * 25) / progressEvent.total);
-                        }
-                    }
-                });
-                if (!this.file) {
-                    this.importProgress = 88;
-                }
-
-                this.importProgress = 92;
-                this.importStatus = 'Finalizing…';
-
-                if (response.data) {
-                    if (response.data.errors && response.data.errors.length > 0) {
-                        this.errors = response.data.errors;
-                        this.importStatus = 'Import completed with errors';
-                        EventBus.$emit('onFail', 'CSV import completed with errors. Please check the errors below.');
-                        this.step = 2;
-                    } else if (response.data.status === 'success') {
-                        if (response.data.warnings && response.data.warnings.length) {
-                            this.warnings = this.warnings.concat(response.data.warnings);
-                        }
-                        if (this.$store && this.$store.dispatch) {
-                            this.$store.dispatch('loadDataFiles', { dataset_id: this.dataset_id });
-                        }
-                        this.importStatus = 'Import completed successfully!';
-                        const rowsMsg = response.data.rows_imported != null ? ' ' + response.data.rows_imported + ' rows imported.' : '';
-                        const message = 'CSV imported successfully: ' + (response.data.created || 0) + ' created, ' + (response.data.updated || 0) + ' updated.' + rowsMsg;
-                        EventBus.$emit('onSuccess', message);
-                        this.importProgress = 100;
-                        this.hasUnsavedChanges = false;
-                        setTimeout(function() {
-                            vm.$router.push('/indicator-dsd');
-                        }, 1500);
-                    } else {
-                        throw new Error(response.data.message || 'Import failed');
-                    }
+                if (workflow === 'data_only') {
+                    await this._processWorkflow2();
                 } else {
-                    throw new Error('Invalid response from server');
+                    await this._processWorkflow1();
                 }
             } catch (error) {
                 this.errors = [];
@@ -924,6 +850,268 @@ Vue.component('indicator-dsd-import', {
             } finally {
                 this.isProcessing = false;
             }
+        },
+
+        /**
+         * Workflow 1 — Full replace.
+         * Order: reset → dsd_import (keep_staging) → promote → recompute → done.
+         */
+        _processWorkflow1: async function() {
+            const vm = this;
+
+            if (!this.file && !this.serverStagingHasFile) {
+                throw new Error('Upload a CSV or ensure the staging file exists on the server');
+            }
+
+            const selectedMappings = this.columnMappings.filter(function(m) { return m.selected; });
+            if (selectedMappings.length === 0) {
+                throw new Error('Please select at least one column to import');
+            }
+
+            const validation = this.validateIndicatorId();
+            if (!validation || !validation.valid) {
+                throw new Error(validation ? validation.error : 'Indicator validation failed');
+            }
+
+            const indicatorIdMapping = selectedMappings.find(function(m) {
+                return m.columnType === 'indicator_id';
+            });
+            if (!indicatorIdMapping) {
+                throw new Error('Indicator ID column is required');
+            }
+
+            // ── Step 1: Reset (delete DSD + drop timeseries) ──────────────
+            this.importStatus = 'Resetting existing structure…';
+            this.importProgress = 5;
+
+            const resetRes = await axios.post(
+                CI.base_url + '/api/indicator_dsd/reset/' + this.dataset_id,
+                {},
+                { headers: { 'Content-Type': 'application/json' } }
+            );
+            if (!resetRes.data || resetRes.data.status !== 'success') {
+                throw new Error((resetRes.data && resetRes.data.message) || 'Reset failed');
+            }
+            if (resetRes.data.warnings && resetRes.data.warnings.length) {
+                this.warnings = this.warnings.concat(resetRes.data.warnings);
+            }
+            this.importProgress = 15;
+
+            // ── Step 2: Create DSD columns in MySQL (keep staging for promote) ─
+            this.importStatus = 'Creating data structure…';
+
+            const csvToColumnName = {};
+            this.columnMappings.forEach(function(m) {
+                if (m.csvColumn && m.columnName) { csvToColumnName[m.csvColumn] = m.columnName; }
+            });
+
+            const hasFreqFromData = selectedMappings.some(function(m) { return m.columnType === 'periodicity'; });
+
+            const payloadMappings = selectedMappings.map(function(m) {
+                var o = {};
+                Object.keys(m).forEach(function(k) { o[k] = m[k]; });
+                if (!o.columnType) { o.columnType = 'attribute'; }
+                if (m.columnType === 'time_period' && hasFreqFromData) {
+                    o.timePeriodFormat = null;
+                    o.timePeriodFreqCode = null;
+                }
+                if (o.labelColumn) {
+                    o.labelColumn = csvToColumnName[o.labelColumn] || o.labelColumn.toUpperCase();
+                }
+                return o;
+            });
+
+            var labelColsPayload = {};
+            var self = this;
+            Object.keys(this.requiredFieldLabelColumns || {}).forEach(function(key) {
+                if (key === 'observation_value') { return; }
+                var csvCol = self.requiredFieldLabelColumns[key];
+                if (!csvCol) { return; }
+                labelColsPayload[key] = csvToColumnName[csvCol] || csvCol.toUpperCase();
+            });
+
+            const idnoForFilter = String(this.selectedIndicatorValue || '').trim()
+                || String(this.editableStudyIdno || this.StudyIDNO || '').trim();
+
+            const formData = new FormData();
+            if (this.file) { formData.append('file', this.file); }
+            formData.append('column_mappings', JSON.stringify(payloadMappings));
+            formData.append('overwrite_existing', '1');
+            formData.append('skip_existing', '0');
+            formData.append('indicator_idno', idnoForFilter);
+            formData.append('required_field_label_columns', JSON.stringify(labelColsPayload));
+            formData.append('keep_staging', '1');  // preserve staging for promote step
+
+            const dsdRes = await axios.post(
+                CI.base_url + '/api/indicator_dsd/dsd_import/' + this.dataset_id,
+                formData,
+                {
+                    headers: { 'Content-Type': 'multipart/form-data' },
+                    onUploadProgress: function(e) {
+                        if (vm.file && e.total) {
+                            vm.importProgress = 15 + Math.round((e.loaded * 20) / e.total);
+                        }
+                    }
+                }
+            );
+            this.importProgress = 40;
+
+            if (dsdRes.data) {
+                if (dsdRes.data.errors && dsdRes.data.errors.length > 0) {
+                    this.errors = dsdRes.data.errors;
+                    this.importStatus = 'Import completed with errors';
+                    EventBus.$emit('onFail', 'CSV import completed with errors. Please check the errors below.');
+                    this.step = 2;
+                    this.isProcessing = false;
+                    return;
+                }
+                if (dsdRes.data.status !== 'success') {
+                    throw new Error(dsdRes.data.message || 'DSD import failed');
+                }
+                if (dsdRes.data.warnings && dsdRes.data.warnings.length) {
+                    this.warnings = this.warnings.concat(dsdRes.data.warnings);
+                }
+            }
+
+            // ── Step 3: Promote staging → timeseries ──────────────────────
+            this.importStatus = 'Promoting staging to timeseries…';
+            this.importProgress = 45;
+
+            const prRes = await axios.post(
+                CI.base_url + '/api/indicator_dsd/data_import/' + this.dataset_id,
+                {
+                    indicator_column: indicatorIdMapping.csvColumn,
+                    indicator_value:  String(this.selectedIndicatorValue)
+                },
+                { headers: { 'Content-Type': 'application/json' } }
+            );
+            if (!prRes.data || prRes.data.status !== 'success' || !prRes.data.job_id) {
+                throw new Error((prRes.data && prRes.data.message) || 'Promote request failed');
+            }
+            await this.pollDuckdbJob(prRes.data.job_id);
+            this.importProgress = 80;
+
+            // ── Step 4: Recompute _ts_year / _ts_freq (non-critical) ──────
+            const hasTimePeriod = selectedMappings.some(function(m) { return m.columnType === 'time_period'; });
+            if (hasTimePeriod) {
+                this.importStatus = 'Recomputing time-derived columns…';
+                this.importProgress = 85;
+                try {
+                    const rc = await axios.post(
+                        CI.base_url + '/api/indicator_dsd/data_recompute/' + this.dataset_id,
+                        {},
+                        { headers: { 'Content-Type': 'application/json' } }
+                    );
+                    if (rc.data.status === 'success' && rc.data.job_id) {
+                        await this.pollDuckdbJob(rc.data.job_id);
+                    }
+                } catch (rcErr) {
+                    this.warnings.push('Time-column recompute skipped: ' + (rcErr.message || 'error'));
+                }
+            }
+
+            this.importProgress = 95;
+            this.importStatus = 'Finalizing…';
+
+            if (this.$store && this.$store.dispatch) {
+                this.$store.dispatch('loadDataFiles', { dataset_id: this.dataset_id });
+            }
+            const rowsMsg = prRes.data.rows_imported != null ? ' ' + prRes.data.rows_imported + ' rows imported.' : '';
+            const msg = 'Structure created and data imported.' + rowsMsg;
+            EventBus.$emit('onSuccess', msg);
+            this.importProgress = 100;
+            this.hasUnsavedChanges = false;
+            setTimeout(function() { vm.$router.push('/indicator-dsd'); }, 1500);
+        },
+
+        /**
+         * Workflow 2 — Data only.
+         * Order: add_attributes (extra cols) → delete_by_indicator → promote → done.
+         * No DSD column mapping wizard — structure already exists.
+         */
+        _processWorkflow2: async function() {
+            const vm = this;
+
+            if (!this.selectedIndicatorValue || String(this.selectedIndicatorValue).trim() === '') {
+                throw new Error('Select the indicator value to import');
+            }
+
+            // The indicator_id column comes from the DSD (pre-flight loaded it)
+            const idColDsd = this.existingColumns.find(function(c) { return c.column_type === 'indicator_id'; });
+            if (!idColDsd) {
+                throw new Error('Indicator ID column not found in DSD — run a full replace first');
+            }
+            const indicatorColumnName = idColDsd.name;  // physical DuckDB column name
+
+            // ── Step 1: Add extra CSV columns as DSD attributes ───────────
+            const extraCols = (this.preflightResult && this.preflightResult.extra_csv) || [];
+            if (extraCols.length > 0) {
+                this.importStatus = 'Adding new attribute columns to structure…';
+                this.importProgress = 10;
+
+                const attrRes = await axios.post(
+                    CI.base_url + '/api/indicator_dsd/add_attributes/' + this.dataset_id,
+                    { columns: extraCols },
+                    { headers: { 'Content-Type': 'application/json' } }
+                );
+                if (!attrRes.data || attrRes.data.status !== 'success') {
+                    throw new Error((attrRes.data && attrRes.data.message) || 'Failed to add attribute columns');
+                }
+                if (attrRes.data.skipped_invalid && attrRes.data.skipped_invalid.length) {
+                    attrRes.data.skipped_invalid.forEach(function(n) {
+                        vm.warnings.push('Column skipped (invalid name): ' + n);
+                    });
+                }
+            }
+
+            // ── Step 2: Delete existing rows for this indicator ───────────
+            this.importStatus = 'Replacing existing data for this indicator…';
+            this.importProgress = 25;
+
+            const delRes = await axios.delete(
+                CI.base_url + '/api/indicator_dsd/timeseries_delete_by_indicator/' + this.dataset_id,
+                {
+                    params: {
+                        indicator_column: indicatorColumnName,
+                        indicator_value:  String(this.selectedIndicatorValue)
+                    }
+                }
+            );
+            // A 404 from FastAPI means no rows existed yet — not an error
+            if (delRes.data && delRes.data.status === 'failed') {
+                this.warnings.push('Could not delete previous data: ' + (delRes.data.message || 'unknown'));
+            }
+            this.importProgress = 40;
+
+            // ── Step 3: Promote staging → timeseries ──────────────────────
+            this.importStatus = 'Importing data to timeseries…';
+            this.importProgress = 45;
+
+            const prRes = await axios.post(
+                CI.base_url + '/api/indicator_dsd/data_import/' + this.dataset_id,
+                {
+                    indicator_column: indicatorColumnName,
+                    indicator_value:  String(this.selectedIndicatorValue)
+                },
+                { headers: { 'Content-Type': 'application/json' } }
+            );
+            if (!prRes.data || prRes.data.status !== 'success' || !prRes.data.job_id) {
+                throw new Error((prRes.data && prRes.data.message) || 'Promote request failed');
+            }
+            await this.pollDuckdbJob(prRes.data.job_id);
+            this.importProgress = 90;
+
+            this.importStatus = 'Finalizing…';
+            this.importProgress = 95;
+
+            if (this.$store && this.$store.dispatch) {
+                this.$store.dispatch('loadDataFiles', { dataset_id: this.dataset_id });
+            }
+            const rowsMsg = prRes.data.rows_imported != null ? ' ' + prRes.data.rows_imported + ' rows.' : '';
+            EventBus.$emit('onSuccess', 'Data imported successfully.' + rowsMsg);
+            this.importProgress = 100;
+            this.hasUnsavedChanges = false;
+            setTimeout(function() { vm.$router.push('/indicator-dsd'); }, 1500);
         },
         reset: function() {
             this.file = null;
@@ -951,6 +1139,9 @@ Vue.component('indicator-dsd-import', {
             this.serverStagingHasFile = false;
             this.indicatorSeriesStepper = 1;
             this._distinctFetchIndicatorColumn = '';
+            this.importWorkflow = null;
+            this.preflightResult = null;
+            this.preflightLoading = false;
         },
         cancel: function() {
             // Allow Cancel to navigate away without prompting for unsaved changes
@@ -1173,6 +1364,30 @@ Vue.component('indicator-dsd-import', {
             // Accepted navigation; remember new hash
             this._lastHash = window.location.hash || '';
         },
+        /**
+         * Pre-flight: compare staging column names against the saved DSD.
+         * Called automatically after staging succeeds in data_only mode.
+         */
+        runPreflightValidation: async function() {
+            if (!this.stagingReady) return;
+            this.preflightLoading = true;
+            try {
+                const res = await axios.get(
+                    CI.base_url + '/api/indicator_dsd/validate_draft/' + this.dataset_id
+                );
+                if (res.data && res.data.status === 'success') {
+                    this.preflightResult = res.data;
+                    // Populate the indicator value picker using the DSD column (not columnMappings).
+                    if (!this.preflightResult.has_errors) {
+                        this.$nextTick(function() { this.fetchStagingDistinct(); }.bind(this));
+                    }
+                }
+            } catch (e) {
+                console.log('validate_draft error', e);
+            } finally {
+                this.preflightLoading = false;
+            }
+        },
         importSdmxDsd: async function() {
             const vm = this;
             if (!vm.sdmxFile && !vm.sdmxUrl.trim()) {
@@ -1372,6 +1587,16 @@ Vue.component('indicator-dsd-import', {
             if (this.step !== 2) return false;
             if (this.isProcessing) return false;
             if (!this.csvData || !this.stagingReady) return false;
+
+            if (this.importWorkflow === 'data_only') {
+                // Workflow 2: wait for pre-flight to finish, block on errors, require indicator value
+                if (this.preflightLoading || !this.preflightResult) return false;
+                if (this.preflightResult.has_errors) return false;
+                if (!this.selectedIndicatorValue || String(this.selectedIndicatorValue).trim() === '') return false;
+                return true;
+            }
+
+            // Workflow 1 (replace) — full mapping wizard checks
             if (!this.file && !this.serverStagingHasFile) return false;
             const selected = this.columnMappings.filter(function(m) { return m.selected; });
             if (selected.length === 0) return false;
@@ -1520,20 +1745,42 @@ Vue.component('indicator-dsd-import', {
                 </v-card-text>
 
                 <v-card-text v-if="importMode === 'csv'">
-                    <!-- Step 1: Upload CSV → load into staging (staging is always replaced on upload) -->
+                    <!-- Step 1: Upload CSV + choose import mode (mode cards only shown when DSD exists) -->
                     <div v-if="step === 1 && !isProcessing">
+
+                        <!-- File picker -->
                         <v-file-input
                             v-model="file"
-                            :label="$t('select_csv_file') || 'Select CSV File'"
+                            :label="$t('select_csv_file') || 'Select CSV file'"
                             accept=".csv"
                             outlined
                             dense
                             prepend-inner-icon="mdi-file-document"
                             @change="handleFileUpload"
+                            class="mb-1"
                         ></v-file-input>
-                        <p class="caption grey--text mt-1 mb-0">
-                            {{ $t('staging_replaces_note') || 'Uploading a CSV replaces the current preview for this project.' }}
-                        </p>
+
+                        <!-- Mode selection — only shown when a DSD already exists -->
+                        <template v-if="existingColumns.length > 0">
+                            <v-radio-group v-model="importWorkflow" hide-details class="mt-0 mb-4">
+                                <v-radio value="data_only">
+                                    <template v-slot:label>
+                                        <div>
+                                            <div>{{ $t('workflow_data_only_label') || 'Import data' }}</div>
+                                            <div class="caption grey--text" style="font-weight: normal;">{{ $t('workflow_data_only_hint') || 'Use the existing structure. Extra columns in the CSV are added as attributes.' }}</div>
+                                        </div>
+                                    </template>
+                                </v-radio>
+                                <v-radio value="replace" class="mt-2">
+                                    <template v-slot:label>
+                                        <div>
+                                            <div>{{ $t('workflow_replace_label') || 'Replace data and structure' }}</div>
+                                            <div class="caption grey--text" style="font-weight: normal;">{{ $t('workflow_replace_hint') || 'Delete the existing structure and all data, then define everything from the new CSV.' }}</div>
+                                        </div>
+                                    </template>
+                                </v-radio>
+                            </v-radio-group>
+                        </template>
 
                         <v-alert v-if="hasErrors" type="error" class="mt-3">
                             <div v-for="error in errors" :key="error">{{error}}</div>
@@ -1542,15 +1789,149 @@ Vue.component('indicator-dsd-import', {
                         <div class="mt-4 d-flex flex-wrap align-center" style="gap: 8px;">
                             <v-btn
                                 color="primary"
-                                :disabled="!file"
+                                :disabled="!file || (existingColumns.length > 0 && !importWorkflow)"
                                 @click="startStagingUpload"
                             >{{ $t('continue') || 'Continue' }}</v-btn>
                             <v-btn text @click="cancel">{{$t("cancel") || "Cancel"}}</v-btn>
                         </div>
                     </div>
 
-                    <!-- Step 2: Map columns + indicator value + import -->
+                    <!-- Step 2: varies by workflow -->
                     <div v-if="step === 2 && csvData && !isProcessing">
+
+                        <!-- Mode breadcrumb + back link -->
+                        <div class="d-flex align-center mb-4" style="gap: 8px;">
+                            <v-chip small outlined color="primary" label>
+                                {{ importWorkflow === 'data_only' ? ($t('workflow_data_only_label') || 'Import data') : ($t('workflow_replace_label') || 'Replace data and structure') }}
+                            </v-chip>
+                            <v-btn x-small text @click="reset" class="grey--text">
+                                <v-icon x-small left>mdi-arrow-left</v-icon>{{ $t('change') || 'Change' }}
+                            </v-btn>
+                        </div>
+
+                        <!-- ═══════════════════════════════════════════════════════════
+                             WORKFLOW 2: Data only — compact view
+                             Pre-flight → indicator value picker → import
+                             ═══════════════════════════════════════════════════════════ -->
+                        <template v-if="importWorkflow === 'data_only'">
+
+                            <!-- Pre-flight: loading -->
+                            <div v-if="preflightLoading" class="mb-4 d-flex align-center" style="gap: 8px;">
+                                <v-progress-circular indeterminate size="18" width="2" color="primary"></v-progress-circular>
+                                <span class="body-2 grey--text">{{ $t('preflight_checking') || 'Checking CSV columns against structure…' }}</span>
+                            </div>
+
+                            <!-- Pre-flight: results -->
+                            <template v-if="preflightResult && !preflightLoading">
+
+                                <!-- Hard block: required columns missing — show only this, nothing else -->
+                                <v-alert v-if="preflightResult.has_errors" type="error" dense outlined class="mb-4">
+                                    <div class="font-weight-medium mb-2">{{ $t('preflight_required_missing') || 'Required structure columns missing from CSV:' }}</div>
+                                    <div v-for="c in preflightResult.required_missing" :key="c.name" class="caption mt-1">
+                                        <v-icon x-small color="error" class="mr-1">mdi-alert-circle</v-icon>
+                                        <strong>{{ c.name }}</strong> <span class="grey--text">({{ c.type }})</span>
+                                    </div>
+                                </v-alert>
+
+                                <!-- No errors: show contextual info, indicator picker, preview, and import button -->
+                                <template v-if="!preflightResult.has_errors">
+
+                                    <!-- New columns auto-added as attributes -->
+                                    <v-alert v-if="preflightResult.extra_csv && preflightResult.extra_csv.length > 0" type="info" dense outlined class="mb-3" icon="mdi-table-plus">
+                                        <div class="font-weight-medium mb-1">{{ $t('preflight_new_attributes') || 'New columns will be added to the structure as attributes:' }}</div>
+                                        <span class="caption">{{ preflightResult.extra_csv.join(', ') }}</span>
+                                    </v-alert>
+
+                                    <!-- DSD columns not in CSV (non-blocking) -->
+                                    <v-alert v-if="preflightResult.missing_dsd && preflightResult.missing_dsd.length > 0" type="warning" dense outlined class="mb-3">
+                                        <div class="font-weight-medium mb-1">{{ $t('preflight_missing_dsd') || 'Structure columns not in CSV (no data for these):' }}</div>
+                                        <span class="caption">{{ preflightResult.missing_dsd.join(', ') }}</span>
+                                    </v-alert>
+
+                                    <!-- All clear -->
+                                    <v-alert v-if="!preflightResult.missing_dsd || preflightResult.missing_dsd.length === 0" type="success" dense outlined class="mb-3">
+                                        {{ $t('preflight_ok') || 'All required structure columns found in CSV.' }}
+                                    </v-alert>
+
+                                    <!-- Indicator value picker -->
+                                    <v-card outlined class="mb-4">
+                                        <v-card-text>
+                                            <div class="subtitle-2 mb-3">{{ $t('select_indicator_value') || 'Select the indicator to import' }}</div>
+                                            <div v-if="distinctLoading" class="d-flex align-center" style="gap: 8px;">
+                                                <v-progress-circular indeterminate size="16" width="2" color="primary"></v-progress-circular>
+                                                <span class="caption grey--text">{{ $t('loading_indicator_values') || 'Loading indicator values from CSV…' }}</span>
+                                            </div>
+                                            <v-autocomplete
+                                                v-else
+                                                v-model="selectedIndicatorValue"
+                                                :items="distinctItems"
+                                                item-text="value"
+                                                item-value="value"
+                                                outlined
+                                                dense
+                                                clearable
+                                                :placeholder="$t('choose_indicator_value') || 'Choose indicator value…'"
+                                                :no-data-text="$t('no_indicator_values') || 'No indicator values found in CSV'"
+                                                style="max-width: 400px;"
+                                            >
+                                                <template v-slot:item="data">
+                                                    <v-list-item-content>
+                                                        <v-list-item-title>{{ data.item.value }}</v-list-item-title>
+                                                        <v-list-item-subtitle v-if="data.item.count" class="caption">{{ data.item.count }} rows</v-list-item-subtitle>
+                                                    </v-list-item-content>
+                                                </template>
+                                            </v-autocomplete>
+                                            <p v-if="distinctError" class="caption error--text mt-1">{{ distinctError }}</p>
+                                        </v-card-text>
+                                    </v-card>
+
+                                    <!-- Data preview -->
+                                    <v-card v-if="csvData.rows && csvData.rows.length" class="mb-4" outlined>
+                                        <v-card-title class="pa-3 pb-1" style="font-size: 15px; font-weight: bold;">
+                                            {{ $t('data_preview') || 'Preview' }}
+                                            <span class="caption grey--text ml-2">{{ csvData.rows.length }} {{ $t('rows_shown') || 'rows' }} / {{ csvData.totalRows }} {{ $t('rows_total') || 'total' }}</span>
+                                        </v-card-title>
+                                        <v-card-text class="pa-3 pt-1">
+                                            <div style="overflow-x: auto; max-height: 300px; border: 1px solid #e0e0e0; border-radius: 4px;">
+                                                <v-simple-table dense style="min-width: max-content;">
+                                                    <thead>
+                                                        <tr>
+                                                            <th v-for="h in csvData.headers" :key="h" class="text-left" style="padding: 6px 10px; font-size: 12px;">{{ h }}</th>
+                                                        </tr>
+                                                    </thead>
+                                                    <tbody>
+                                                        <tr v-for="(row, ri) in csvData.rows" :key="ri">
+                                                            <td v-for="h in csvData.headers" :key="h" style="padding: 6px 10px; font-size: 12px; max-width: 180px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">{{ row[h] || '' }}</td>
+                                                        </tr>
+                                                    </tbody>
+                                                </v-simple-table>
+                                            </div>
+                                        </v-card-text>
+                                    </v-card>
+
+                                </template><!-- end no errors -->
+                            </template><!-- end preflight results -->
+
+                            <v-alert v-if="hasErrors" type="error" class="mb-3">
+                                <div v-for="error in errors" :key="error">{{error}}</div>
+                            </v-alert>
+
+                            <div class="mt-4 d-flex justify-space-between align-center">
+                                <v-btn text @click="reset">{{ $t('upload_another') || 'Upload Another File' }}</v-btn>
+                                <div>
+                                    <v-btn v-if="!preflightResult || !preflightResult.has_errors" color="primary" large @click="processImport" :loading="isProcessing" :disabled="!canImport">
+                                        <v-icon left>mdi-upload</v-icon>
+                                        {{ $t('import_data') || 'Import Data' }}
+                                    </v-btn>
+                                    <v-btn text @click="cancel" class="ml-2">{{ $t('cancel') || 'Cancel' }}</v-btn>
+                                </div>
+                            </div>
+                        </template>
+
+                        <!-- ═══════════════════════════════════════════════════════════
+                             WORKFLOW 1: Replace — full mapping wizard
+                             ═══════════════════════════════════════════════════════════ -->
+                        <template v-if="importWorkflow !== 'data_only'">
                         <v-alert v-if="stagingResumedFromServer" type="info" dense outlined class="mb-3">
                             {{ $t('staging_resume_banner') || 'Continuing a previous import. Map fields, pick the indicator value, then import. Upload a new CSV below to start a new preview.' }}
                         </v-alert>
@@ -1673,6 +2054,7 @@ Vue.component('indicator-dsd-import', {
                                             {{ $t('indicator_step2_prereq') || 'Choose the indicator code column in step 1 first—we will list the values found in the preview.' }}
                                         </v-alert>
                                     </v-stepper-content>
+                                    <template>
                                     <v-stepper-step
                                         :step="3"
                                         :complete="indicatorStep3TimeComplete"
@@ -1897,6 +2279,7 @@ Vue.component('indicator-dsd-import', {
                                             </v-simple-table>
                                         </template>
                                     </v-stepper-content>
+                                    </template>
                                 </v-stepper>
                             </v-card-text>
                         </v-card>
@@ -2010,7 +2393,7 @@ Vue.component('indicator-dsd-import', {
                             </v-card-text>
                         </v-card>
 
-                        <!-- When some columns already exist: choose overwrite or skip (radio, not alert) -->
+                        <!-- Overwrite or skip (Workflow 1 only) -->
                         <div v-if="hasWarnings" class="mb-3 pa-3" style="border: 1px solid #e0e0e0; border-radius: 4px;">
                             <div class="mb-2">{{$t("some_columns_exist") || "Some columns already exist in the data structure"}}</div>
                             <v-radio-group v-model="existingColumnsAction" hide-details class="mt-0 pt-0">
@@ -2025,26 +2408,26 @@ Vue.component('indicator-dsd-import', {
                             </v-radio-group>
                         </div>
 
-
                         <div class="mt-4 d-flex justify-space-between align-center">
                             <div>
                                 <v-btn text @click="reset">{{$t("upload_another") || "Upload Another File"}}</v-btn>
                             </div>
                             <div>
-                                <v-btn 
-                                    color="primary" 
+                                <v-btn
+                                    color="primary"
                                     @click="processImport"
                                     :loading="isProcessing"
                                     :disabled="!canImport"
                                     large
                                 >
                                     <v-icon left>mdi-upload</v-icon>
-                                    {{$t("import") || "Import"}}
+                                    {{$t("import_structure_and_data") || "Create Structure &amp; Import Data"}}
                                 </v-btn>
                                 <v-btn text @click="cancel" class="ml-2">{{$t("cancel") || "Cancel"}}</v-btn>
                             </div>
                         </div>
-                    </div>
+                        </template><!-- end Workflow 1 -->
+                    </div><!-- end step 2 -->
 
                     <!-- Import Progress (shown during import) -->
                     <div v-if="isProcessing" class="text-center pa-8">

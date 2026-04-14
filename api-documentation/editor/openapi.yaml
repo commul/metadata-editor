@@ -63,6 +63,8 @@ tags:
     description: Publish projects to NADA catalogs
   - name: Catalog connections
     description: Manage catalog connections
+  - name: Jobs
+    description: Background jobs
 x-tagGroups:
   - name: Projects
     tags:
@@ -116,6 +118,9 @@ x-tagGroups:
   - name: Catalog connections
     tags:
       - Catalog connections
+  - name: Jobs
+    tags:
+      - Jobs
 paths:
   /editor:
     get:
@@ -564,7 +569,13 @@ paths:
       description: Create a new microdata project
       operationId: createSurvey
       requestBody:
-        $ref: "#/components/requestBodies/survey-schema.json"
+        required: true
+        content:
+          application/json:
+            schema:
+              allOf:
+                - $ref: survey-schema.json
+                - $ref: "#/components/schemas/CreateProjectOverwrite"
       responses:
         "200":
           description: successful operation
@@ -660,7 +671,13 @@ paths:
       description: Create a new timeseries project
       operationId: createTimeseries
       requestBody:
-        $ref: "#/components/requestBodies/timeseries-schema.json"
+        required: true
+        content:
+          application/json:
+            schema:
+              allOf:
+                - $ref: timeseries-schema.json
+                - $ref: "#/components/schemas/CreateProjectOverwrite"
       responses:
         "200":
           description: successful operation
@@ -704,7 +721,13 @@ paths:
       description: Create a new timeseries database project
       operationId: createTimeseriesDb
       requestBody:
-        $ref: "#/components/requestBodies/timeseries-db-schema.json"
+        required: true
+        content:
+          application/json:
+            schema:
+              allOf:
+                - $ref: timeseries-db-schema.json
+                - $ref: "#/components/schemas/CreateProjectOverwrite"
       responses:
         "200":
           description: successful operation
@@ -748,7 +771,13 @@ paths:
       description: Create a new geospatial project
       operationId: createGeoSpatial
       requestBody:
-        $ref: "#/components/requestBodies/geospatial-schema.json"
+        required: true
+        content:
+          application/json:
+            schema:
+              allOf:
+                - $ref: geospatial-schema.json
+                - $ref: "#/components/schemas/CreateProjectOverwrite"
       responses:
         "200":
           description: successful operation
@@ -792,7 +821,13 @@ paths:
       description: Create a new document project
       operationId: createDocument
       requestBody:
-        $ref: "#/components/requestBodies/document-schema.json"
+        required: true
+        content:
+          application/json:
+            schema:
+              allOf:
+                - $ref: document-schema.json
+                - $ref: "#/components/schemas/CreateProjectOverwrite"
       responses:
         "200":
           description: successful operation
@@ -836,7 +871,13 @@ paths:
       description: Create a new table project
       operationId: createTable
       requestBody:
-        $ref: "#/components/requestBodies/table-schema.json"
+        required: true
+        content:
+          application/json:
+            schema:
+              allOf:
+                - $ref: table-schema.json
+                - $ref: "#/components/schemas/CreateProjectOverwrite"
       responses:
         "200":
           description: successful operation
@@ -880,7 +921,13 @@ paths:
       description: Create a new image project
       operationId: createImage
       requestBody:
-        $ref: "#/components/requestBodies/image-schema.json"
+        required: true
+        content:
+          application/json:
+            schema:
+              allOf:
+                - $ref: image-schema.json
+                - $ref: "#/components/schemas/CreateProjectOverwrite"
       responses:
         "200":
           description: successful operation
@@ -924,7 +971,13 @@ paths:
       description: Create a new video project
       operationId: createVideo
       requestBody:
-        $ref: "#/components/requestBodies/video-schema.json"
+        required: true
+        content:
+          application/json:
+            schema:
+              allOf:
+                - $ref: video-schema.json
+                - $ref: "#/components/schemas/CreateProjectOverwrite"
       responses:
         "200":
           description: successful operation
@@ -968,7 +1021,13 @@ paths:
       description: Create a new script type project
       operationId: createScript
       requestBody:
-        $ref: "#/components/requestBodies/script-schema.json"
+        required: true
+        content:
+          application/json:
+            schema:
+              allOf:
+                - $ref: script-schema.json
+                - $ref: "#/components/schemas/CreateProjectOverwrite"
       responses:
         "200":
           description: successful operation
@@ -2710,13 +2769,57 @@ paths:
           description: Bad request
       security:
         - ApiKeyAuth: []
+  "/publish/catalog_info/{sid}/{catalog_connection_id}":
+    get:
+      tags:
+        - Publish projects
+      summary: Get NADA catalog info for publish form
+      description: >
+        Fetches data used to populate the publish UI: study record from the target NADA
+        catalog (if the study IDNO exists), list of collections, allowed data-access
+        codes, and collections already linked to the study. Calls the configured catalog
+        base URL with the stored API key — e.g. `GET .../index.php/api/collections`,
+        `GET .../index.php/api/catalog/data_access_codes`, `GET .../api/datasets/{idno}`,
+        `GET .../api/datasets/collections/{idno}`.
+      operationId: getNadaCatalogInfoForPublish
+      parameters:
+        - in: path
+          name: sid
+          description: Project ID (internal Metadata Editor project id)
+          required: true
+          schema:
+            type: string
+        - in: path
+          name: catalog_connection_id
+          description: Catalog connection ID (from list catalog connections)
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Catalog information for the publish form
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/NadaCatalogInfoResponse"
+        "400":
+          description: Bad request — user not logged in, missing parameters, or project not found
+      security:
+        - ApiKeyAuth: []
   "/publish/{sid}/{catalog_connection_id}":
     post:
       tags:
         - Publish projects
       summary: Publish project metadata
-      description: Publish project metadata to a NADA catalog. This sends the complete
-        project JSON metadata to the target catalog.
+      description: >
+        Publishes project metadata to a NADA catalog. The server loads the exported
+        project JSON (generated for the project), then **merges** each property from the
+        request body into that object as top-level keys. The combined JSON is sent to the
+        catalog as `POST {catalog_url}/index.php/api/datasets/create/{type}` with header
+        `x-api-key`, where `{type}` is derived from the project (e.g. `survey`, `timeseries`,
+        `timeseries-db`). Typical merge fields from the Metadata Editor UI are
+        `overwrite`, `published`, `access_policy`, `data_remote_url`, and `repositoryid`
+        (see schema). Omit the body or send `{}` to publish without overriding those fields.
       operationId: publishProjectMetadata
       parameters:
         - in: path
@@ -2732,14 +2835,26 @@ paths:
           schema:
             type: integer
       requestBody:
+        required: false
         content:
           application/json:
             schema:
               $ref: "#/components/schemas/PublishOptions"
-        description: Publishing options (repositoryid, access_policy, data_remote_url, etc.)
+            examples:
+              full:
+                summary: Typical UI payload
+                value:
+                  overwrite: "yes"
+                  published: 1
+                  access_policy: licensed
+                  data_remote_url: ""
+                  repositoryid: MY_COLLECTION
+        description: >
+          NADA publish options merged into the project metadata JSON before POST to the
+          catalog. All properties are optional; only supplied keys are merged.
       responses:
         "200":
-          description: Project metadata published successfully
+          description: Project metadata published successfully (response shape follows NADA API)
         "400":
           description: Bad request - project not found, catalog connection not found, or
             publishing failed
@@ -2765,6 +2880,13 @@ paths:
           required: true
           schema:
             type: integer
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              description: Optional JSON body; Metadata Editor sends `{}`
       responses:
         "200":
           description: Thumbnail published successfully
@@ -2783,12 +2905,16 @@ paths:
             failed
       security:
         - ApiKeyAuth: []
-  "/publish/external_resource/{sid}":
+  "/publish/external_resource/{sid}/{catalog_connection_id}":
     post:
       tags:
         - Publish projects
       summary: Publish single external resource
-      description: Publish a single external resource (documentation file) to a NADA catalog
+      description: >
+        Publish a single external resource (documentation file) to a NADA catalog.
+        `catalog_id` in the body must match the catalog connection used for publishing.
+        The optional trailing path segment matches the client URL pattern; the catalog is
+        taken from the JSON body (`catalog_id`).
       operationId: publishSingleExternalResource
       parameters:
         - in: path
@@ -2797,6 +2923,12 @@ paths:
           required: true
           schema:
             type: string
+        - in: path
+          name: catalog_connection_id
+          description: Catalog connection ID (same as `catalog_id` in body; echoed in URL by clients)
+          required: true
+          schema:
+            type: integer
       requestBody:
         content:
           application/json:
@@ -2811,14 +2943,19 @@ paths:
                   description: Resource ID to publish
                 catalog_id:
                   type: integer
-                  description: Catalog connection ID
+                  description: Catalog connection ID (must match path `catalog_connection_id` when both are used)
+                sid:
+                  type: string
+                  description: Project ID (optional; echoed by some clients; path `sid` is authoritative)
                 overwrite:
                   type: string
                   enum:
                     - yes
                     - no
                   default: no
-                  description: Whether to overwrite existing resource in catalog
+                  description: >
+                    Sent to NADA on the resource payload as `overwrite`. When `yes`, replaces an
+                    existing resource with the same identity in the catalog.
         required: true
       responses:
         "200":
@@ -2843,8 +2980,11 @@ paths:
       tags:
         - Publish projects
       summary: Publish all external resources
-      description: Publish all external resources (documentation files) for a project
-        to a NADA catalog
+      description: >
+        Publishes every external resource for the project to NADA. Each resource is POSTed to
+        `{catalog}/index.php/api/resources/{study_idno}` with `overwrite` set to `yes` on the
+        resource object. Request body JSON (if any) is accepted but not applied by the current
+        implementation.
       operationId: publishAllExternalResources
       parameters:
         - in: path
@@ -2859,6 +2999,13 @@ paths:
           required: true
           schema:
             type: integer
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              description: Optional; unused by the server today
       responses:
         "200":
           description: Resources published successfully
@@ -3024,6 +3171,74 @@ paths:
       responses:
         "200":
           description: successful operation
+
+  # ─────────────────────────────────────────────────────────────────────────
+  # Jobs
+  # ─────────────────────────────────────────────────────────────────────────
+
+  "/jobs/import_indicator_data":
+    post:
+      tags:
+        - Jobs
+      summary: Import indicator data (full workflow)
+      description: >
+        Submit a single background job that handles the complete indicator data
+        import workflow: loads the CSV into the draft buffer, validates columns
+        against the DSD, and publishes data for every indicator value found.
+
+
+        The CSV must be uploaded first via `POST /uploads/*` to obtain an
+        `upload_id`. Poll job status via `GET /jobs/{uuid}`.
+
+
+        This is the recommended endpoint for API-based data ingestion. For
+        step-by-step control (e.g. inspect the draft before publishing) use the
+        individual `data_draft` / `data_import` endpoints instead.
+      operationId: importIndicatorDataJob
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - project_id
+                - upload_id
+              properties:
+                project_id:
+                  type: integer
+                  description: ID of the indicator or timeseries project
+                upload_id:
+                  type: string
+                  description: Completed upload session ID from POST /uploads/*
+                delimiter:
+                  type: string
+                  default: ","
+                  description: CSV field delimiter character
+                priority:
+                  type: integer
+                  default: 0
+                  description: Job queue priority
+      responses:
+        "201":
+          description: Import job created
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: success
+                  uuid:
+                    type: string
+                    description: Job UUID — use with GET /jobs/{uuid} to poll status
+                  job:
+                    type: object
+                    additionalProperties: true
+      security:
+        - ApiKeyAuth: []
+
 components:
   requestBodies:
     timeseries-db-schema.json:
@@ -3123,6 +3338,16 @@ components:
       name: X-API-Key
       description: API key for authentication
   schemas:
+    CreateProjectOverwrite:
+      type: object
+      properties:
+        overwrite:
+          type: boolean
+          default: false
+          description: >
+            If true and a project with the same idno already exists, overwrite its metadata
+            in place instead of returning an error. The existing project must be the same type.
+            Collection memberships and file attachments are preserved.
     Template:
       type: object
       properties:
@@ -3658,39 +3883,96 @@ components:
         name: DeleteProjectVersionById
     PublishOptions:
       type: object
+      description: >
+        Fields merged into the exported project JSON before POST to NADA. Names and values
+        follow the Metadata Editor publish UI and NADA dataset-create expectations. Any
+        additional JSON properties are also merged if supplied.
       properties:
-        repositoryid:
-          type: string
-          description: Target collection/repository ID in the NADA catalog
-        access_policy:
+        overwrite:
           type: string
           enum:
-            - open
+            - "yes"
+            - "no"
+          default: "no"
+          description: >
+            If `yes`, allows replacing an existing study in the catalog with the same IDNO.
+            Merged as top-level `overwrite` on the dataset JSON sent to NADA.
+        published:
+          type: integer
+          format: int32
+          enum:
+            - 0
+            - 1
+          description: Catalog visibility — `0` draft, `1` published (merged as `published`).
+        access_policy:
+          type: string
+          description: >
+            Data access / access policy code merged as `access_policy` on the payload.
+            Allowed values match the Metadata Editor publish form; NADA may validate against
+            codes returned by `GET .../index.php/api/catalog/data_access_codes` on the catalog.
+          enum:
+            - data_na
             - direct
             - public
             - licensed
             - remote
-            - data_na
-            - data_enclave
-          description: Data access policy type
+            - enclave
+            - open
+            - ""
+          default: data_na
         data_remote_url:
           type: string
-          description: URL to remote repository (required when access_policy is 'remote')
-        overwrite:
+          description: >
+            URL for remote / external data access; merged as `data_remote_url`. Used when
+            `access_policy` is `remote` or `enclave` (per catalog configuration).
+        repositoryid:
           type: string
-          enum:
-            - yes
-            - no
-          default: no
-          description: Whether to overwrite existing dataset in catalog
-        published:
-          type: integer
-          enum:
-            - 0
-            - 1
-          description: Publication status (0=draft, 1=published)
+          description: >
+            Target collection (repository) code in NADA; merged as `repositoryid`. Options
+            are typically populated from `GET .../index.php/api/collections` on the catalog
+            (see `/publish/catalog_info/...`).
+      additionalProperties: true
+      example:
+        overwrite: "yes"
+        published: 1
+        access_policy: licensed
+        data_remote_url: ""
+        repositoryid: MY_COLLECTION
       xml:
         name: PublishOptions
+    NadaCatalogInfoResponse:
+      type: object
+      description: Response from prefetching NADA data for the publish form
+      properties:
+        study_info:
+          type: object
+          description: >
+            Outcome of `GET {catalog}/index.php/api/datasets/{study_idno}`. On success,
+            normalized fields from `dataset` (without embedded `metadata`) plus `status:
+            success`. On failure, includes `status` (`error` or `failed`), `error` message,
+            optional `response`, and `api_url`.
+        collections_codes:
+          type: array
+          description: Entries from NADA `GET .../index.php/api/collections` (`collections` array)
+          items:
+            type: object
+            additionalProperties: true
+        data_access_codes:
+          type: array
+          description: >
+            Codes from NADA `GET .../index.php/api/catalog/data_access_codes` (`codes` array);
+            used to populate the data access / access_policy control.
+          items:
+            type: object
+            additionalProperties: true
+        collections_linked:
+          type: array
+          description: >
+            Collections already associated with the study from NADA
+            `GET .../index.php/api/datasets/collections/{study_idno}` (normalized list).
+          items:
+            type: object
+            additionalProperties: true
     ApiResponse:
       type: object
       properties:
