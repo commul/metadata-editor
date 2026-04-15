@@ -51,7 +51,17 @@ Vue.component('indicator-timeseries-data-explorer', {
             return this.$store.state.project_id;
         },
         activeDataFile: function() {
-            return this.$store.getters.getDataFileById(this.fid);
+            var fromStore = this.$store.getters.getDataFileById(this.fid);
+            if (fromStore) {
+                return fromStore;
+            }
+            // DuckDB indicator data can exist without an editor_data_files row (e.g. legacy
+            // file_id, or import path that skipped the virtual file). Still show the explorer.
+            var t = this.$store.getters.getProjectType;
+            if ((t === 'indicator' || t === 'timeseries') && this.fid === 'INDICATOR_DATA') {
+                return { file_id: 'INDICATOR_DATA', file_name: 'indicator_data' };
+            }
+            return null;
         },
         dsdByUpperName: function() {
             var map = {};

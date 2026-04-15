@@ -12,6 +12,8 @@ require_once APPPATH . 'libraries/Jobs/JobHandlerInterface.php';
  *   4. Validate that the draft covers the required DSD columns
  *   5. Discover all distinct indicator values in the draft
  *   6. For each indicator value: replace existing timeseries rows and promote from draft
+ *   7. After at least one successful promote: call upload_indicator_csv() so editor_data_files
+ *      contains INDICATOR_DATA (aligns MySQL metadata with DuckDB, same as UI CSV import).
  *
  * Payload fields:
  *   project_id       (int)    required — indicator/timeseries project
@@ -298,6 +300,15 @@ class ImportIndicatorDataJob implements JobHandlerInterface
             throw new Exception(
                 'All indicator imports failed. First error: ' . $failed[0]['error']
             );
+        }
+
+        if (!empty($imported)) {
+            $user_id = isset($job['user_id']) ? (int) $job['user_id'] : null;
+            $csv_path = realpath($dest);
+            if ($csv_path === false) {
+                $csv_path = $real_path;
+            }
+            $this->ci->Indicator_dsd_model->upload_indicator_csv($sid, $csv_path, $user_id);
         }
 
         return array(
