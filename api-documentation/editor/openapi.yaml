@@ -3184,7 +3184,7 @@ paths:
       description: >
         Submit a single background job that handles the complete indicator data
         import workflow: loads the CSV into the draft buffer, validates columns
-        against the DSD, and publishes data for every indicator value found.
+        against the DSD, and publishes rows for the requested `indicator_value`.
 
 
         The CSV must be uploaded first via `POST /uploads/*` to obtain an
@@ -3194,6 +3194,9 @@ paths:
         This is the recommended endpoint for API-based data ingestion. For
         step-by-step control (e.g. inspect the draft before publishing) use the
         individual `data_draft` / `data_import` endpoints instead.
+
+
+        Requires edit access to the target project (same as the indicator DSD import APIs).
       operationId: importIndicatorDataJob
       requestBody:
         required: true
@@ -3204,13 +3207,21 @@ paths:
               required:
                 - project_id
                 - upload_id
+                - indicator_value
               properties:
                 project_id:
-                  type: integer
-                  description: ID of the indicator or timeseries project
+                  oneOf:
+                    - type: integer
+                      description: Numeric database project id
+                    - type: string
+                      description: Project idno, or numeric id as a string (same resolution as other editor APIs)
+                  description: Indicator/timeseries project — numeric id or idno
                 upload_id:
                   type: string
                   description: Completed upload session ID from POST /uploads/*
+                indicator_value:
+                  type: string
+                  description: Value in the DSD indicator_id column; only matching rows are imported
                 delimiter:
                   type: string
                   default: ","

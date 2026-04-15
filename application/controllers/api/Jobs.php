@@ -11,6 +11,7 @@ class Jobs extends MY_REST_Controller
 	{
 		parent::__construct();
 		$this->load->model('Job_queue_model');
+		$this->load->library('Editor_acl');
 		
 		// Load job registry for validation
 		require_once APPPATH . 'libraries/Jobs/JobHandlerInterface.php';
@@ -562,7 +563,7 @@ class Jobs extends MY_REST_Controller
 	 * Handles the full workflow as a single background job:
 	 *   1. Loads the CSV into the draft buffer
 	 *   2. Validates that all required DSD columns are present
-	 *   3. Imports data for each indicator value found in the CSV
+	 *   3. Imports data for the requested indicator_value (indicator_id column)
 	 *
 	 * The CSV must be uploaded first via POST /api/uploads/* to obtain an upload_id.
 	 *
@@ -574,12 +575,15 @@ class Jobs extends MY_REST_Controller
 	 *     "indicator_value": "NY.GDP.PCAP.CD"
 	 *   }
 	 *
+	 * project_id may be the numeric database id or the project idno (same as get_sid() elsewhere).
+	 * Caller must have edit access to the project (same as indicator_dsd data import endpoints).
+	 *
 	 * Required fields:
-	 *   - project_id: ID of an indicator or timeseries project
+	 *   - project_id: Numeric id or idno of an indicator or timeseries project
 	 *   - upload_id:  Completed resumable upload ID (from POST /api/uploads/*)
+	 *   - indicator_value: Only import rows whose indicator_id column matches this value
 	 *
 	 * Optional fields:
-	 *   - indicator_value: (required) Only import rows whose indicator_id column matches this value.
 	 *   - delimiter:    CSV field delimiter character (default: ',')
 	 *   - priority:     Job queue priority (default: 0)
 	 *   - max_attempts: Maximum retry attempts (default: 1)
@@ -607,8 +611,11 @@ class Jobs extends MY_REST_Controller
 				throw new Exception('indicator_value is required');
 			}
 
+			$resolved_sid = $this->get_sid((string) $input['project_id']);
+			$this->editor_acl->user_has_project_access($resolved_sid, 'edit', $this->api_user);
+
 			$payload = array(
-				'project_id' => (int) $input['project_id'],
+				'project_id' => (int) $resolved_sid,
 				'upload_id'  => (string) $input['upload_id'],
 			);
 			if (!empty($input['delimiter'])) {
