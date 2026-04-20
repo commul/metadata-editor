@@ -51,6 +51,7 @@ Vue.component('variables', {
                     "freq": true,
                     "missing": true,
                     "vald": true,
+                    "invd": true,
                     "min": true,
                     "max": true,
                     "mean": true,

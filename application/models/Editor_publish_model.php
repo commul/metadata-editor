@@ -185,14 +185,10 @@ class Editor_publish_model extends ci_model {
 
 		$resources=$this->Editor_resource_model->select_all($sid);
 
-		$catalog_url=$conn_info['url'].'/index.php/api/resources/'.$project['study_idno'];
-		$catalog_api_key=$conn_info['api_key'];
-		
 		$output=[];
 
 		foreach($resources as $resource){
-			$resource['overwrite']="yes";
-			$output[]=$this->make_post_request($catalog_url,$catalog_api_key,$resource);
+			$output[]=$this->publish_external_resource_to_catalog($sid, $conn_info, $project, $resource, 'yes');
 		}		
 
 		return $output;
@@ -221,26 +217,41 @@ class Editor_publish_model extends ci_model {
 			throw new Exception("Resource not found");
 		}
 
-		$catalog_url=$conn_info['url'].'/index.php/api/resources/'.$project['study_idno'];
-		$catalog_api_key=$conn_info['api_key'];
-		$resource['overwrite']=$overwrite;
+		return $this->publish_external_resource_to_catalog($sid, $conn_info, $project, $resource, $overwrite);
+	}
 
-		$output=[];
+	/**
+	 * POST resource metadata to NADA, then upload attached file when filename is a stored project file (not a URL).
+	 *
+	 * @param int|string $sid
+	 * @param array $conn_info Catalog connection
+	 * @param array $project Row from get_basic_info (requires study_idno)
+	 * @param array $resource Resource row
+	 * @param string $overwrite Passed to NADA (e.g. yes|no)
+	 * @return array Keys: resource (catalog JSON response), resource_upload (optional file upload response)
+	 */
+	private function publish_external_resource_to_catalog($sid, $conn_info, $project, $resource, $overwrite = 'yes')
+	{
+		if (empty($project['study_idno'])) {
+			throw new Exception("Study IDNO is not set");
+		}
 
-		//post resource metadata
-		$output['resource']=$this->make_post_request($catalog_url, $catalog_api_key, $post_body=$resource, $body_format='json', $headers=null);
+		$resource_payload = $resource;
+		$resource_payload['overwrite'] = $overwrite;
 
-		if (!empty((string)$resource['filename']) && !is_url($resource['filename']))
-		{	
-			//get resource file
-			$resource_file_path=$this->Editor_resource_model->get_resource_file_by_name($sid,$resource['filename']);
+		$catalog_url = $conn_info['url'].'/index.php/api/resources/'.$project['study_idno'];
+		$catalog_api_key = $conn_info['api_key'];
 
-			//upload resource file
-			if (file_exists($resource_file_path)){		
-				$catalog_url=$conn_info['url'].'/index.php/api/datasets/'.$project['study_idno'].'/files';
-				$output['resource_upload']=$this->make_post_file_request($catalog_url, $catalog_api_key, $file_field_name='file', $file_path=$resource_file_path);
-			}
-			else{
+		$output = array(
+			'resource' => $this->make_post_request($catalog_url, $catalog_api_key, $resource_payload),
+		);
+
+		if (!empty((string) $resource_payload['filename']) && !is_url($resource_payload['filename'])) {
+			$resource_file_path = $this->Editor_resource_model->get_resource_file_by_name($sid, $resource_payload['filename']);
+			if (file_exists($resource_file_path)) {
+				$files_url = $conn_info['url'].'/index.php/api/datasets/'.$project['study_idno'].'/files';
+				$output['resource_upload'] = $this->make_post_file_request($files_url, $catalog_api_key, 'file', $resource_file_path);
+			} else {
 				throw new Exception("Resource file not found: " . basename($resource_file_path));
 			}
 		}

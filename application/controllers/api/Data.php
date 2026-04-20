@@ -42,6 +42,23 @@ class Data extends MY_REST_Controller
 		}
 		parent::_auth_override_check();
 	}
+
+	/**
+	 * Optional multipart fields for datafile uploads (see datafile-schema.json).
+	 *
+	 * @return array Only keys present in the request body are included.
+	 */
+	private function collect_datafile_upload_metadata()
+	{
+		$fields = array('description', 'producer', 'data_checks', 'missing_data', 'version', 'notes');
+		$out = array();
+		foreach ($fields as $f) {
+			if (array_key_exists($f, $_POST)) {
+				$out[$f] = $this->input->post($f, true);
+			}
+		}
+		return $out;
+	}
 	
 	/**
 	 * 
@@ -71,6 +88,8 @@ class Data extends MY_REST_Controller
 	 * - file: single-file upload (legacy), or
 	 * - upload_id: completed resumable upload from /api/uploads/* (with store_data, optional overwrite)
 	 * Do not send both file and upload_id.
+	 * Optional metadata (same as datafile-schema.json): description, producer, data_checks,
+	 * missing_data, version, notes.
 	 *
 	 **/ 
 	function datafile_post($sid=null)
@@ -102,7 +121,8 @@ class Data extends MY_REST_Controller
 				$overwrite,
 				$store_data,
 				$this->get_api_user_id(),
-				$upload_id === '' ? null : $upload_id
+				$upload_id === '' ? null : $upload_id,
+				$this->collect_datafile_upload_metadata()
 			);
 
 			$output=array(
@@ -134,6 +154,7 @@ class Data extends MY_REST_Controller
 	 *   - upload_id: completed resumable upload (do not send both)
 	 *   - overwrite: (optional) 0 or 1, default 0
 	 *   - store_data: (optional) "store" or "remove", default "store"
+	 *   - description, producer, data_checks, missing_data, version, notes: (optional) datafile metadata
 	 * 
 	 * Returns:
 	 *   - file_id: The uploaded file ID
@@ -179,7 +200,8 @@ class Data extends MY_REST_Controller
 				$overwrite,
 				$store_data,
 				$this->get_api_user_id(),
-				$upload_id === '' ? null : $upload_id
+				$upload_id === '' ? null : $upload_id,
+				$this->collect_datafile_upload_metadata()
 			);
 
 			if (empty($upload_result['file_id'])) {

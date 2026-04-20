@@ -373,17 +373,21 @@ class DDI_Writer
         //catgry
         $categories=new \Adbar\Dot($var->get('var_catgry'));
         foreach($categories->all() as $idx=>$cat){
+            $cat_stats_raw = isset($categories["{$idx}.stats"]) ? $categories["{$idx}.stats"] : [];
+            $cat_stats = new \Adbar\Dot($cat_stats_raw);
             $output->set([
                 'catgry.'.$idx.'.catValu'=> $categories["{$idx}.value"],
                 'catgry.'.$idx.'.labl'=> $categories["{$idx}.labl"],
-                'catgry.'.$idx.'.catStat'=>[                    
-                    '_attributes'=>[
-                        'type'=>$sumstats["{$idx}.type"],
-                        'wgtd'=>$sumstats["{$idx}.wgtd"]
-                    ],
-                    '_value'=> (string)$categories["{$idx}.stats.value"]
-                ]
             ]);
+            foreach ($cat_stats->all() as $stat_idx => $_) {
+                $output->set([
+                    'catgry.'.$idx.'.catStat.'.$stat_idx.'._attributes'=>[
+                        'type'=>$cat_stats["{$stat_idx}.type"],
+                        'wgtd'=>$cat_stats["{$stat_idx}.wgtd"],
+                    ],
+                    'catgry.'.$idx.'.catStat.'.$stat_idx.'._value'=>(string)$cat_stats["{$stat_idx}.value"],
+                ]);
+            }
         }
         
         $output = $this->remove_empty($output->all());
