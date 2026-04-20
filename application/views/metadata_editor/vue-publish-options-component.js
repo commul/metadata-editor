@@ -296,8 +296,6 @@ Vue.component('publish-options', {
             await this.exportExternalResourcesJSON();
             this.project_export_status=this.$t("exporting_external_resources_as_rdf_xml");
             await this.exportExternalResourcesRDF();
-            this.project_export_status=this.$t("creating_project_zip_file");
-            await this.writeProjectZip();
             this.project_export_status="done";
         },
         async exportProjectJSON() {
@@ -355,20 +353,6 @@ Vue.component('publish-options', {
             .then(function () {
                 console.log("writing JSON done");
             });            
-        },
-        async writeProjectZip() {
-            let url=CI.site_url + '/api/packager/generate_zip/'+this.ProjectID;
-            return axios
-            .get(url)
-            .then(function (response) {
-                console.log(response);
-            })
-            .catch(function (error) {
-                console.log(error);
-            })
-            .then(function () {
-                console.log("writing ZIP done");
-            });
         },
         loadCatalogConnections: function() {
             vm=this;

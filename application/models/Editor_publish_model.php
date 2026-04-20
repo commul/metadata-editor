@@ -53,10 +53,18 @@ class Editor_publish_model extends ci_model {
 		
 
 		$catalog_url=$conn_info['url'].'/index.php/api/datasets/create/'.$project_type;
+		$import_ddi_url=$conn_info['url'].'/index.php/api/datasets/import_ddi';
 		$catalog_api_key=$conn_info['api_key'];
 		
-		//project metadata
-		return $this->publish_metadata($sid,$catalog_url,$catalog_api_key,$options);
+		//project metadata (NADA: JSON create; on failure for survey, fallback to import_ddi)
+		return $this->publish_metadata(
+			$sid,
+			$catalog_url,
+			$catalog_api_key,
+			$options,
+			$project_type,
+			$import_ddi_url
+		);
 	}
 
 	function get_project_metadata_json_path($sid)
@@ -75,7 +83,7 @@ class Editor_publish_model extends ci_model {
 	}
 
 
-	public function publish_metadata($sid,$catalog_url,$catalog_api_key,$options)
+	public function publish_metadata($sid,$catalog_url,$catalog_api_key,$options,$nada_dataset_type=null,$import_ddi_url=null)
 	{
 		$client = new Client([				
 			'base_uri' => $catalog_url,
@@ -125,6 +133,23 @@ class Editor_publish_model extends ci_model {
 				// Leave as raw text for message
 			}
 
+			if ($nada_dataset_type === 'survey' && !empty($import_ddi_url)) {
+				try {
+					return $this->publish_metadata_import_ddi($sid, $import_ddi_url, $catalog_api_key, $options);
+				} catch (Exception $ddi_ex) {
+					throw new ApiRequestException(
+						$response_text . ' | DDI import fallback failed: ' . $ddi_ex->getMessage(),
+						[
+							'status' => $resp->getStatusCode(),
+							'reason' => $resp->getReasonPhrase(),
+							'response_' => $response_json,
+							'api_url' => $catalog_url,
+							'ddi_fallback_error' => $ddi_ex->getMessage(),
+						]
+					);
+				}
+			}
+
 			throw new ApiRequestException(
 				$message = $response_text,
 				$details = [
@@ -135,6 +160,92 @@ class Editor_publish_model extends ci_model {
 				]
 			);
 		}
+	}
+
+	/**
+	 * POST DDI XML to NADA datasets/import_ddi (multipart).
+	 * Uses publish option keys: overwrite, repositoryid, access_policy, published, data_remote_url.
+	 *
+	 * @param string $sid Project id
+	 * @param string $import_ddi_url Full URL to .../api/datasets/import_ddi
+	 * @param string $catalog_api_key x-api-key value
+	 * @param array $options Publish form options from metadata editor
+	 * @return mixed Decoded JSON response from NADA
+	 */
+	private function publish_metadata_import_ddi($sid, $import_ddi_url, $catalog_api_key, $options)
+	{
+		$ddi_path = $this->Editor_model->generate_project_ddi($sid);
+
+		if (!$ddi_path || !file_exists($ddi_path)) {
+			throw new Exception('DDI file was not generated');
+		}
+
+		$client = new Client([
+			'headers' => ['x-api-key' => $catalog_api_key],
+		]);
+
+		$multipart = $this->build_import_ddi_multipart($ddi_path, $options);
+
+		try {
+			$api_response = $client->request('POST', $import_ddi_url, [
+				'multipart' => $multipart,
+			]);
+			$response_text = (string) $api_response->getBody();
+			$decoded = $this->parse_json_response($response_text);
+			if (is_array($decoded)) {
+				$decoded['_published_via'] = 'import_ddi';
+			}
+			return $decoded;
+		} catch (ClientException $e) {
+			$resp = $e->getResponse();
+			throw new Exception((string) $resp->getBody());
+		}
+	}
+
+	/**
+	 * Multipart fields for NADA import_ddi: file, overwrite, repositoryid, access_policy, published, data_remote_url.
+	 *
+	 * @param string $ddi_path Absolute path to DDI XML
+	 * @param array $options Keys from metadata editor publish options
+	 * @return array Guzzle multipart array
+	 */
+	private function build_import_ddi_multipart($ddi_path, $options)
+	{
+		$file_contents = file_get_contents($ddi_path);
+		if ($file_contents === false) {
+			throw new Exception('Could not read DDI file');
+		}
+
+		$multipart = [
+			[
+				'name' => 'file',
+				'contents' => $file_contents,
+				'filename' => basename($ddi_path),
+			],
+		];
+
+		$overwrite = isset($options['overwrite']) ? strtolower(trim((string) $options['overwrite'])) : 'no';
+		if ($overwrite !== 'yes' && $overwrite !== 'no') {
+			$overwrite = 'no';
+		}
+		$multipart[] = ['name' => 'overwrite', 'contents' => $overwrite];
+
+		foreach (['repositoryid', 'access_policy', 'data_remote_url'] as $key) {
+			if (!isset($options[$key])) {
+				continue;
+			}
+			$val = $options[$key];
+			if ($val === null || $val === '') {
+				continue;
+			}
+			$multipart[] = ['name' => $key, 'contents' => (string) $val];
+		}
+
+		if (isset($options['published']) && $options['published'] !== '' && $options['published'] !== null) {
+			$multipart[] = ['name' => 'published', 'contents' => (string) (int) $options['published']];
+		}
+
+		return $multipart;
 	}
 
 	function publish_thumbnail($sid,$user_id,$catalog_connection_id,$options=[])
