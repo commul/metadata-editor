@@ -594,27 +594,31 @@ class Editor_DDI_Writer
                 $is_missing = in_array($cat_value, $missing_values, true);
             }
             
-            //get category stats
-            $cat_stats = isset($categories["{$idx}.stats"]) ? $categories["{$idx}.stats"] : [];
-            $cat_stats= new \Adbar\Dot($cat_stats);
+            // Category stats are a list per category (e.g. stats[0] = freq); index with stat_idx, not category idx.
+            $cat_stats_raw = isset($categories["{$idx}.stats"]) ? $categories["{$idx}.stats"] : [];
+            $cat_stats = new \Adbar\Dot($cat_stats_raw);
 
             $output->set([
-                'catgry.'.$idx=>[                    
+                'catgry.'.$idx=>[
                     '_attributes'=>[
                         'missing'=> $is_missing ? 'Y' : ''
                     ]
                 ],
                 'catgry.'.$idx.'.catValu'=> $categories["{$idx}.value"],
                 'catgry.'.$idx.'.labl'=> $categories["{$idx}.labl"],
-                //catStat for category if stats exist
-                'catgry.'.$idx.'.catStat'=>[                    
-                    '_attributes'=>[
-                        'type'=>$cat_stats["{$idx}.type"],
-                        'wgtd'=>$cat_stats["{$idx}.wgtd"],
-                    ],
-                    '_value'=> (string)$cat_stats["{$idx}.value"]
-                ]
             ]);
+            foreach ($cat_stats->all() as $stat_idx => $_) {
+                if ($cat_stats["{$stat_idx}.value"] == 'None' || $cat_stats["{$stat_idx}.value"] === '') {
+                    continue;
+                }
+                $output->set([
+                    'catgry.'.$idx.'.catStat.'.$stat_idx.'._attributes'=>[
+                        'type'=>$cat_stats["{$stat_idx}.type"],
+                        'wgtd'=>$cat_stats["{$stat_idx}.wgtd"],
+                    ],
+                    'catgry.'.$idx.'.catStat.'.$stat_idx.'._value'=>(string)$cat_stats["{$stat_idx}.value"],
+                ]);
+            }
         }
         
         $output = $this->remove_empty($output->all());

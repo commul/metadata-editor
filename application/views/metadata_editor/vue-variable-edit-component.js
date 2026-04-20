@@ -13,6 +13,7 @@ Vue.component('variable-edit', {
                 'freq':true,
                 'missing':true,
                 'vald':true,
+                'invd':true,
                 'min':true,
                 'max':true,
                 'mean':true,
@@ -472,7 +473,7 @@ Vue.component('variable-edit', {
             
             // Flag refresh stats only when a change requires re-running the data API:
             // - freq turned from false to true (to get var_catgry again)
-            // Display/export-only options (min, max, mean, stdev, vald, missing, mean_wgt, stdev_wgt, wgt)
+            // Display/export-only options (min, max, mean, stdev, vald, invd, missing, mean_wgt, stdev_wgt, wgt)
             // and freq turned to false do not require refresh.
             if (option === 'freq' && value === true) {
                 Vue.set(this.variable, 'update_required', true);
@@ -502,6 +503,7 @@ Vue.component('variable-edit', {
                             <div><v-checkbox @change="(value) => onSumStatsOptionChange('missing', value)" v-model="Variable.sum_stats_options.missing" :indeterminate="Variable.sum_stats_options.missing==null" :label="$t('list_missings')"></v-checkbox></div>
                             <div class="mt-3 mb-2 border-bottom w-50 ">{{$t('summary_stats')}}:</div>
                             <div><v-checkbox @change="(value) => onSumStatsOptionChange('vald', value)" v-model="Variable.sum_stats_options.vald" :indeterminate="Variable.sum_stats_options.vald==null"  :label="$t('valid')"></v-checkbox></div>
+                            <div><v-checkbox @change="(value) => onSumStatsOptionChange('invd', value)" v-model="Variable.sum_stats_options.invd" :indeterminate="Variable.sum_stats_options.invd==null"  :label="$t('invalid')"></v-checkbox></div>
                             <div><v-checkbox @change="(value) => onSumStatsOptionChange('min', value)" v-model="Variable.sum_stats_options.min" :indeterminate="Variable.sum_stats_options.min==null"  :label="$t('min')"></v-checkbox></div>
                             <div><v-checkbox @change="(value) => onSumStatsOptionChange('max', value)" v-model="Variable.sum_stats_options.max" :indeterminate="Variable.sum_stats_options.max==null" :label="$t('max')"></v-checkbox></div>
                             <div><v-checkbox @change="(value) => onSumStatsOptionChange('mean', value)" v-model="Variable.sum_stats_options.mean" :indeterminate="Variable.sum_stats_options.mean==null" :label="$t('mean')"></v-checkbox></div>
@@ -569,7 +571,7 @@ Vue.component('variable-edit', {
                                         </div>
                                     </td>
                                 </tr>
-                                <tr v-if="variableStatsInValidCount(variable)>0 && Variable.sum_stats_options.missing">
+                                <tr v-if="variableStatsInValidCount(variable)>0 && (Variable.sum_stats_options.missing || Variable.sum_stats_options.invd)">
                                     <td>{{$t('system_missing')}}</td>
                                     <td></td>                                    
                                     <td>{{variableStatsInValidCount(variable)}}</td>

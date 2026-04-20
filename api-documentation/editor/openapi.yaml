@@ -1104,6 +1104,26 @@ paths:
                   enum:
                     - store
                     - remove
+                description:
+                  type: string
+                  description: File description (datafile-schema.json)
+                producer:
+                  type: string
+                  maxLength: 255
+                  description: File producer
+                data_checks:
+                  type: string
+                  description: Processing / data checks
+                missing_data:
+                  type: string
+                  description: Missing data documentation
+                version:
+                  type: string
+                  maxLength: 255
+                  description: File version
+                notes:
+                  type: string
+                  description: File notes
               required:
                 - file
                 - store_data
@@ -2981,10 +3001,11 @@ paths:
         - Publish projects
       summary: Publish all external resources
       description: >
-        Publishes every external resource for the project to NADA. Each resource is POSTed to
-        `{catalog}/index.php/api/resources/{study_idno}` with `overwrite` set to `yes` on the
-        resource object. Request body JSON (if any) is accepted but not applied by the current
-        implementation.
+        Publishes every external resource for the project to NADA. For each resource, metadata is
+        POSTed to `{catalog}/index.php/api/resources/{study_idno}` with `overwrite` set to `yes`.
+        If the resource has a stored file (`filename` is set and not an external URL), the file is
+        then uploaded to `{catalog}/index.php/api/datasets/{study_idno}/files`, matching the
+        single-resource publish behavior. Request body JSON (if any) is accepted but not applied.
       operationId: publishAllExternalResources
       parameters:
         - in: path
@@ -3015,6 +3036,13 @@ paths:
                 type: array
                 items:
                   type: object
+                  properties:
+                    resource:
+                      type: object
+                      description: NADA response for the resource metadata POST
+                    resource_upload:
+                      type: object
+                      description: NADA response for the file upload (only when a local file was attached)
         "400":
           description: Bad request - project not found or publishing failed
       security:

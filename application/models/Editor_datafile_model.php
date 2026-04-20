@@ -52,16 +52,52 @@ class Editor_datafile_model extends CI_Model {
 		$this->load->model("Editor_resource_model");
 	}
 
+	/**
+	 * Whitelist and sanitize optional datafile metadata from upload requests.
+	 *
+	 * @param array $metadata Keys may be description, producer, data_checks, missing_data, version, notes.
+	 * @return array Non-empty patch to merge into insert/update (values may be null).
+	 */
+	private function normalize_datafile_upload_metadata(array $metadata)
+	{
+		$allowed = array('description', 'producer', 'data_checks', 'missing_data', 'version', 'notes');
+		$out = array();
+		foreach ($allowed as $key) {
+			if (!array_key_exists($key, $metadata)) {
+				continue;
+			}
+			$val = $metadata[$key];
+			if ($val === null || $val === false) {
+				$out[$key] = null;
+				continue;
+			}
+			$val = is_string($val) ? $val : (string) $val;
+			$val = trim($val);
+			if ($key === 'producer' || $key === 'version') {
+				if (strlen($val) > 255) {
+					throw new Exception("Field {$key} must not exceed 255 characters.");
+				}
+			}
+			$out[$key] = ($val === '') ? null : $val;
+		}
+		return $out;
+	}
 
 	/**
 	 * 
 	 * Create new data file by uploading a data file (csv, dta, sav)
 	 *
 	 * Provide either a standard multipart field `file` or a completed resumable `upload_id`, not both.
+	 *
+	 * @param array|null $metadata Optional datafile fields: description, producer, data_checks,
+	 * missing_data, version, notes. Only keys present in this array are applied; empty string becomes
+	 * NULL. Omitted keys are left unchanged when overwriting an existing file row.
 	 * 
 	 */
-	function upload_create($sid,$overwrite=false, $store_data=null,$user_id=null,$upload_id=null)
+	function upload_create($sid,$overwrite=false, $store_data=null,$user_id=null,$upload_id=null,$metadata=null)
 	{
+		$metadata = is_array($metadata) ? $metadata : array();
+		$meta_patch = $this->normalize_datafile_upload_metadata($metadata);
 		$upload_id = ($upload_id !== null && $upload_id !== '') ? trim((string)$upload_id) : '';
 		$has_file = isset($_FILES['file']['tmp_name']) && is_uploaded_file($_FILES['file']['tmp_name']);
 
@@ -131,6 +167,9 @@ class Editor_datafile_model extends CI_Model {
 				'created_by'=>$user_id,
 				'changed_by'=>$user_id
 			);
+			if (!empty($meta_patch)) {
+				$options = array_merge($options, $meta_patch);
+			}
 
 			$result=$this->insert($sid,$options);
 		}else{
@@ -142,6 +181,9 @@ class Editor_datafile_model extends CI_Model {
 				'store_data'=>$store_data,
 				'changed_by'=>$user_id
 			);
+			if (!empty($meta_patch)) {
+				$options = array_merge($options, $meta_patch);
+			}
 
 			$result=$this->update($datafile_info['id'],$options);
 		}

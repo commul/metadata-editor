@@ -220,6 +220,26 @@ paths:
                     - remove
                   default: store
                   description: Whether to store data ("store" or "remove")
+                description:
+                  type: string
+                  description: File description (datafile-schema.json)
+                producer:
+                  type: string
+                  maxLength: 255
+                  description: File producer
+                data_checks:
+                  type: string
+                  description: Processing / data checks
+                missing_data:
+                  type: string
+                  description: Missing data documentation
+                version:
+                  type: string
+                  maxLength: 255
+                  description: File version
+                notes:
+                  type: string
+                  description: File notes
       responses:
         "201":
           description: File uploaded and job created successfully
@@ -272,7 +292,9 @@ paths:
                   default: true
                 publish_resources:
                   type: boolean
-                  description: Whether to publish external resources
+                  description: >
+                    Whether to publish external resources: metadata to the NADA resources API, and
+                    any attached project files to the study files API (skipped when filename is an external URL).
                   default: true
                 options:
                   type: object
@@ -840,7 +862,8 @@ components:
           default: true
         publish_resources:
           type: boolean
-          description: Whether to publish external resources
+          description: >
+            Whether to publish external resources: metadata to NADA, and attached files when stored locally.
           default: true
         overwrite:
           type: string
