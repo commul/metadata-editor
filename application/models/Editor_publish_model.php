@@ -126,38 +126,31 @@ class Editor_publish_model extends ci_model {
 		} catch (ClientException $e) {
 			$resp = $e->getResponse();
 			$response_text = (string) $resp->getBody();
-			$response_json = null;
-			try {
-				$response_json = $this->parse_json_response($response_text);
-			} catch (Exception $parseEx) {
-				// Leave as raw text for message
-			}
+			$content_type = $resp->getHeaderLine('Content-Type');
+			$classified = $this->classify_catalog_error_body($response_text, $content_type);
 
 			if ($nada_dataset_type === 'survey' && !empty($import_ddi_url)) {
 				try {
 					return $this->publish_metadata_import_ddi($sid, $import_ddi_url, $catalog_api_key, $options);
 				} catch (Exception $ddi_ex) {
+					$ddi_details = ($ddi_ex instanceof ApiRequestException) ? $ddi_ex->getDetails() : null;
 					throw new ApiRequestException(
-						$response_text . ' | DDI import fallback failed: ' . $ddi_ex->getMessage(),
-						[
-							'status' => $resp->getStatusCode(),
-							'reason' => $resp->getReasonPhrase(),
-							'response_' => $response_json,
-							'api_url' => $catalog_url,
-							'ddi_fallback_error' => $ddi_ex->getMessage(),
-						]
+						$this->summarize_catalog_error($classified, $resp->getStatusCode())
+							. ' | DDI import: ' . $ddi_ex->getMessage(),
+						array_merge(
+							$this->catalog_error_details_payload($classified, $resp, $catalog_url),
+							[
+								'ddi_fallback_error' => $ddi_ex->getMessage(),
+								'ddi_fallback_details' => $ddi_details,
+							]
+						)
 					);
 				}
 			}
 
 			throw new ApiRequestException(
-				$message = $response_text,
-				$details = [
-					'status' => $resp->getStatusCode(),// 200
-					'reason' => $resp->getReasonPhrase(), // OK
-					'response_' =>$response_json,
-					'api_url' => $catalog_url
-				]
+				$this->summarize_catalog_error($classified, $resp->getStatusCode()),
+				$this->catalog_error_details_payload($classified, $resp, $catalog_url)
 			);
 		}
 	}
@@ -198,7 +191,13 @@ class Editor_publish_model extends ci_model {
 			return $decoded;
 		} catch (ClientException $e) {
 			$resp = $e->getResponse();
-			throw new Exception((string) $resp->getBody());
+			$body = (string) $resp->getBody();
+			$content_type = $resp->getHeaderLine('Content-Type');
+			$classified = $this->classify_catalog_error_body($body, $content_type);
+			throw new ApiRequestException(
+				$this->summarize_catalog_error($classified, $resp->getStatusCode()),
+				$this->catalog_error_details_payload($classified, $resp, $import_ddi_url)
+			);
 		}
 	}
 
@@ -514,6 +513,132 @@ class Editor_publish_model extends ci_model {
 	}
 
 	/**
+	 * Truncate catalog error bodies for API responses and logs.
+	 *
+	 * @param string $body
+	 * @param int $max
+	 * @return string
+	 */
+	private function truncate_error_body($body, $max = 12000)
+	{
+		$body = (string) $body;
+		if (strlen($body) <= $max) {
+			return $body;
+		}
+		return substr($body, 0, $max) . "\n… [truncated]";
+	}
+
+	/**
+	 * Detect JSON vs HTML vs plain text in a catalog HTTP error body.
+	 *
+	 * @param string $body Raw body
+	 * @param string $content_type Response Content-Type header value
+	 * @return array{format:string,parsed:mixed|null,raw:string,content_type:string}
+	 */
+	private function classify_catalog_error_body($body, $content_type = '')
+	{
+		$body = (string) $body;
+		$ct = strtolower(trim(explode(';', (string) $content_type)[0]));
+
+		if (strpos($ct, 'json') !== false) {
+			$decoded = json_decode($body, true);
+			if (json_last_error() === JSON_ERROR_NONE) {
+				return [
+					'format' => 'json',
+					'parsed' => $decoded,
+					'raw' => $this->truncate_error_body($body),
+					'content_type' => $content_type,
+				];
+			}
+		}
+
+		$trim = ltrim($body);
+		if ($trim !== '' && ($trim[0] === '{' || $trim[0] === '[')) {
+			$decoded = json_decode($body, true);
+			if (json_last_error() === JSON_ERROR_NONE) {
+				return [
+					'format' => 'json',
+					'parsed' => $decoded,
+					'raw' => $this->truncate_error_body($body),
+					'content_type' => $content_type,
+				];
+			}
+		}
+
+		if (strpos($ct, 'html') !== false || preg_match('/^\s*</', $body)) {
+			return [
+				'format' => 'html',
+				'parsed' => null,
+				'raw' => $this->truncate_error_body($body),
+				'content_type' => $content_type,
+			];
+		}
+
+		return [
+			'format' => 'text',
+			'parsed' => null,
+			'raw' => $this->truncate_error_body($body),
+			'content_type' => $content_type,
+		];
+	}
+
+	/**
+	 * Short human-readable summary for ApiRequestException message (not full body).
+	 *
+	 * @param array $classified classify_catalog_error_body()
+	 * @param int $httpStatus HTTP status from catalog
+	 * @return string
+	 */
+	private function summarize_catalog_error(array $classified, $httpStatus)
+	{
+		$httpStatus = (int) $httpStatus;
+		if ($classified['format'] === 'json' && is_array($classified['parsed'])) {
+			$p = $classified['parsed'];
+			foreach (['message', 'error', 'detail'] as $key) {
+				if (isset($p[$key]) && is_string($p[$key]) && $p[$key] !== '') {
+					return $this->truncate_error_body($p[$key], 500);
+				}
+			}
+			if (isset($p['errors']) && is_array($p['errors'])) {
+				$first = reset($p['errors']);
+				if (is_string($first) && $first !== '') {
+					return $this->truncate_error_body($first, 500);
+				}
+			}
+			return 'NADA API error (HTTP ' . $httpStatus . ')';
+		}
+		if ($classified['format'] === 'html') {
+			return 'NADA returned an HTML error page (HTTP ' . $httpStatus . ')';
+		}
+		$raw = isset($classified['raw']) ? $classified['raw'] : '';
+		if ($raw !== '') {
+			return $this->truncate_error_body($raw, 500);
+		}
+		return 'NADA request failed (HTTP ' . $httpStatus . ')';
+	}
+
+	/**
+	 * Standard detail array for ApiRequestException from a classified body + PSR response.
+	 *
+	 * @param array $classified
+	 * @param \Psr\Http\Message\ResponseInterface $resp
+	 * @param string $api_url Catalog endpoint URL
+	 * @return array
+	 */
+	private function catalog_error_details_payload(array $classified, $resp, $api_url)
+	{
+		return [
+			'status' => $resp->getStatusCode(),
+			'reason' => $resp->getReasonPhrase(),
+			'response_' => $classified['parsed'],
+			'body_format' => $classified['format'],
+			'raw_body' => $classified['raw'],
+			'content_type' => $classified['content_type'],
+			'api_url' => $api_url,
+		];
+	}
+
+	/**
 	 * Parse response body as JSON; throw if not valid JSON.
 	 *
 	 * @param string $response_text Raw response body
@@ -573,8 +698,13 @@ class Editor_publish_model extends ci_model {
 			$response_text = (string) $api_response->getBody();
 			return $this->parse_json_response($response_text);
 		} catch (ClientException $e) {
-			$resp=$e->getResponse();
-			throw new Exception((string) $resp->getBody());			
+			$resp = $e->getResponse();
+			$body = (string) $resp->getBody();
+			$classified = $this->classify_catalog_error_body($body, $resp->getHeaderLine('Content-Type'));
+			throw new ApiRequestException(
+				$this->summarize_catalog_error($classified, $resp->getStatusCode()),
+				$this->catalog_error_details_payload($classified, $resp, $url)
+			);
 		}
 		catch (Exception $e) {
 			throw new Exception("request failed: ". $e->getMessage());
@@ -604,8 +734,13 @@ class Editor_publish_model extends ci_model {
 			$response_text = (string) $api_response->getBody();
 			return $this->parse_json_response($response_text);
 		} catch (ClientException $e) {
-			$resp=$e->getResponse();			
-			throw new Exception((string) $resp->getBody());
+			$resp = $e->getResponse();
+			$body = (string) $resp->getBody();
+			$classified = $this->classify_catalog_error_body($body, $resp->getHeaderLine('Content-Type'));
+			throw new ApiRequestException(
+				$this->summarize_catalog_error($classified, $resp->getStatusCode()),
+				$this->catalog_error_details_payload($classified, $resp, $url)
+			);
 		}
 		catch (Exception $e) {
 			throw new Exception("request failed: ". $e->getMessage());

@@ -188,6 +188,8 @@ class Editor extends MY_REST_Controller
 				throw new Exception("DATASET_NOT_FOUND");
 			}
 
+			$result['has_thumbnail'] = (bool) $this->Editor_model->get_thumbnail_file($sid);
+
 			$response=array(
 				'status'=>'success',
 				'project'=>$result
@@ -1116,6 +1118,14 @@ class Editor extends MY_REST_Controller
 
 			$response=$this->Editor_publish_model->publish_to_catalog($sid,$user_id,$catalog_connection_id,$options);			
 			$this->set_response($response, REST_Controller::HTTP_OK);
+		}
+		catch(ApiRequestException $e){
+			$error_output=array(
+				'status'=>'failed',
+				'message'=>$e->getMessage(),
+				'response'=>$e->getDetails()
+			);
+			$this->set_response($error_output, REST_Controller::HTTP_BAD_REQUEST);
 		}
 		catch(Exception $e){
 			$error_output=array(
