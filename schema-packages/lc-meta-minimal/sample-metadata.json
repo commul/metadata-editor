@@ -1,0 +1,52 @@
+{
+  "administrative_metadata": {
+    "corpus_name": [
+      "International Corpus of Learner English",
+      "ICLE"
+    ],
+    "corpus_acronym": "ICLE",
+    "corpus_version": "1.0",
+    "corpus_pid": "http://hdl.handle.net/20.500.12124/25",
+    "corpus_cite_as": "Granger, S. (2024). International Corpus of Learner English (1.0): Eurac Research, http://hdl.handle.net/20.500.12124/25.",
+    "corpus_ref_article": [
+      "Granger, S. (2024). LC-meta demonstration article."
+    ],
+    "corpus_description": "Demo metadata record for testing LC-meta administrative fields in the metadata editor.",
+    "corpus_documentation": [
+      "https://www.porta.eurac.edu/lci/leonide/"
+    ],
+    "corpus_author": [
+      "Max Musterman"
+    ],
+    "corpus_contributor": [
+      "Jane Doe (transcription of English texts)"
+    ],
+    "corpus_contact_mail": [
+      "porta@eurac.edu"
+    ],
+    "corpus_related_research_project": [
+      "MERLIN"
+    ],
+    "corpus_related_research_project_URL": [
+      "https://merlin-platform.eu/"
+    ],
+    "corpus_publisher": "Institute for Applied Linguistics, Eurac Research",
+    "corpus_availability": "restricted",
+    "corpus_access_requirements": "Academic use",
+    "corpus_licence": "ACA-BY-NC-NORED",
+    "corpus_licence_url": "http://creativecommons.org/licenses/by-sa/4.0/",
+    "corpus_date_of_publication": "2024-06",
+    "corpus_other_versions": [
+      "0.9 beta"
+    ],
+    "corpus_character_encoding": "utf-8",
+    "corpus_file_format": [
+      "xml",
+      "json"
+    ],
+    "corpus_file_format_specifications": [
+      "TEI P5",
+      "Project-specific JSON export"
+    ]
+  }
+}

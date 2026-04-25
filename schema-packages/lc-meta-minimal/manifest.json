@@ -1,0 +1,258 @@
+{
+  "uid": "lc-meta-minimal",
+  "alias": "lc-meta",
+  "title": "LC-meta Minimal Administrative Metadata",
+  "agency": "Eurac Research",
+  "description": "Minimal proof-of-concept schema for integrating the administrative metadata block of LC-meta into the metadata editor. This package is derived from the first LC-meta data sheet provided for the repository test.",
+  "filename": "lc-meta-minimal-schema.json",
+  "status": "active",
+  "metadata_options": {
+    "core_fields": {
+      "idno": [
+        "/administrative_metadata/corpus_pid"
+      ],
+      "title": [
+        "/administrative_metadata/corpus_name/0"
+      ],
+      "year_start": [
+        "/administrative_metadata/corpus_date_of_publication"
+      ],
+      "year_end": [
+        "/administrative_metadata/corpus_date_of_publication"
+      ],
+      "attributes": {
+        "availability": "/administrative_metadata/corpus_availability",
+        "licence": "/administrative_metadata/corpus_licence",
+        "version": "/administrative_metadata/corpus_version"
+      }
+    }
+  },
+  "sections": [
+    {
+      "key": "administrative_metadata",
+      "title": "Corpus Metadata - Administrative Metadata",
+      "description": "Administrative metadata block from the LC-meta core metadata schema for learner corpora.",
+      "conditional_required": [
+        {
+          "if": {
+            "field": "corpus_availability",
+            "const": "restricted"
+          },
+          "then_required": [
+            "corpus_access_requirements"
+          ]
+        }
+      ],
+      "fields": [
+        {
+          "key": "corpus_name",
+          "title": "Full name of the corpus",
+          "description": "Full name of the corpus. Example: International Corpus of Learner English, with multiple entries for different names in different languages.",
+          "type": "string",
+          "repeatable": true,
+          "required": true
+        },
+        {
+          "key": "corpus_acronym",
+          "title": "Corpus acronym",
+          "description": "Corpus acronym. Example: ICLE.",
+          "type": "string"
+        },
+        {
+          "key": "corpus_version",
+          "title": "Corpus version",
+          "description": "Corpus version. One possible approach is major.minor.patch, where major indicates new data or annotations and minor indicates corrections.",
+          "type": "string",
+          "required": true
+        },
+        {
+          "key": "corpus_pid",
+          "title": "Persistent identifier",
+          "description": "Persistent identifier for the corpus. Typically a DOI or Handle, for example http://hdl.handle.net/20.500.12124/25.",
+          "type": "string",
+          "required": true,
+          "schema": {
+            "format": "uri"
+          }
+        },
+        {
+          "key": "corpus_cite_as",
+          "title": "Corpus citation",
+          "description": "Recommended citation for the corpus. Example: Author(s) or Responsible(s) (Year). Title of the data set (Version number): Distributor, Identifier or Location.",
+          "type": "string",
+          "required": true,
+          "template": {
+            "display_type": "textarea"
+          }
+        },
+        {
+          "key": "corpus_ref_article",
+          "title": "Reference article",
+          "description": "Reference articles typically contain an extensive verbal description of the corpus and its design.",
+          "type": "string",
+          "repeatable": true
+        },
+        {
+          "key": "corpus_description",
+          "title": "Short description of the corpus",
+          "description": "Short description of the corpus.",
+          "type": "string",
+          "required": true,
+          "template": {
+            "display_type": "textarea"
+          }
+        },
+        {
+          "key": "corpus_documentation",
+          "title": "Link to more extensive corpus documentation",
+          "description": "Link to more extensive corpus documentation. Example: https://www.porta.eurac.edu/lci/leonide/.",
+          "type": "string",
+          "repeatable": true,
+          "schema": {
+            "format": "uri"
+          }
+        },
+        {
+          "key": "corpus_author",
+          "title": "Corpus creator",
+          "description": "Corpus creator. Example: Max Musterman.",
+          "type": "string",
+          "repeatable": true,
+          "required": true
+        },
+        {
+          "key": "corpus_contributor",
+          "title": "Corpus contributor",
+          "description": "Corpus contributor. Example: Jane Doe (transcription of English texts).",
+          "type": "string",
+          "repeatable": true
+        },
+        {
+          "key": "corpus_contact_mail",
+          "title": "Contact e-mail address",
+          "description": "Contact e-mail address. Example: porta@eurac.edu.",
+          "type": "string",
+          "repeatable": true,
+          "required": true,
+          "schema": {
+            "format": "email"
+          }
+        },
+        {
+          "key": "corpus_related_research_project",
+          "title": "Name of related research project",
+          "description": "Name of related research project. Example: MERLIN.",
+          "type": "string",
+          "repeatable": true
+        },
+        {
+          "key": "corpus_related_research_project_URL",
+          "title": "Link to related research project",
+          "description": "Link to related research project. Relevant when a related research project is specified. Example: https://merlin-platform.eu/.",
+          "type": "string",
+          "repeatable": true,
+          "schema": {
+            "format": "uri"
+          }
+        },
+        {
+          "key": "corpus_publisher",
+          "title": "Person or entity responsible for the corpus",
+          "description": "Person or entity responsible for the corpus. Example: Institute for Applied Linguistics, Eurac Research.",
+          "type": "string",
+          "required": true
+        },
+        {
+          "key": "corpus_availability",
+          "title": "Licensing terms and conditions",
+          "description": "Access category for the corpus.",
+          "type": "string",
+          "required": true,
+          "schema": {
+            "enum": [
+              "open",
+              "restricted",
+              "closed"
+            ]
+          },
+          "template": {
+            "display_type": "dropdown",
+            "enum_labels": {
+              "open": "Open",
+              "restricted": "Restricted",
+              "closed": "Closed"
+            }
+          }
+        },
+        {
+          "key": "corpus_access_requirements",
+          "title": "Access requirements",
+          "description": "Access requirements when availability is restricted. Example: academic use.",
+          "type": "string",
+          "template": {
+            "display_type": "textarea"
+          }
+        },
+        {
+          "key": "corpus_licence",
+          "title": "Licence name",
+          "description": "Licence name. Example: ACA-BY-NC-NORED.",
+          "type": "string",
+          "required": true
+        },
+        {
+          "key": "corpus_licence_url",
+          "title": "Link to licence text",
+          "description": "Link to the licence text. Example: http://creativecommons.org/licenses/by-sa/4.0/.",
+          "type": "string",
+          "required": true,
+          "schema": {
+            "format": "uri"
+          }
+        },
+        {
+          "key": "corpus_date_of_publication",
+          "title": "Date of publication",
+          "description": "Date of publication. Accepts YYYY, YYYY-MM, or YYYY-MM-DD.",
+          "type": "string",
+          "required": true,
+          "schema": {
+            "pattern": "^\\d{4}(-\\d{2}){0,2}$"
+          }
+        },
+        {
+          "key": "corpus_other_versions",
+          "title": "Associated version",
+          "description": "Associated version. Example: 1.0, link to version.",
+          "type": "string",
+          "repeatable": true
+        },
+        {
+          "key": "corpus_character_encoding",
+          "title": "Character encoding",
+          "description": "Character encoding. Example: utf-8, latin, ascii.",
+          "type": "string",
+          "required": true
+        },
+        {
+          "key": "corpus_file_format",
+          "title": "File format",
+          "description": "File format. Example: txt, csv, tiff, xml, JSON.",
+          "type": "string",
+          "repeatable": true,
+          "required": true
+        },
+        {
+          "key": "corpus_file_format_specifications",
+          "title": "File format specification",
+          "description": "File format specification. Example: TEI P5 or corpus-specific format manuals.",
+          "type": "string",
+          "repeatable": true,
+          "template": {
+            "display_type": "textarea"
+          }
+        }
+      ]
+    }
+  ]
+}
