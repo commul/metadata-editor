@@ -13,9 +13,10 @@ class Schema_package_importer
         $this->ci =& get_instance();
         $this->ci->load->helper('file');
         $this->ci->load->model('Metadata_schemas_model');
+        $this->ci->load->model('Editor_template_model');
         $this->ci->load->library('Schema_registry');
-        $this->ci->load->library('Schema_template_generator');
         $this->ci->load->library('Structured_schema_manifest_builder');
+        $this->ci->load->library('Structured_template_manifest_builder');
     }
 
     public function import($package_name, $options = array())
@@ -81,16 +82,16 @@ class Schema_package_importer
             $action = 'created';
         }
 
-        $template_result = $this->ci->schema_template_generator->regenerate($schema, array(
-            'force' => true
-        ));
+        $template_payload = $this->ci->structured_template_manifest_builder->build($manifest);
+        $template_uid = $this->ci->Editor_template_model->upsert_generated_template($schema, $template_payload);
+        $schema = $this->ci->Metadata_schemas_model->get_by_uid($uid);
 
         return array(
             'status' => 'success',
             'action' => $action,
             'manifest_path' => $manifest_path,
-            'schema' => isset($template_result['schema']) ? $template_result['schema'] : $schema,
-            'template_uid' => isset($template_result['template_uid']) ? $template_result['template_uid'] : null,
+            'schema' => $schema,
+            'template_uid' => $template_uid,
             'schema_file' => $main_path
         );
     }

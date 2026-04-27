@@ -13,8 +13,10 @@ The proof of concept consists of three parts:
    - `application/controllers/cli/Schema_import.php`
    - `application/libraries/Schema_package_importer.php`
    - `application/libraries/Structured_schema_manifest_builder.php`
-3. Generator support for schema-driven templates:
-   - `application/libraries/Schema_template_generator.php` now emits usable UI hints for required fields, dropdowns, dates, and repeatable primitive fields
+   - `application/libraries/Structured_template_manifest_builder.php`
+3. A manifest-defined default template:
+   - the stock `Schema_template_generator.php` remains unchanged
+   - the package importer builds `lc-meta-minimal__core` directly from the manifest so section grouping is reproducible outside the UI
 
 ## Import
 
@@ -32,6 +34,16 @@ The command will:
 4. Register the schema in `metadata_schemas`
 5. Generate and set the default template `lc-meta-minimal__core`
 
+## UI Grouping
+
+The administrative LC-meta block is rendered as a single editor page:
+
+- `section_container`: `administrative_metadata`
+- one child `section`: `Administrative metadata`
+- 23 LC-meta fields inside that section
+
+This avoids the stock generator behavior where flat fields appear as separate pages in the tree.
+
 ## Search And Listing Mappings
 
 The package maps LC-meta fields into the editor's searchable core fields through `metadata_options.core_fields`:
@@ -46,6 +58,7 @@ The package maps LC-meta fields into the editor's searchable core fields through
 - LC-meta can be represented as a custom schema without editing PHP views by hand.
 - New schema packages can be added by committing a structured JSON manifest.
 - Search/listing mappings work programmatically from a structured file, not from manual UI template editing.
+- UI grouping can also be defined programmatically from the same manifest, while leaving the existing schema upload path untouched.
 
 ## Validation Performed
 
@@ -53,14 +66,8 @@ The package maps LC-meta fields into the editor's searchable core fields through
 - The manifest was compiled into a JSON Schema inside the container.
 - The generated schema contains 23 LC-meta administrative properties.
 - `sample-metadata.json` validates successfully against the generated schema.
-
-## Current Blocker
-
-The importer is ready, but the local database used during validation does not yet contain the schema-registry table `metadata_schemas`. Until the database is migrated, the import command will stop with:
-
-```text
-Missing required database tables: metadata_schemas. Run `php index.php cli/migrate latest` before importing schema packages.
-```
+- `php index.php cli/migrate latest` completed successfully in the app container.
+- `php index.php cli/schema_import import lc-meta-minimal` completed successfully and updated template `lc-meta-minimal__core`.
 
 ## Fixture
 

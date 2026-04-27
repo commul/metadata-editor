@@ -213,65 +213,31 @@ class Schema_template_generator
 
     protected function build_field($schema, $path, $name, $is_required = false)
     {
-        $field = array(
+        return array(
             'key' => $path,
             'title' => $this->resolve_title($schema, $name),
             'type' => $this->normalize_type($schema),
             'required' => (bool)$is_required,
-            'is_required' => (bool)$is_required,
             'help_text' => isset($schema['description']) ? $schema['description'] : '',
             'display_type' => $this->resolve_display_type($schema)
         );
-
-        $enum = $this->build_enum_options($schema);
-        if (!empty($enum)) {
-            $field['enum'] = $enum;
-        }
-
-        if (isset($schema['x-template-content_format']) && $schema['x-template-content_format'] !== '') {
-            $field['content_format'] = $schema['x-template-content_format'];
-        }
-
-        return $field;
     }
 
     protected function build_array_field($schema, $path, $name, $depth, $is_required = false)
     {
         $items_schema = isset($schema['items']) ? $schema['items'] : array();
-        $is_object_items = !empty($items_schema) && is_array($items_schema) && $this->is_object_schema($items_schema);
-
-        if (!$is_object_items) {
-            $field = array(
-                'key' => $path,
-                'title' => $this->resolve_title($schema, $name),
-                'type' => 'simple_array',
-                'required' => (bool)$is_required,
-                'is_required' => (bool)$is_required,
-                'help_text' => isset($schema['description']) ? $schema['description'] : '',
-                'display_type' => $this->resolve_display_type($schema, $items_schema)
-            );
-
-            $enum = $this->build_enum_options($items_schema);
-            if (!empty($enum)) {
-                $field['enum'] = $enum;
-            }
-
-            if (isset($schema['x-template-content_format']) && $schema['x-template-content_format'] !== '') {
-                $field['content_format'] = $schema['x-template-content_format'];
-            }
-
-            return $field;
-        }
-
         $props = $this->build_array_props($items_schema, $path);
-        $child_items = $this->build_section_items($items_schema, $path, $depth);
+        $child_items = array();
+
+        if (!empty($items_schema) && is_array($items_schema)) {
+            $child_items = $this->build_section_items($items_schema, $path, $depth);
+        }
 
         return array(
             'key' => $path,
             'title' => $this->resolve_title($schema, $name),
             'type' => 'array',
             'required' => (bool)$is_required,
-            'is_required' => (bool)$is_required,
             'help_text' => isset($schema['description']) ? $schema['description'] : '',
             'props' => $props,
             'items' => !empty($child_items) ? $child_items : null
@@ -302,15 +268,9 @@ class Schema_template_generator
                     'type' => $this->normalize_type($child),
                     'prop_key' => $prop_path,
                     'required' => isset($required[$name]),
-                    'is_required' => isset($required[$name]),
                     'help_text' => isset($child['description']) ? $child['description'] : '',
                     'display_type' => $this->resolve_display_type($child)
                 );
-
-                $enum = $this->build_enum_options($child);
-                if (!empty($enum)) {
-                    $props[count($props) - 1]['enum'] = $enum;
-                }
             }
 
             return $props;
@@ -323,15 +283,9 @@ class Schema_template_generator
             'type' => $this->normalize_type($schema),
             'prop_key' => $base_path,
             'required' => false,
-            'is_required' => false,
             'help_text' => isset($schema['description']) ? $schema['description'] : '',
             'display_type' => $this->resolve_display_type($schema)
         );
-
-        $enum = $this->build_enum_options($schema);
-        if (!empty($enum)) {
-            $props[count($props) - 1]['enum'] = $enum;
-        }
 
         return $props;
     }
@@ -345,16 +299,8 @@ class Schema_template_generator
         return $this->humanize($fallback);
     }
 
-    protected function resolve_display_type($schema, $fallback_schema = array())
+    protected function resolve_display_type($schema)
     {
-        if (isset($schema['x-template-display_type']) && $schema['x-template-display_type'] !== '') {
-            return $schema['x-template-display_type'];
-        }
-
-        if (!empty($fallback_schema) && isset($fallback_schema['x-template-display_type']) && $fallback_schema['x-template-display_type'] !== '') {
-            return $fallback_schema['x-template-display_type'];
-        }
-
         $type = $this->normalize_type($schema);
 
         switch ($type) {
@@ -366,39 +312,13 @@ class Schema_template_generator
             case 'string':
             default:
                 if (isset($schema['format']) && in_array($schema['format'], array('date', 'date-time'), true)) {
-                    return 'date';
+                    return 'text';
                 }
                 if (isset($schema['enum']) && is_array($schema['enum']) && count($schema['enum']) > 0) {
-                    return 'dropdown';
-                }
-                if (!empty($fallback_schema) && isset($fallback_schema['enum']) && is_array($fallback_schema['enum']) && count($fallback_schema['enum']) > 0) {
-                    return 'dropdown';
+                    return 'select';
                 }
                 return 'text';
         }
-    }
-
-    protected function build_enum_options($schema)
-    {
-        if (!isset($schema['enum']) || !is_array($schema['enum']) || empty($schema['enum'])) {
-            return array();
-        }
-
-        $labels = array();
-        if (isset($schema['x-enum-labels']) && is_array($schema['x-enum-labels'])) {
-            $labels = $schema['x-enum-labels'];
-        }
-
-        $options = array();
-        foreach ($schema['enum'] as $value) {
-            $label = isset($labels[(string)$value]) ? $labels[(string)$value] : (string)$value;
-            $options[] = array(
-                'code' => $value,
-                'label' => $label
-            );
-        }
-
-        return $options;
     }
 
     protected function normalize_type($schema)

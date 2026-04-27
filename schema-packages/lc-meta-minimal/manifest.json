@@ -31,6 +31,7 @@
     {
       "key": "administrative_metadata",
       "title": "Corpus Metadata - Administrative Metadata",
+      "page_title": "Administrative metadata",
       "description": "Administrative metadata block from the LC-meta core metadata schema for learner corpora.",
       "conditional_required": [
         {
