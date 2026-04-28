@@ -25,17 +25,13 @@ class Structured_template_manifest_builder
         $items = array();
 
         foreach ($manifest['sections'] as $section) {
-            if (empty($section['key']) || empty($section['title']) || empty($section['fields']) || !is_array($section['fields'])) {
-                throw new Exception('Each template section requires key, title, and fields.');
+            if (empty($section['key']) || empty($section['title'])) {
+                throw new Exception('Each template section requires key and title.');
             }
 
-            $page_title = isset($section['page_title']) && $section['page_title'] !== ''
-                ? $section['page_title']
-                : 'Overview';
-
-            $field_items = array();
-            foreach ($section['fields'] as $field) {
-                $field_items[] = $this->build_field($section, $field);
+            $pages = $this->build_pages($section);
+            if (empty($pages)) {
+                throw new Exception('Each template section requires fields or pages.');
             }
 
             $items[] = array(
@@ -44,16 +40,7 @@ class Structured_template_manifest_builder
                 'title' => $section['title'],
                 'help_text' => isset($section['description']) ? $section['description'] : '',
                 'expanded' => true,
-                'items' => array(
-                    array(
-                        'type' => 'section',
-                        'key' => $section['key'] . '.section',
-                        'title' => $page_title,
-                        'help_text' => isset($section['description']) ? $section['description'] : '',
-                        'expanded' => true,
-                        'items' => $field_items
-                    )
-                )
+                'items' => $pages
             );
         }
 
@@ -62,6 +49,55 @@ class Structured_template_manifest_builder
             'title' => $manifest['title'],
             'description' => isset($manifest['description']) ? $manifest['description'] : '',
             'items' => $items
+        );
+    }
+
+    protected function build_pages($section)
+    {
+        $pages = array();
+
+        if (!empty($section['pages']) && is_array($section['pages'])) {
+            foreach ($section['pages'] as $page) {
+                if (empty($page['key']) || empty($page['title']) || empty($page['fields']) || !is_array($page['fields'])) {
+                    throw new Exception('Each template page requires key, title, and fields.');
+                }
+
+                $pages[] = $this->build_page($section, $page);
+            }
+
+            return $pages;
+        }
+
+        if (!empty($section['fields']) && is_array($section['fields'])) {
+            $pages[] = $this->build_page($section, array(
+                'key' => 'section',
+                'title' => isset($section['page_title']) && $section['page_title'] !== ''
+                    ? $section['page_title']
+                    : 'Overview',
+                'description' => isset($section['description']) ? $section['description'] : '',
+                'fields' => $section['fields']
+            ));
+        }
+
+        return $pages;
+    }
+
+    protected function build_page($section, $page)
+    {
+        $field_items = array();
+        foreach ($page['fields'] as $field) {
+            $field_items[] = $this->build_field($section, $field);
+        }
+
+        return array(
+            'type' => 'section',
+            'key' => $section['key'] . '.' . $page['key'],
+            'title' => $page['title'],
+            'help_text' => isset($page['description']) && $page['description'] !== ''
+                ? $page['description']
+                : (isset($section['description']) ? $section['description'] : ''),
+            'expanded' => true,
+            'items' => $field_items
         );
     }
 

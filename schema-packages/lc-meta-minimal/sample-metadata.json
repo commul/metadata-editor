@@ -48,5 +48,119 @@
       "TEI P5",
       "Project-specific JSON export"
     ]
+  },
+  "learner_metadata": {
+    "learner_id": "L001",
+    "learner_age": "19",
+    "learner_gender": "female",
+    "learner_educational_background": "Bachelor's degree or equivalent level",
+    "learner_socioeconomic_status": "Self-described middle class background.",
+    "learner_country": "IT",
+    "learner_region": "Trentino-Alto Adige",
+    "learner_environment": "urban",
+    "learner_impairment": "no",
+    "learner_atypical_learning": "no",
+    "learner_target_language": "eng",
+    "learner_target_language_instructed": "yes",
+    "learner_target_language_immersive_instruction": "no",
+    "learner_target_language_environment": "no",
+    "months_spent_target_language_environment": "0",
+    "learner_target_language_onset": "12",
+    "learner_target_language_learning_context": [
+      "{12-19: instructed}"
+    ],
+    "learner_target_language_use_context": [
+      "{12-19: education, leisure}"
+    ],
+    "learner_target_language_listening_experience": "daily",
+    "learner_target_language_speaking_experience": "once a week",
+    "learner_target_language_reading_experience": "daily",
+    "learner_target_language_writing_experience": "once a week",
+    "learner_target_language_use_social_media": "daily",
+    "learner_target_language_proficiency": [
+      "B2 placement test"
+    ],
+    "learner_target_language_proficiency_CEFR_conversion": [
+      "B2"
+    ],
+    "learner_L1": [
+      "ita"
+    ],
+    "learner_parent_L1": [
+      "[mother, ita]",
+      "[father, ita]"
+    ],
+    "learner_home_language": [
+      "[ita, 100%]"
+    ],
+    "learner_language_friends": [
+      "[ita, 90%]",
+      "[eng, 10%]"
+    ],
+    "learner_language_education_kindergarten": [
+      "ita"
+    ],
+    "learner_language_education_primary": [
+      "ita"
+    ],
+    "learner_language_education_secondary": [
+      "ita"
+    ],
+    "learner_language_education_higher": [
+      "ita",
+      "eng"
+    ],
+    "learner_L2": [
+      "deu",
+      "fra"
+    ],
+    "learner_L2_language_onset": [
+      "6",
+      "14"
+    ],
+    "learner_L2_language_learning_context": [
+      "{6-19: instructed}",
+      "{14-19: instructed}"
+    ],
+    "learner_L2_language_use_context": [
+      "{6-19: education}",
+      "{14-19: education, leisure}"
+    ],
+    "learner_L2_language_listening_experience": [
+      "once a week",
+      "rarely"
+    ],
+    "learner_L2_language_speaking_experience": [
+      "rarely",
+      "rarely"
+    ],
+    "learner_L2_language_reading_experience": [
+      "once a week",
+      "once a month"
+    ],
+    "learner_L2_language_writing_experience": [
+      "rarely",
+      "rarely"
+    ],
+    "learner_L2_CMC": [
+      "never",
+      "rarely"
+    ],
+    "learner_L2_language_proficiency": [
+      "A2 classroom assessment",
+      "A1 classroom assessment"
+    ],
+    "learner_L2_language_proficiency_CEFR_conversion": [
+      "A2",
+      "A1"
+    ],
+    "learner_L2_months_spent_L2_environment": [
+      "0",
+      "0"
+    ],
+    "learner_motivation": "High instrumental motivation.",
+    "learner_attitude": "Positive attitude towards English-medium study.",
+    "learner_aptitude": "Above-average vocabulary learning score.",
+    "learner_note": "Demo learner profile used to validate the LC-meta learner package in the metadata editor."
   }
 }

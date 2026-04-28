@@ -64,14 +64,15 @@ class Structured_schema_manifest_builder
             throw new Exception('Section title is required for section: ' . $section['key']);
         }
 
-        if (empty($section['fields']) || !is_array($section['fields'])) {
+        $fields = $this->collect_section_fields($section);
+        if (empty($fields)) {
             throw new Exception('Section "' . $section['key'] . '" must contain fields.');
         }
 
         $properties = array();
         $required = array();
 
-        foreach ($section['fields'] as $field) {
+        foreach ($fields as $field) {
             if (empty($field['key'])) {
                 throw new Exception('Field key is required in section: ' . $section['key']);
             }
@@ -95,24 +96,30 @@ class Structured_schema_manifest_builder
             $section_schema['required'] = array_values(array_unique($required));
         }
 
-        if (!empty($section['conditional_required']) && is_array($section['conditional_required'])) {
+        $conditional_required = $this->collect_conditional_required($section);
+        if (!empty($conditional_required)) {
             $all_of = array();
 
-            foreach ($section['conditional_required'] as $rule) {
+            foreach ($conditional_required as $rule) {
                 if (empty($rule['if']['field']) || !array_key_exists('const', $rule['if']) || empty($rule['then_required'])) {
                     continue;
                 }
 
                 $all_of[] = array(
-                    'if' => array(
-                        'properties' => array(
-                            $rule['if']['field'] => array(
-                                'const' => $rule['if']['const']
+                    'anyOf' => array(
+                        array(
+                            'not' => array(
+                                'required' => array($rule['if']['field']),
+                                'properties' => array(
+                                    $rule['if']['field'] => array(
+                                        'const' => $rule['if']['const']
+                                    )
+                                )
                             )
+                        ),
+                        array(
+                            'required' => array_values($rule['then_required'])
                         )
-                    ),
-                    'then' => array(
-                        'required' => array_values($rule['then_required'])
                     )
                 );
             }
@@ -125,10 +132,53 @@ class Structured_schema_manifest_builder
         return $section_schema;
     }
 
+    protected function collect_section_fields($section)
+    {
+        $fields = array();
+
+        if (!empty($section['fields']) && is_array($section['fields'])) {
+            $fields = array_merge($fields, $section['fields']);
+        }
+
+        if (!empty($section['pages']) && is_array($section['pages'])) {
+            foreach ($section['pages'] as $page) {
+                if (empty($page['fields']) || !is_array($page['fields'])) {
+                    continue;
+                }
+
+                $fields = array_merge($fields, $page['fields']);
+            }
+        }
+
+        return $fields;
+    }
+
+    protected function collect_conditional_required($section)
+    {
+        $conditional_required = array();
+
+        if (!empty($section['conditional_required']) && is_array($section['conditional_required'])) {
+            $conditional_required = array_merge($conditional_required, $section['conditional_required']);
+        }
+
+        if (!empty($section['pages']) && is_array($section['pages'])) {
+            foreach ($section['pages'] as $page) {
+                if (empty($page['conditional_required']) || !is_array($page['conditional_required'])) {
+                    continue;
+                }
+
+                $conditional_required = array_merge($conditional_required, $page['conditional_required']);
+            }
+        }
+
+        return $conditional_required;
+    }
+
     protected function build_field_schema($field)
     {
         $base_type = isset($field['type']) && $field['type'] !== '' ? $field['type'] : 'string';
         $schema_fragment = isset($field['schema']) && is_array($field['schema']) ? $field['schema'] : array();
+        $array_schema_fragment = isset($field['array_schema']) && is_array($field['array_schema']) ? $field['array_schema'] : array();
         $template_fragment = isset($field['template']) && is_array($field['template']) ? $field['template'] : array();
 
         if (!empty($field['repeatable'])) {
@@ -140,14 +190,23 @@ class Structured_schema_manifest_builder
                 $schema_fragment
             );
 
-            $schema = array(
-                'type' => 'array',
-                'title' => isset($field['title']) ? $field['title'] : $field['key'],
-                'description' => isset($field['description']) ? $field['description'] : '',
-                'items' => $item_schema
+            $schema = array_merge(
+                array(
+                    'type' => 'array',
+                    'title' => isset($field['title']) ? $field['title'] : $field['key'],
+                    'description' => isset($field['description']) ? $field['description'] : '',
+                    'items' => $item_schema
+                ),
+                $array_schema_fragment
             );
 
-            if (!empty($field['required'])) {
+            if (isset($array_schema_fragment['items']) && is_array($array_schema_fragment['items'])) {
+                $schema['items'] = array_merge($item_schema, $array_schema_fragment['items']);
+            } else {
+                $schema['items'] = $item_schema;
+            }
+
+            if (!empty($field['required']) && !isset($schema['minItems'])) {
                 $schema['minItems'] = 1;
             }
         } else {

@@ -1,9 +1,9 @@
 {
   "uid": "lc-meta-minimal",
   "alias": "lc-meta",
-  "title": "LC-meta Minimal Administrative Metadata",
+  "title": "LC-meta Minimal Administrative and Learner Metadata",
   "agency": "Eurac Research",
-  "description": "Minimal proof-of-concept schema for integrating the administrative metadata block of LC-meta into the metadata editor. This package is derived from the first LC-meta data sheet provided for the repository test.",
+  "description": "Minimal proof-of-concept schema for integrating the administrative and learner metadata blocks of LC-meta into the metadata editor. This package is derived from the first and third LC-meta data sheets provided for the repository test.",
   "filename": "lc-meta-minimal-schema.json",
   "status": "active",
   "metadata_options": {
@@ -190,6 +190,9 @@
           "title": "Access requirements",
           "description": "Access requirements when availability is restricted. Example: academic use.",
           "type": "string",
+          "schema": {
+            "minLength": 1
+          },
           "template": {
             "display_type": "textarea"
           }
@@ -252,6 +255,709 @@
           "template": {
             "display_type": "textarea"
           }
+        }
+      ]
+    },
+    {
+      "key": "learner_metadata",
+      "title": "Learner Metadata",
+      "description": "Learner metadata block from the LC-meta core metadata schema for learner corpora. In this proof of concept the learner sheet is represented as a flat corpus-level block; the optional 3.4 L2 profile is captured as parallel repeatable fields rather than nested learner-language objects.",
+      "pages": [
+        {
+          "key": "learner_record",
+          "title": "Learner record",
+          "description": "Identifiers for the learner metadata record used in this proof of concept.",
+          "fields": [
+            {
+              "key": "learner_id",
+              "title": "Unique identifier",
+              "description": "Unique identifier for the learner record represented in this metadata entry.",
+              "type": "string",
+              "required": true
+            }
+          ]
+        },
+        {
+          "key": "socio_demographic_differences",
+          "title": "Socio-demographic differences",
+          "conditional_required": [
+            {
+              "if": {
+                "field": "learner_impairment",
+                "const": "yes"
+              },
+              "then_required": [
+                "learner_impairment_details"
+              ]
+            },
+            {
+              "if": {
+                "field": "learner_atypical_learning",
+                "const": "yes"
+              },
+              "then_required": [
+                "learner_atypical_learning_details"
+              ]
+            }
+          ],
+          "fields": [
+            {
+              "key": "learner_age",
+              "title": "Age at text production",
+              "description": "Age at text production.",
+              "type": "string",
+              "required": true
+            },
+            {
+              "key": "learner_gender",
+              "title": "Gender",
+              "description": "Gender.",
+              "type": "string",
+              "required": true,
+              "schema": {
+                "enum": [
+                  "female",
+                  "male",
+                  "non-binary"
+                ]
+              },
+              "template": {
+                "enum_labels": {
+                  "female": "Female",
+                  "male": "Male",
+                  "non-binary": "Non-binary"
+                }
+              }
+            },
+            {
+              "key": "learner_educational_background",
+              "title": "Highest level of education",
+              "description": "Highest level of education.",
+              "type": "string",
+              "schema": {
+                "enum": [
+                  "no schooling",
+                  "early childhood education",
+                  "primary education",
+                  "lower secondary education",
+                  "upper secondary education",
+                  "post-secondary non-tertiary education",
+                  "short-cycle tertiary education",
+                  "Bachelor's degree or equivalent level",
+                  "Master's degree or equivalent level",
+                  "Doctoral degree or equivalent level",
+                  "not elsewhere classified"
+                ]
+              }
+            },
+            {
+              "key": "learner_socioeconomic_status",
+              "title": "Socio-economic status",
+              "description": "Description of the learner's perceived socio-economic status. For example, the CHAT format uses working class, middle class, upper class, and limited income.",
+              "type": "string",
+              "template": {
+                "display_type": "textarea"
+              }
+            },
+            {
+              "key": "learner_country",
+              "title": "Country",
+              "description": "Country of the learner. Use ISO 3166 country codes.",
+              "type": "string"
+            },
+            {
+              "key": "learner_region",
+              "title": "Region",
+              "description": "Geographical details about the learner if relevant to their language use.",
+              "type": "string"
+            },
+            {
+              "key": "learner_environment",
+              "title": "Learner environment",
+              "description": "Learner environment, for example urban or rural.",
+              "type": "string",
+              "schema": {
+                "enum": [
+                  "urban",
+                  "rural"
+                ]
+              },
+              "template": {
+                "enum_labels": {
+                  "urban": "Urban",
+                  "rural": "Rural"
+                }
+              }
+            },
+            {
+              "key": "learner_impairment",
+              "title": "Does the learner have an impairment?",
+              "description": "Whether the learner has an impairment.",
+              "type": "string",
+              "schema": {
+                "enum": [
+                  "yes",
+                  "no"
+                ]
+              },
+              "template": {
+                "enum_labels": {
+                  "yes": "Yes",
+                  "no": "No"
+                }
+              }
+            },
+            {
+              "key": "learner_impairment_details",
+              "title": "Learner impairment",
+              "description": "Type of impairment when relevant. Examples include hearing impairment, speech impairment, vision impairment, or other impairments. Use tuples if you need to add conditions such as permanence.",
+              "type": "string",
+              "repeatable": true,
+              "array_schema": {
+                "minItems": 1
+              },
+              "schema": {
+                "minLength": 1
+              }
+            },
+            {
+              "key": "learner_atypical_learning",
+              "title": "Is the learner characterized by atypical learning or atypical (cognitive) development?",
+              "description": "Whether the learner is characterized by atypical learning or atypical cognitive development.",
+              "type": "string",
+              "schema": {
+                "enum": [
+                  "yes",
+                  "no"
+                ]
+              },
+              "template": {
+                "enum_labels": {
+                  "yes": "Yes",
+                  "no": "No"
+                }
+              }
+            },
+            {
+              "key": "learner_atypical_learning_details",
+              "title": "Type of atypical learning or atypical development",
+              "description": "Examples include speech sound disorder, language disorder, dyslexia, or attention deficit hyperactivity disorder.",
+              "type": "string",
+              "repeatable": true,
+              "array_schema": {
+                "minItems": 1
+              },
+              "schema": {
+                "minLength": 1
+              }
+            }
+          ]
+        },
+        {
+          "key": "target_language",
+          "title": "Target language: learning context, exposure and proficiency",
+          "description": "Target-language learning context, exposure, and proficiency. LC-meta conditions that depend on corpus-level design metadata are preserved in the field descriptions and kept optional until the related design sheet is modeled.",
+          "conditional_required": [
+            {
+              "if": {
+                "field": "learner_target_language_instructed",
+                "const": "yes"
+              },
+              "then_required": [
+                "learner_target_language_immersive_instruction"
+              ]
+            }
+          ],
+          "fields": [
+            {
+              "key": "learner_target_language",
+              "title": "Learner target language",
+              "description": "Target language of the learner. Use an ISO 639-3 language code.",
+              "type": "string",
+              "required": true
+            },
+            {
+              "key": "learner_target_language_instructed",
+              "title": "Was the learner in an instructed learning context at the time of data collection?",
+              "description": "Whether the learner was in an instructed learning context at the time of data collection.",
+              "type": "string",
+              "required": true,
+              "schema": {
+                "enum": [
+                  "yes",
+                  "no"
+                ]
+              },
+              "template": {
+                "enum_labels": {
+                  "yes": "Yes",
+                  "no": "No"
+                }
+              }
+            },
+            {
+              "key": "learner_target_language_immersive_instruction",
+              "title": "Was the learner in an immersive instructed learning context at the time of data collection?",
+              "description": "Whether the learner was in an immersive instructed learning context at the time of data collection. Language immersion means the target language is primarily used during teaching.",
+              "type": "string",
+              "schema": {
+                "enum": [
+                  "yes",
+                  "no"
+                ]
+              },
+              "template": {
+                "enum_labels": {
+                  "yes": "Yes",
+                  "no": "No"
+                }
+              }
+            },
+            {
+              "key": "learner_target_language_environment",
+              "title": "Was the learner in a country or region where the target language is spoken at the time of data collection?",
+              "description": "Whether the learner was in a country or region where the target language is spoken at the time of data collection.",
+              "type": "string",
+              "required": true,
+              "schema": {
+                "enum": [
+                  "yes",
+                  "no"
+                ]
+              },
+              "template": {
+                "enum_labels": {
+                  "yes": "Yes",
+                  "no": "No"
+                }
+              }
+            },
+            {
+              "key": "months_spent_target_language_environment",
+              "title": "Cumulated time spent in a target-language environment (months)",
+              "description": "Cumulated time spent in an environment where the target language is spoken, in months.",
+              "type": "string"
+            },
+            {
+              "key": "learner_target_language_onset",
+              "title": "Age of onset of acquisition",
+              "description": "Age of onset of acquisition of the target language.",
+              "type": "string"
+            },
+            {
+              "key": "learner_target_language_learning_context",
+              "title": "Learning context of target language from onset to current age",
+              "description": "Learning context of the target language from onset to current age. Use tuples and choose among instructed, immersive, and naturalistic, for example {12-20: instructed}.",
+              "type": "string",
+              "repeatable": true
+            },
+            {
+              "key": "learner_target_language_use_context",
+              "title": "Context of use of the target language from onset to current age",
+              "description": "Context of target-language use from onset to current age. Typical contexts include family, friends, leisure, public, work, and education. Use tuples if you need to preserve time ranges.",
+              "type": "string",
+              "repeatable": true
+            },
+            {
+              "key": "learner_target_language_listening_experience",
+              "title": "Listening experience",
+              "description": "Listening experience in the target language.",
+              "type": "string",
+              "schema": {
+                "enum": [
+                  "never",
+                  "rarely",
+                  "once a month",
+                  "once a week",
+                  "daily"
+                ]
+              },
+              "template": {
+                "enum_labels": {
+                  "never": "Never",
+                  "rarely": "Rarely",
+                  "once a month": "Once a month",
+                  "once a week": "Once a week",
+                  "daily": "Daily"
+                }
+              }
+            },
+            {
+              "key": "learner_target_language_speaking_experience",
+              "title": "Speaking experience",
+              "description": "Speaking experience in the target language.",
+              "type": "string",
+              "schema": {
+                "enum": [
+                  "never",
+                  "rarely",
+                  "once a month",
+                  "once a week",
+                  "daily"
+                ]
+              },
+              "template": {
+                "enum_labels": {
+                  "never": "Never",
+                  "rarely": "Rarely",
+                  "once a month": "Once a month",
+                  "once a week": "Once a week",
+                  "daily": "Daily"
+                }
+              }
+            },
+            {
+              "key": "learner_target_language_reading_experience",
+              "title": "Reading experience",
+              "description": "Reading experience in the target language.",
+              "type": "string",
+              "schema": {
+                "enum": [
+                  "never",
+                  "rarely",
+                  "once a month",
+                  "once a week",
+                  "daily"
+                ]
+              },
+              "template": {
+                "enum_labels": {
+                  "never": "Never",
+                  "rarely": "Rarely",
+                  "once a month": "Once a month",
+                  "once a week": "Once a week",
+                  "daily": "Daily"
+                }
+              }
+            },
+            {
+              "key": "learner_target_language_writing_experience",
+              "title": "Writing experience",
+              "description": "Writing experience in the target language.",
+              "type": "string",
+              "schema": {
+                "enum": [
+                  "never",
+                  "rarely",
+                  "once a month",
+                  "once a week",
+                  "daily"
+                ]
+              },
+              "template": {
+                "enum_labels": {
+                  "never": "Never",
+                  "rarely": "Rarely",
+                  "once a month": "Once a month",
+                  "once a week": "Once a week",
+                  "daily": "Daily"
+                }
+              }
+            },
+            {
+              "key": "learner_target_language_use_social_media",
+              "title": "Social media experience",
+              "description": "Social media experience in the target language.",
+              "type": "string",
+              "schema": {
+                "enum": [
+                  "never",
+                  "rarely",
+                  "once a month",
+                  "once a week",
+                  "daily"
+                ]
+              },
+              "template": {
+                "enum_labels": {
+                  "never": "Never",
+                  "rarely": "Rarely",
+                  "once a month": "Once a month",
+                  "once a week": "Once a week",
+                  "daily": "Daily"
+                }
+              }
+            },
+            {
+              "key": "learner_target_language_proficiency",
+              "title": "Learner proficiency",
+              "description": "Learner proficiency result, for example a language-test score, in-house test result, or self-assessment. LC-meta marks this as obligatory when learner-centred proficiency assignment is available in the corpus design metadata.",
+              "type": "string",
+              "repeatable": true
+            },
+            {
+              "key": "learner_target_language_proficiency_CEFR_conversion",
+              "title": "Learner proficiency (CEFR)",
+              "description": "Learner proficiency converted to CEFR where possible. LC-meta ties this to learner-centred proficiency assignment in the corpus design metadata.",
+              "type": "string",
+              "repeatable": true,
+              "schema": {
+                "enum": [
+                  "A1",
+                  "A2",
+                  "B1",
+                  "B2",
+                  "C1",
+                  "C2"
+                ]
+              }
+            },
+            {
+              "key": "learner_target_language_official_language_testing_score",
+              "title": "Official language test score",
+              "description": "Official language-test score when the corpus production setting is official language testing.",
+              "type": "string"
+            }
+          ]
+        },
+        {
+          "key": "ln_differences",
+          "title": "Ln differences",
+          "fields": [
+            {
+              "key": "learner_L1",
+              "title": "Learner L1",
+              "description": "Learner L1. Use ISO 639-3 language codes. L1 often refers to the language or languages learned from birth or infancy; use corpus documentation to clarify the interpretation if needed.",
+              "type": "string",
+              "repeatable": true,
+              "required": true
+            },
+            {
+              "key": "learner_parent_L1",
+              "title": "Parent L1",
+              "description": "Parent L1. Use tuples such as [mother, eng] or [father, spa] if you need to preserve parent-language pairs.",
+              "type": "string",
+              "repeatable": true
+            },
+            {
+              "key": "learner_home_language",
+              "title": "Language spoken at home",
+              "description": "Language spoken at home. Use tuples such as [ita, 80%] if you need to preserve proportions.",
+              "type": "string",
+              "repeatable": true
+            },
+            {
+              "key": "learner_language_friends",
+              "title": "Language used with friends",
+              "description": "Language used with friends. Use tuples such as [eng, 30%] if you need to preserve proportions.",
+              "type": "string",
+              "repeatable": true
+            },
+            {
+              "key": "learner_language_education_kindergarten",
+              "title": "Language of education (kindergarten)",
+              "description": "Language of education in kindergarten. Use tuples if you need to preserve proportions or multiple languages.",
+              "type": "string",
+              "repeatable": true
+            },
+            {
+              "key": "learner_language_education_primary",
+              "title": "Language of education (primary school)",
+              "description": "Language of education in primary school. Use tuples if you need to preserve proportions or multiple languages.",
+              "type": "string",
+              "repeatable": true
+            },
+            {
+              "key": "learner_language_education_secondary",
+              "title": "Language of education (secondary school)",
+              "description": "Language of education in secondary school. Use tuples if you need to preserve proportions or multiple languages.",
+              "type": "string",
+              "repeatable": true
+            },
+            {
+              "key": "learner_language_education_higher",
+              "title": "Language of education (higher education)",
+              "description": "Language of education in higher education. Use tuples if you need to preserve proportions or multiple languages.",
+              "type": "string",
+              "repeatable": true
+            }
+          ]
+        },
+        {
+          "key": "other_languages",
+          "title": "Other languages: learning context, exposure and proficiency",
+          "description": "Optional and repeatable set of variables for languages known by the learner other than L1 and the target language. In this proof of concept, these values are stored as parallel repeatable fields rather than nested per-language objects.",
+          "fields": [
+            {
+              "key": "learner_L2",
+              "title": "L2s that are not the target language",
+              "description": "Other L2s known by the learner. Use ISO 639-3 language codes.",
+              "type": "string",
+              "repeatable": true
+            },
+            {
+              "key": "learner_L2_language_onset",
+              "title": "Age of onset of acquisition",
+              "description": "Age of onset of acquisition for each learner_L2 value.",
+              "type": "string",
+              "repeatable": true
+            },
+            {
+              "key": "learner_L2_language_learning_context",
+              "title": "Learning context from onset to current age",
+              "description": "Learning context for each learner_L2 value. Use tuples and choose among instructed, immersive, and naturalistic.",
+              "type": "string",
+              "repeatable": true
+            },
+            {
+              "key": "learner_L2_language_use_context",
+              "title": "Context of use from onset to current age",
+              "description": "Use context for each learner_L2 value. Typical contexts include family, friends, leisure, public, work, and education. Use tuples if you need to preserve time ranges.",
+              "type": "string",
+              "repeatable": true
+            },
+            {
+              "key": "learner_L2_language_listening_experience",
+              "title": "Listening experience",
+              "description": "Listening experience for each learner_L2 value.",
+              "type": "string",
+              "repeatable": true,
+              "schema": {
+                "enum": [
+                  "never",
+                  "rarely",
+                  "once a month",
+                  "once a week",
+                  "daily"
+                ]
+              }
+            },
+            {
+              "key": "learner_L2_language_speaking_experience",
+              "title": "Speaking experience",
+              "description": "Speaking experience for each learner_L2 value.",
+              "type": "string",
+              "repeatable": true,
+              "schema": {
+                "enum": [
+                  "never",
+                  "rarely",
+                  "once a month",
+                  "once a week",
+                  "daily"
+                ]
+              }
+            },
+            {
+              "key": "learner_L2_language_reading_experience",
+              "title": "Reading experience",
+              "description": "Reading experience for each learner_L2 value.",
+              "type": "string",
+              "repeatable": true,
+              "schema": {
+                "enum": [
+                  "never",
+                  "rarely",
+                  "once a month",
+                  "once a week",
+                  "daily"
+                ]
+              }
+            },
+            {
+              "key": "learner_L2_language_writing_experience",
+              "title": "Writing experience",
+              "description": "Writing experience for each learner_L2 value.",
+              "type": "string",
+              "repeatable": true,
+              "schema": {
+                "enum": [
+                  "never",
+                  "rarely",
+                  "once a month",
+                  "once a week",
+                  "daily"
+                ]
+              }
+            },
+            {
+              "key": "learner_L2_CMC",
+              "title": "Social media experience",
+              "description": "Social media experience for each learner_L2 value.",
+              "type": "string",
+              "repeatable": true,
+              "schema": {
+                "enum": [
+                  "never",
+                  "rarely",
+                  "once a month",
+                  "once a week",
+                  "daily"
+                ]
+              }
+            },
+            {
+              "key": "learner_L2_language_proficiency",
+              "title": "Learner proficiency",
+              "description": "Learner proficiency result for each learner_L2 value, for example a language-test score, in-house test result, or self-assessment.",
+              "type": "string",
+              "repeatable": true
+            },
+            {
+              "key": "learner_L2_language_proficiency_CEFR_conversion",
+              "title": "Learner proficiency (CEFR)",
+              "description": "Learner proficiency converted to CEFR for each learner_L2 value.",
+              "type": "string",
+              "repeatable": true,
+              "schema": {
+                "enum": [
+                  "A1",
+                  "A2",
+                  "B1",
+                  "B2",
+                  "C1",
+                  "C2"
+                ]
+              }
+            },
+            {
+              "key": "learner_L2_months_spent_L2_environment",
+              "title": "Cumulated time spent in an L2 environment (months)",
+              "description": "Cumulated time spent in an environment where each learner_L2 is spoken, measured in months.",
+              "type": "string",
+              "repeatable": true
+            }
+          ]
+        },
+        {
+          "key": "other_individual_differences",
+          "title": "Other individual differences",
+          "description": "LC-meta links these variables to corpus-level test availability, so they remain optional until the related design metadata is modeled in the package.",
+          "fields": [
+            {
+              "key": "learner_motivation",
+              "title": "Motivation test score",
+              "description": "Motivation test score. Use tuples if necessary.",
+              "type": "string"
+            },
+            {
+              "key": "learner_attitude",
+              "title": "Attitude test score",
+              "description": "Attitude test score. Use tuples if necessary.",
+              "type": "string"
+            },
+            {
+              "key": "learner_aptitude",
+              "title": "Aptitude test score",
+              "description": "Aptitude test score. Use tuples if necessary.",
+              "type": "string"
+            }
+          ]
+        },
+        {
+          "key": "notes",
+          "title": "Notes",
+          "fields": [
+            {
+              "key": "learner_note",
+              "title": "Any comments regarding this learner",
+              "description": "Any comments regarding this learner, for example a learner biography or more detail about the multilingual profile.",
+              "type": "string",
+              "template": {
+                "display_type": "textarea"
+              }
+            }
+          ]
         }
       ]
     }
