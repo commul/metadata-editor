@@ -2,6 +2,8 @@
 
 This package is a minimal proof of concept for importing the administrative and learner metadata blocks of LC-meta into the metadata editor without using the UI.
 
+See also [ARCHITECTURE.md](ARCHITECTURE.md) for the main conclusion about the app architecture: the metadata-editor is not schema-first end to end, and schema, template, and search mappings are separate layers.
+
 ## What Was Added
 
 The proof of concept consists of three parts:
