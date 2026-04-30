@@ -126,6 +126,7 @@ class Structured_template_manifest_builder
         $enum = $this->build_enum($schema, $template);
         if (!empty($enum)) {
             $template_field['enum'] = $enum;
+            $template_field['enum_store_column'] = 'code';
         }
 
         if (!empty($template['content_format'])) {
